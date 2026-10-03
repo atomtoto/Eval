@@ -33,8 +33,9 @@ struct HelpView: View {
                 }
 
                 Section("Ajuster une variable en glissant") {
-                    Text("Un curseur apparaît sous les déclarations numériques, comme a = 7,2 m/s². Glissez vers la gauche ou la droite pour changer la valeur et recalculer les résultats. En mode Texte, ces curseurs se trouvent dans Ajuster les variables.")
-                    Text("Le bouton de réglage du curseur permet de choisir le minimum, le maximum et le pas. Les réglages sont sauvegardés avec la feuille. Les unités et les commentaires sont conservés ; une valeur en km/h reste saisie en km/h.")
+                    Text("Une réglette graduée à repère fixe apparaît sous les déclarations numériques, comme a = 7,2 m/s². Glissez vers la gauche ou la droite pour changer la valeur et recalculer les résultats. En mode Texte, les réglettes se trouvent dans Ajuster les variables.")
+                    Text("Le pas suit automatiquement la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Cette précision est conservée en glissant, même lorsque la valeur atteint un entier.")
+                    Text("Le bouton de réglage permet de choisir les bornes ou un pas manuel en désactivant Pas automatique. Les réglages sont sauvegardés avec la feuille. Les unités et les commentaires sont conservés ; une valeur en km/h reste saisie en km/h. Pour supprimer une variable, maintenez sa ligne et choisissez Supprimer.")
                     Text("Les variables calculées, comme E = 0,5 * m * v², se modifient dans l’éditeur de formules. Leurs valeurs suivent automatiquement celles des variables ajustées.")
                 }
 

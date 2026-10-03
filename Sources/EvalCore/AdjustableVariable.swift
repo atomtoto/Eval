@@ -6,10 +6,16 @@ public struct AdjustableVariable: Sendable {
     public let name: String
     public let value: Double
     public let unit: String
+    /// Resolution of the entered literal, including significant trailing zeros.
+    /// 6 → 1; 8,2 → 0.1; 8,20 → 0.01; 1,2e3 → 100.
+    public let automaticStep: Double
 
     private let prefix: String
     private let suffix: String
     private let usesDecimalComma: Bool
+    private let fractionalDigits: Int
+    private let literalExponent: Int
+    private let usesScientificNotation: Bool
 
     /// Accepts a single signed literal and an optional, unambiguous unit suffix.
     /// Expressions, comparisons, dependent variables and invalid units are excluded.
@@ -55,6 +61,12 @@ public struct AdjustableVariable: Sendable {
         prefix = String(source[..<literalStart])
         suffix = String(source[literalEnd...])
         usesDecimalComma = literal.contains(",")
+        let components = normalized.lowercased().split(separator: "e", omittingEmptySubsequences: false)
+        let mantissa = String(components[0])
+        fractionalDigits = mantissa.firstIndex(of: ".").map { mantissa.distance(from: mantissa.index(after: $0), to: mantissa.endIndex) } ?? 0
+        literalExponent = components.count == 2 ? Int(components[1]) ?? 0 : 0
+        usesScientificNotation = components.count == 2
+        automaticStep = Self.step(decimalExponent: literalExponent - fractionalDigits)
     }
 
     /// Replaces only the number, retaining spacing, units and the comment verbatim.
@@ -62,10 +74,23 @@ public struct AdjustableVariable: Sendable {
     public func source(replacingValue value: Double) -> String? {
         guard value.isFinite else { return nil }
         var literal = String(value)
+        // Preserve the entered resolution whenever it represents the new value
+        // exactly. Arbitrary replacements still retain their full precision.
+        let scaled = usesScientificNotation ? value / Self.step(decimalExponent: literalExponent) : value
+        if scaled.isFinite, fractionalDigits <= 16 {
+            let candidate = String(format: "%.*f", locale: Locale(identifier: "en_US_POSIX"), fractionalDigits, scaled)
+                + (usesScientificNotation ? "e\(literalExponent)" : "")
+            if Double(candidate) == value { literal = candidate }
+        }
         if usesDecimalComma { literal = literal.replacingOccurrences(of: ".", with: ",") }
         let result = prefix + literal + suffix
         guard NotebookEngine.evaluate(result).lines.first?.status == .success else { return nil }
         return result
+    }
+
+    private static func step(decimalExponent: Int) -> Double {
+        let power = pow(10.0, Double(min(308, max(-323, decimalExponent))))
+        return decimalExponent < -323 ? .leastNonzeroMagnitude : power
     }
 
     private static func isLiteralWithUnits(_ expression: Expression) -> Bool {
@@ -119,7 +144,7 @@ public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
         self.step = step
     }
 
-    public static func suggested(for value: Double) -> Self? {
+    public static func suggested(for value: Double, step requestedStep: Double? = nil) -> Self? {
         guard value.isFinite else { return nil }
         let lower: Double
         let upper: Double
@@ -136,6 +161,9 @@ public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
             upper = 0
         }
         let span = upper - lower
+        if let requestedStep {
+            return Self(lowerBound: lower, upperBound: upper, step: min(span, requestedStep))
+        }
         let targetStep = max(span / 200, Double.leastNonzeroMagnitude)
         let scale = Foundation.pow(10, Foundation.floor(Foundation.log10(targetStep)))
         let step: Double
@@ -163,6 +191,30 @@ public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
     public func position(for value: Double) -> Double {
         let value = value.isNaN ? lowerBound : min(upperBound, max(lowerBound, value))
         return (value - lowerBound) / (upperBound - lowerBound)
+    }
+
+    /// Relative scrubbing is anchored to the value at the start of a gesture.
+    /// Decimal arithmetic keeps a decimal step from producing binary artifacts
+    /// such as 8.299999999999999 in the saved source.
+    public func adjustedValue(from origin: Double, steps: Int) -> Double {
+        guard origin.isFinite else { return lowerBound }
+        let bounded = min(upperBound, max(lowerBound, origin))
+        if steps == 0 { return bounded }
+        let locale = Locale(identifier: "en_US_POSIX")
+        var result = bounded + Double(steps) * step
+        if let start = Decimal(string: String(bounded), locale: locale),
+           let increment = Decimal(string: String(step), locale: locale) {
+            let decimal = start + Decimal(steps) * increment
+            if !decimal.isNaN {
+                let candidate = NSDecimalNumber(decimal: decimal).doubleValue
+                if candidate.isFinite, candidate != 0 || result == 0 { result = candidate }
+            }
+        }
+        // A requested step may be smaller than Double's spacing at this value.
+        if result == bounded {
+            result = steps > 0 ? bounded.nextUp : bounded.nextDown
+        }
+        return min(upperBound, max(lowerBound, result))
     }
 
     /// Moves to the next point of the slider's grid, including an upper bound

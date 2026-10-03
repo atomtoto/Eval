@@ -1,12 +1,13 @@
 import EvalCore
 import SwiftUI
 
-/// A native slider adjusts the number as entered, so 72 km/h stays in km/h.
+/// Adjusts the number in its entered unit, so 72 km/h stays in km/h.
 struct VariableSliderView: View {
     let variable: AdjustableVariable
     let range: VariableAdjustmentRange
+    let usesAutomaticStep: Bool
     let onChangeValue: (Double) -> Void
-    let onChangeRange: (VariableAdjustmentRange) -> Void
+    let onChangeRange: (VariableAdjustmentRange, Bool) -> Void
     @State private var showsRangeEditor = false
 
     private var valueLabel: String {
@@ -26,29 +27,16 @@ struct VariableSliderView: View {
                 .buttonStyle(.borderless)
             }
 
-            Slider(value: Binding(
-                get: { range.position(for: variable.value) },
-                set: { onChangeValue(range.value(at: $0)) }
-            ), in: 0...1) {
-                Text("Valeur de \(variable.name)")
-            } minimumValueLabel: {
-                Text(QuantityFormatter.number(range.lowerBound))
-                    .font(.caption.monospacedDigit())
-            } maximumValueLabel: {
-                Text(QuantityFormatter.number(range.upperBound))
-                    .font(.caption.monospacedDigit())
+            HStack {
+                Spacer(minLength: 0)
+                VariableRulerView(value: variable.value, range: range,
+                                  label: "Valeur de \(variable.name)", valueLabel: valueLabel,
+                                  onChangeValue: onChangeValue)
+                Spacer(minLength: 0)
             }
-            .accessibilityValue(valueLabel)
-            .accessibilityHint("Glissez pour modifier la variable et recalculer les résultats.")
-            .accessibilityAdjustableAction { direction in
-                let next: Double
-                switch direction {
-                case .increment: next = range.adjacentValue(to: variable.value, increasing: true)
-                case .decrement: next = range.adjacentValue(to: variable.value, increasing: false)
-                @unknown default: return
-                }
-                onChangeValue(next)
-            }
+            Text("Pas : \(QuantityFormatter.number(range.step))\(usesAutomaticStep ? " · automatique" : "")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             if !(range.lowerBound...range.upperBound).contains(variable.value) {
                 Text("Valeur hors des bornes. Glissez pour la ramener dans l’intervalle, ou modifiez les réglages.")
@@ -57,7 +45,7 @@ struct VariableSliderView: View {
             }
         }
         .sheet(isPresented: $showsRangeEditor) {
-            VariableRangeEditor(variable: variable, range: range, onSave: onChangeRange)
+            VariableRangeEditor(variable: variable, range: range, usesAutomaticStep: usesAutomaticStep, onSave: onChangeRange)
         }
     }
 }
@@ -67,23 +55,26 @@ private struct VariableRangeEditor: View {
     @State private var minimum: String
     @State private var maximum: String
     @State private var step: String
+    @State private var usesAutomaticStep: Bool
     @FocusState private var focusedField: Field?
     let variable: AdjustableVariable
-    let onSave: (VariableAdjustmentRange) -> Void
+    let onSave: (VariableAdjustmentRange, Bool) -> Void
 
     private enum Field: Hashable { case minimum, maximum, step }
 
-    init(variable: AdjustableVariable, range: VariableAdjustmentRange,
-         onSave: @escaping (VariableAdjustmentRange) -> Void) {
+    init(variable: AdjustableVariable, range: VariableAdjustmentRange, usesAutomaticStep: Bool,
+         onSave: @escaping (VariableAdjustmentRange, Bool) -> Void) {
         self.variable = variable
         self.onSave = onSave
         _minimum = State(initialValue: Self.editableNumber(range.lowerBound))
         _maximum = State(initialValue: Self.editableNumber(range.upperBound))
         _step = State(initialValue: Self.editableNumber(range.step))
+        _usesAutomaticStep = State(initialValue: usesAutomaticStep)
     }
 
     private var configuredRange: VariableAdjustmentRange? {
-        guard let lower = number(minimum), let upper = number(maximum), let increment = number(step) else { return nil }
+        guard let lower = number(minimum), let upper = number(maximum),
+              let increment = usesAutomaticStep ? Optional(min(upper - lower, variable.automaticStep)) : number(step) else { return nil }
         return VariableAdjustmentRange(lowerBound: lower, upperBound: upper, step: increment)
     }
 
@@ -93,11 +84,16 @@ private struct VariableRangeEditor: View {
                 Section {
                     field("Minimum", text: $minimum, focus: .minimum)
                     field("Maximum", text: $maximum, focus: .maximum)
-                    field("Pas", text: $step, focus: .step)
+                    Toggle("Pas automatique", isOn: $usesAutomaticStep)
+                    if usesAutomaticStep {
+                        LabeledContent("Pas", value: QuantityFormatter.number(configuredRange?.step ?? variable.automaticStep))
+                    } else {
+                        field("Pas", text: $step, focus: .step)
+                    }
                 } header: {
                     Text(variable.unit.isEmpty ? "Valeurs sans unité" : "Valeurs en \(variable.unit)")
                 } footer: {
-                    Text("Le pas détermine la précision du glissement. La virgule, le point, les valeurs négatives et la notation scientifique sont acceptés.")
+                    Text("Le pas automatique suit la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Désactivez-le pour choisir un autre pas.")
                 }
 
                 if let range = configuredRange {
@@ -116,10 +112,11 @@ private struct VariableRangeEditor: View {
 
                 Section {
                     Button("Rétablir le réglage automatique") {
-                        guard let suggested = VariableAdjustmentRange.suggested(for: variable.value) else { return }
+                        guard let suggested = VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep) else { return }
                         minimum = Self.editableNumber(suggested.lowerBound)
                         maximum = Self.editableNumber(suggested.upperBound)
                         step = Self.editableNumber(suggested.step)
+                        usesAutomaticStep = true
                     }
                 }
             }
@@ -132,7 +129,7 @@ private struct VariableRangeEditor: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Enregistrer") {
                         guard let range = configuredRange else { return }
-                        onSave(range)
+                        onSave(range, usesAutomaticStep)
                         dismiss()
                     }
                     .disabled(configuredRange == nil)

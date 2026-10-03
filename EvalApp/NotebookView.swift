@@ -236,10 +236,15 @@ struct NotebookView: View {
             Button("Modifier", systemImage: "pencil") {
                 formulaDraft = FormulaDraft(lineID: item.entry.id, source: item.entry.source, showsResult: item.entry.isSelected)
             }
-        }
-        .swipeActions {
             Button("Supprimer", systemImage: "trash", role: .destructive) {
                 notebook.removeLine(id: item.entry.id)
+            }
+        }
+        .swipeActions {
+            if AdjustableVariable(source: item.entry.source) == nil {
+                Button("Supprimer", systemImage: "trash", role: .destructive) {
+                    notebook.removeLine(id: item.entry.id)
+                }
             }
         }
     }
@@ -247,10 +252,10 @@ struct NotebookView: View {
     @ViewBuilder
     private func variableSlider(_ variable: AdjustableVariable, id: UUID) -> some View {
         if let range = notebook.adjustmentRange(for: id, variable: variable) {
-            VariableSliderView(variable: variable, range: range) { value in
+            VariableSliderView(variable: variable, range: range, usesAutomaticStep: !notebook.manualStepIDs.contains(id)) { value in
                 notebook.adjustVariable(value, lineID: id, range: range)
-            } onChangeRange: { configured in
-                notebook.setAdjustmentRange(configured, for: id)
+            } onChangeRange: { configured, automatic in
+                notebook.setAdjustmentRange(configured, for: id, automaticStep: automatic)
                 let bounded = min(configured.upperBound, max(configured.lowerBound, variable.value))
                 notebook.adjustVariable(bounded, lineID: id, range: configured)
             }

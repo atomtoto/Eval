@@ -17,7 +17,7 @@ final class AdjustableVariableTests: XCTestCase {
         XCTAssertEqual(variable.value, 0.005)
         XCTAssertEqual(variable.unit, "km/s")
         let updated = try XCTUnwrap(variable.source(replacingValue: 0.001))
-        XCTAssertEqual(updated, "v=0.001 km/s // vitesse")
+        XCTAssertEqual(updated, "v=1e-3 km/s // vitesse")
         XCTAssertEqual(NotebookEngine.evaluate(updated).lines.first?.quantity?.value, 1)
     }
 
@@ -28,6 +28,60 @@ final class AdjustableVariableTests: XCTestCase {
         let temperature = try XCTUnwrap(AdjustableVariable(source: "T = 300 K"))
         XCTAssertEqual(temperature.unit, "K")
         XCTAssertEqual(temperature.value, 300)
+    }
+
+    func testAutomaticStepFollowsEnteredPrecisionRatherThanValueSize() throws {
+        let examples: [(String, Double)] = [
+            ("x = 6", 1), ("x = 8,2", 0.1), ("x = 8,25", 0.01),
+            ("x = 8,20", 0.01), ("x = -0.005", 0.001),
+            ("x = 6.0", 0.1), ("x = 1,2e3 kg", 100), ("x = 5e-3 s", 0.001),
+            ("x = 0", 1), ("x = 0,00", 0.01)
+        ]
+        for (source, step) in examples {
+            XCTAssertEqual(try XCTUnwrap(AdjustableVariable(source: source)).automaticStep, step, source)
+        }
+    }
+
+    func testRelativeRulerUsesDecimalStepsAndKeepsPrecisionAtIntegers() throws {
+        let variable = try XCTUnwrap(AdjustableVariable(source: "a = 8,2 m/s² # conservé"))
+        let range = try XCTUnwrap(VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep))
+        XCTAssertEqual(range.adjustedValue(from: variable.value, steps: 1), 8.3)
+        XCTAssertEqual(range.adjustedValue(from: variable.value, steps: -1), 8.1)
+        let integer = range.adjustedValue(from: variable.value, steps: 8)
+        XCTAssertEqual(integer, 9)
+        let changed = try XCTUnwrap(variable.source(replacingValue: integer))
+        XCTAssertEqual(changed, "a = 9,0 m/s² # conservé")
+        XCTAssertEqual(try XCTUnwrap(AdjustableVariable(source: changed)).automaticStep, 0.1)
+        let whole = try XCTUnwrap(AdjustableVariable(source: "x = 6"))
+        XCTAssertEqual(whole.source(replacingValue: 7), "x = 7")
+        XCTAssertEqual(try XCTUnwrap(AdjustableVariable(source: whole.source(replacingValue: 7)!)).automaticStep, 1)
+    }
+
+    func testRelativeRulerFreezesItsOriginAndHonorsCustomBounds() throws {
+        let range = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -10, upperBound: 10, step: 0.1))
+        // Each drag update uses total displacement, not the previous result.
+        XCTAssertEqual(range.adjustedValue(from: 8.2, steps: 3), 8.5)
+        XCTAssertEqual(range.adjustedValue(from: 8.2, steps: 1), 8.3)
+        XCTAssertEqual(range.adjustedValue(from: 8.2, steps: 0), 8.2)
+        XCTAssertEqual(range.adjustedValue(from: 8.2, steps: 100), 10)
+        XCTAssertEqual(range.adjustedValue(from: -8.2, steps: -100), -10)
+        XCTAssertEqual(range.adjustedValue(from: -0.1, steps: 1), 0)
+        XCTAssertEqual(range.adjustedValue(from: 0, steps: -1), -0.1)
+        let huge = try XCTUnwrap(VariableAdjustmentRange.suggested(for: 1e250, step: 1e249))
+        XCTAssertTrue(huge.adjustedValue(from: 1e250, steps: 1).isFinite)
+        XCTAssertGreaterThan(huge.adjustedValue(from: 1e250, steps: 1), 1e250)
+        let tiny = try XCTUnwrap(VariableAdjustmentRange.suggested(for: .leastNonzeroMagnitude, step: .leastNonzeroMagnitude))
+        XCTAssertGreaterThan(tiny.adjustedValue(from: .leastNonzeroMagnitude, steps: 1), .leastNonzeroMagnitude)
+    }
+
+    func testScientificNotationKeepsItsStepAfterScrubbing() throws {
+        for (source, newValue, expected) in [("x = 1,2e3", 1_300.0, "x = 1,3e3"),
+                                           ("x = 8.20", 9.0, "x = 9.00")] {
+            let original = try XCTUnwrap(AdjustableVariable(source: source))
+            let changed = try XCTUnwrap(original.source(replacingValue: newValue))
+            XCTAssertEqual(changed, expected)
+            XCTAssertEqual(try XCTUnwrap(AdjustableVariable(source: changed)).automaticStep, original.automaticStep)
+        }
     }
 
     func testUnicodeSignsGreekNamesAndUnitPowers() throws {

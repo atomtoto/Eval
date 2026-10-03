@@ -52,9 +52,11 @@ Dans **Résultats → Choisir**, activer uniquement les lignes souhaitées. Le c
 
 ### Ajuster les valeurs avec un curseur
 
-Les déclarations numériques comme `a = 7,2 m/s²`, `v = 72 km/h` ou `x = -3` proposent un **curseur horizontal natif**. Glisser modifie le nombre dans la feuille et recalcule les résultats pendant le mouvement. En mode **Texte**, les curseurs sont regroupés dans **Ajuster les variables**.
+Les déclarations numériques comme `a = 7,2 m/s²`, `v = 72 km/h` ou `x = -3` proposent une **réglette graduée**, avec un repère central fixe et des graduations mobiles, inspirée du réglage des nombres dans Notes. Glisser horizontalement modifie le nombre dans la feuille et recalcule les résultats pendant le mouvement. En mode **Texte**, les réglettes sont regroupées dans **Ajuster les variables**.
 
-Le bouton de réglage permet de définir **minimum, maximum et pas**, sauvegardés avec l’identité de la ligne. Les unités, espaces et commentaires sont conservés. Les variables définies par des expressions restent éditables par l’éditeur de formules et se recalculent à partir des variables ajustées.
+Le **pas automatique** suit la précision du nombre saisi : `6` → `1`, `8,2` → `0,1`, `8,25` → `0,01`, `8,20` → `0,01` et `1,2e3` → `100`. Cette précision est conservée pendant le glissement, y compris lorsque `8,2` atteint `9,0`. Le bouton de réglage permet de définir **minimum et maximum**, ou de désactiver le pas automatique pour choisir un **pas manuel**, sauvegardé avec l’identité de la ligne. Les unités, espaces et commentaires sont conservés. Les variables définies par des expressions restent éditables par l’éditeur de formules et se recalculent à partir des variables ajustées.
+
+La réglette utilise une petite composition SwiftUI (Canvas et DragGesture), nécessaire au repère fixe et au réglage relatif, avec le matériau système ou Liquid Glass sur iOS 26 et plus. Le défilement vertical de la feuille reste disponible ; les variables se suppriment par leur menu contextuel. VoiceOver ajuste les valeurs avec le même pas.
 
 ### Écriture mathématique
 

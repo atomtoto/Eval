@@ -8,6 +8,7 @@ final class NotebookStore: ObservableObject {
             resultSelection.reconcile(source: source)
             let existingIDs = Set(resultSelection.entries.map(\.id))
             adjustmentRanges = adjustmentRanges.filter { existingIDs.contains($0.key) }
+            manualStepIDs.formIntersection(existingIDs)
             defaults.set(source, forKey: Self.storageKey)
             saveSelection()
             saveAdjustmentRanges()
@@ -21,12 +22,14 @@ final class NotebookStore: ObservableObject {
     @Published private(set) var evaluation: NotebookEvaluation
     @Published private(set) var isEvaluating = false
     @Published private(set) var adjustmentRanges: [UUID: VariableAdjustmentRange] = [:]
+    @Published private(set) var manualStepIDs: Set<UUID> = []
     private var evaluationTask: Task<Void, Never>?
     private let defaults: UserDefaults
     private static let storageKey = "eval.notebook.source.v1"
     private static let selectionKey = "eval.notebook.resultSelection.v1"
     private static let editorModeKey = "eval.notebook.editorMode.v1"
     private static let adjustmentRangesKey = "eval.notebook.adjustmentRanges.v1"
+    private static let manualStepKey = "eval.notebook.manualStep.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -55,6 +58,10 @@ final class NotebookStore: ObservableObject {
                 ) != nil
             }
         }
+        if let data = defaults.data(forKey: Self.manualStepKey),
+           let saved = try? JSONDecoder().decode(Set<UUID>.self, from: data) {
+            manualStepIDs = saved.intersection(Set(adjustmentRanges.keys))
+        }
     }
 
     var selectableLines: [EvaluatedLine] {
@@ -78,13 +85,17 @@ final class NotebookStore: ObservableObject {
 
     func adjustmentRange(for id: UUID, variable: AdjustableVariable) -> VariableAdjustmentRange? {
         if let range = adjustmentRanges[id] {
-            return range
+            if manualStepIDs.contains(id) { return range }
+            return VariableAdjustmentRange(lowerBound: range.lowerBound, upperBound: range.upperBound,
+                                           step: min(range.upperBound - range.lowerBound, variable.automaticStep))
+                ?? VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep)
         }
-        return VariableAdjustmentRange.suggested(for: variable.value)
+        return VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep)
     }
 
-    func setAdjustmentRange(_ range: VariableAdjustmentRange, for id: UUID) {
+    func setAdjustmentRange(_ range: VariableAdjustmentRange, for id: UUID, automaticStep: Bool = true) {
         adjustmentRanges[id] = range
+        if automaticStep { manualStepIDs.remove(id) } else { manualStepIDs.insert(id) }
         saveAdjustmentRanges()
     }
 
@@ -141,6 +152,7 @@ final class NotebookStore: ObservableObject {
             $0.kind == .expression || $0.kind == .equation
         }.map(\.id)))
         adjustmentRanges = [:]
+        manualStepIDs = []
         saveSelection()
         saveAdjustmentRanges()
     }
@@ -154,6 +166,9 @@ final class NotebookStore: ObservableObject {
     private func saveAdjustmentRanges() {
         if let data = try? JSONEncoder().encode(adjustmentRanges) {
             defaults.set(data, forKey: Self.adjustmentRangesKey)
+        }
+        if let data = try? JSONEncoder().encode(manualStepIDs) {
+            defaults.set(data, forKey: Self.manualStepKey)
         }
     }
 
