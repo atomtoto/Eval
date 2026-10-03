@@ -30,7 +30,7 @@ d
 
 Résultat : **32,4 m**.
 
-Les constantes non déclarées sont reconnues et affichées avec leur valeur : `c`, `g`, `G`, `h`, `hbar` / `ℏ`, `e`, `k_B`, `N_A`, `R`, `epsilon_0` / `ε₀`, `mu_0` / `μ₀`, `pi` / `π`, `m_e`, `m_p`, `alpha` / `α`. Une déclaration explicite remplace la constante dans toute la feuille. `g` représente la pesanteur standard ; sa valeur locale peut varier.
+Les constantes non déclarées sont reconnues et affichées avec leur valeur. Le catalogue couvre les constantes fondamentales, l’électromagnétisme, la physique quantique, la thermodynamique, la chimie, l’astronomie et les mathématiques. Par exemple : `c`, `g`, `G`, `h`, `hbar` / `ℏ`, `e`, `k_B`, `N_A`, `R`, `epsilon_0` / `ε₀`, `mu_0` / `μ₀`, `pi` / `π`, `m_e`, `m_p`, `alpha` / `α`. Une déclaration explicite remplace la constante dans toute la feuille. `g` représente la pesanteur standard ; sa valeur locale peut varier.
 
 ```text
 # Énergie d’un photon
@@ -38,13 +38,23 @@ h * c / lambda
 lambda = 550 nm
 ```
 
-L’onglet **Références** permet de chercher les constantes et unités, et d’ajouter le symbole d’une constante à la feuille. Le menu propose des exemples, le partage et l’effacement avec confirmation. La feuille est sauvegardée automatiquement sur l’appareil.
+L’onglet **Références** permet de chercher les constantes et unités par nom ou symbole, et de filtrer les constantes par domaine. Déplier une constante affiche son identifiant de **Saisie**, sa valeur SI, sa nature et un lien vers sa source. **Ajouter à la feuille** insère son identifiant de calcul. Les valeurs sont incluses dans l’application et restent disponibles hors ligne.
+
+La nature **Exacte** décrit une valeur définie ou dérivée d’une définition, **Mesurée** une valeur expérimentale, et **Conventionnelle** une référence adoptée, comme la pesanteur standard ou une grandeur astronomique nominale. L’affichage et le calcul conservent la précision finie de `Double`, y compris pour les constantes exactes. Les constantes mesurées utilisent leur valeur centrale ; les incertitudes ne sont pas propagées.
+
+Le menu propose des exemples, le partage et l’effacement avec confirmation. La feuille est sauvegardée automatiquement sur l’appareil.
 
 ### Choisir les résultats à afficher
 
 Dans **Résultats → Choisir**, activer uniquement les lignes souhaitées. Le choix est aussi disponible avec **Afficher dans Résultats** dans l’éditeur d’une ligne et dans son menu contextuel. Une ligne masquée reste disponible pour les calculs qui en dépendent. Les choix sont sauvegardés avec des identités de ligne pour suivre les déplacements et les modifications ; les nouvelles lignes saisies en mode Texte commencent masquées.
 
 À la première ouverture et lors du chargement d’un exemple, les expressions et comparaisons sont affichées ; les déclarations de variables sont masquées. Les erreurs restent visibles sur les lignes en mode Formules ou dans **À corriger** en mode Texte, même lorsqu’un résultat est masqué.
+
+### Ajuster les valeurs avec un curseur
+
+Les déclarations numériques comme `a = 7,2 m/s²`, `v = 72 km/h` ou `x = -3` proposent un **curseur horizontal natif**. Glisser modifie le nombre dans la feuille et recalcule les résultats pendant le mouvement. En mode **Texte**, les curseurs sont regroupés dans **Ajuster les variables**.
+
+Le bouton de réglage permet de définir **minimum, maximum et pas**, sauvegardés avec l’identité de la ligne. Les unités, espaces et commentaires sont conservés. Les variables définies par des expressions restent éditables par l’éditeur de formules et se recalculent à partir des variables ajustées.
 
 ### Écriture mathématique
 
@@ -102,4 +112,4 @@ xcodebuild -project Eval.xcodeproj -scheme Eval \
   -derivedDataPath /tmp/eval-derived CODE_SIGNING_ALLOWED=NO build
 ```
 
-Les constantes physiques embarquées proviennent des [valeurs CODATA 2022 du NIST](https://physics.nist.gov/cuu/pdf/all.pdf). La pesanteur standard provient des [valeurs conventionnelles adoptées](https://physics.nist.gov/cuu/pdf/adopted_2002.pdf). Les dimensions et préfixes suivent le [Système international d’unités](https://www.nist.gov/pml/special-publication-330).
+Les constantes physiques et chimiques embarquées proviennent des [valeurs CODATA 2022 du NIST](https://physics.nist.gov/cuu/pdf/all.pdf). Les constantes définissant le SI suivent la [Brochure sur le SI du BIPM](https://www.bipm.org/fr/publications/si-brochure), et la pesanteur standard les [valeurs conventionnelles adoptées](https://physics.nist.gov/cuu/pdf/adopted_2002.pdf). Les références astronomiques suivent les résolutions de l’Union astronomique internationale, qui fixent notamment des grandeurs nominales ; les références mathématiques proviennent du DLMF du NIST. Chaque entrée du catalogue conserve sa source. Les dimensions et préfixes suivent le [Système international d’unités](https://www.nist.gov/pml/special-publication-330).

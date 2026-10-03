@@ -6,8 +6,11 @@ final class NotebookStore: ObservableObject {
     @Published var source: String {
         didSet {
             resultSelection.reconcile(source: source)
+            let existingIDs = Set(resultSelection.entries.map(\.id))
+            adjustmentRanges = adjustmentRanges.filter { existingIDs.contains($0.key) }
             defaults.set(source, forKey: Self.storageKey)
             saveSelection()
+            saveAdjustmentRanges()
             scheduleEvaluation()
         }
     }
@@ -17,11 +20,13 @@ final class NotebookStore: ObservableObject {
     @Published private(set) var resultSelection: ResultSelection
     @Published private(set) var evaluation: NotebookEvaluation
     @Published private(set) var isEvaluating = false
+    @Published private(set) var adjustmentRanges: [UUID: VariableAdjustmentRange] = [:]
     private var evaluationTask: Task<Void, Never>?
     private let defaults: UserDefaults
     private static let storageKey = "eval.notebook.source.v1"
     private static let selectionKey = "eval.notebook.resultSelection.v1"
     private static let editorModeKey = "eval.notebook.editorMode.v1"
+    private static let adjustmentRangesKey = "eval.notebook.adjustmentRanges.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -41,6 +46,15 @@ final class NotebookStore: ObservableObject {
             }.map(\.id))
             resultSelection = ResultSelection(source: source, initiallySelectedLineIDs: explicitExpressions)
         }
+        if let data = defaults.data(forKey: Self.adjustmentRangesKey),
+           let saved = try? JSONDecoder().decode([UUID: VariableAdjustmentRange].self, from: data) {
+            let existingIDs = Set(resultSelection.entries.map(\.id))
+            adjustmentRanges = saved.filter { id, range in
+                existingIDs.contains(id) && VariableAdjustmentRange(
+                    lowerBound: range.lowerBound, upperBound: range.upperBound, step: range.step
+                ) != nil
+            }
+        }
     }
 
     var selectableLines: [EvaluatedLine] {
@@ -53,6 +67,36 @@ final class NotebookStore: ObservableObject {
 
     var displayedResultLines: [EvaluatedLine] {
         selectableLines.filter { resultSelection.isSelected(at: $0.id) }
+    }
+
+    var adjustableVariables: [NotebookVariable] {
+        resultSelection.entries.compactMap { entry in
+            guard let variable = AdjustableVariable(source: entry.source) else { return nil }
+            return NotebookVariable(id: entry.id, variable: variable)
+        }
+    }
+
+    func adjustmentRange(for id: UUID, variable: AdjustableVariable) -> VariableAdjustmentRange? {
+        if let range = adjustmentRanges[id] {
+            return range
+        }
+        return VariableAdjustmentRange.suggested(for: variable.value)
+    }
+
+    func setAdjustmentRange(_ range: VariableAdjustmentRange, for id: UUID) {
+        adjustmentRanges[id] = range
+        saveAdjustmentRanges()
+    }
+
+    func adjustVariable(_ value: Double, lineID: UUID, range: VariableAdjustmentRange) {
+        guard let index = resultSelection.entries.firstIndex(where: { $0.id == lineID }),
+              let variable = AdjustableVariable(source: resultSelection.entries[index].source),
+              value != variable.value,
+              let updated = variable.source(replacingValue: value) else { return }
+        adjustmentRanges[lineID] = range
+        resultSelection.updateSource(updated, at: index)
+        source = resultSelection.entries.map(\.source).joined(separator: "\n")
+        scheduleEvaluation(debounced: false)
     }
 
     func append(_ expression: String, showsResult: Bool = true) {
@@ -96,7 +140,9 @@ final class NotebookStore: ObservableObject {
         resultSelection = ResultSelection(source: source, initiallySelectedLineIDs: Set(lines.filter {
             $0.kind == .expression || $0.kind == .equation
         }.map(\.id)))
+        adjustmentRanges = [:]
         saveSelection()
+        saveAdjustmentRanges()
     }
 
     private func saveSelection() {
@@ -105,15 +151,23 @@ final class NotebookStore: ObservableObject {
         }
     }
 
-    private func scheduleEvaluation() {
+    private func saveAdjustmentRanges() {
+        if let data = try? JSONEncoder().encode(adjustmentRanges) {
+            defaults.set(data, forKey: Self.adjustmentRangesKey)
+        }
+    }
+
+    private func scheduleEvaluation(debounced: Bool = true) {
         evaluationTask?.cancel()
         isEvaluating = true
         let snapshot = source
         evaluationTask = Task { [weak self] in
-            do {
-                try await Task.sleep(for: .milliseconds(180))
-            } catch {
-                return
+            if debounced {
+                do {
+                    try await Task.sleep(for: .milliseconds(180))
+                } catch {
+                    return
+                }
             }
             let result = await Task.detached(priority: .userInitiated) {
                 NotebookEngine.evaluate(snapshot)
@@ -123,6 +177,11 @@ final class NotebookStore: ObservableObject {
             self.isEvaluating = false
         }
     }
+}
+
+struct NotebookVariable: Identifiable {
+    let id: UUID
+    let variable: AdjustableVariable
 }
 
 enum NotebookEditorMode: String, CaseIterable, Identifiable {

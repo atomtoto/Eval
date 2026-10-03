@@ -57,8 +57,20 @@ struct NotebookView: View {
                     Text("Feuille de calcul")
                 } footer: {
                     Text(notebook.editorMode == .formulas
-                         ? "Touchez une ligne pour la modifier ou composer une fraction. Les variables peuvent être déclarées dans n’importe quel ordre."
+                         ? "Touchez une ligne pour la modifier ou composer une fraction. Glissez le curseur d’une variable pour ajuster sa valeur ; son bouton de réglage change les bornes et le pas."
                          : "Une ligne par formule ou variable. Les déclarations peuvent précéder ou suivre les formules. Choisissez les lignes à afficher dans Résultats.")
+                }
+
+                if notebook.editorMode == .text && !notebook.adjustableVariables.isEmpty {
+                    Section {
+                        ForEach(notebook.adjustableVariables) { item in
+                            variableSlider(item.variable, id: item.id)
+                        }
+                    } header: {
+                        Text("Ajuster les variables")
+                    } footer: {
+                        Text("Glissez pour modifier les valeurs numériques. Les unités saisies sont conservées et les résultats se mettent à jour pendant le réglage.")
+                    }
                 }
 
                 Section {
@@ -186,29 +198,34 @@ struct NotebookView: View {
         let line = notebook.evaluation.lines.first { $0.id == item.index && $0.source == item.entry.source }
         let trimmed = item.entry.source.trimmingCharacters(in: .whitespaces)
         let isComment = trimmed.hasPrefix("#") || trimmed.hasPrefix("//")
-        return Button {
-            formulaDraft = FormulaDraft(lineID: item.entry.id, source: item.entry.source, showsResult: item.entry.isSelected)
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .center) {
-                    Text("\(item.index + 1)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.tertiary)
-                    FormulaView(source: item.entry.source)
-                }
-                if item.entry.isSelected && !isComment {
-                    Label("Résultat affiché", systemImage: "pin.fill")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                if line?.status == .error, let message = line?.message {
-                    Label(message, systemImage: "exclamationmark.triangle")
-                        .font(.callout).foregroundStyle(.red)
+        return VStack(alignment: .leading, spacing: 12) {
+            Button {
+                formulaDraft = FormulaDraft(lineID: item.entry.id, source: item.entry.source, showsResult: item.entry.isSelected)
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .center) {
+                        Text("\(item.index + 1)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                        FormulaView(source: item.entry.source)
+                    }
+                    if item.entry.isSelected && !isComment {
+                        Label("Résultat affiché", systemImage: "pin.fill")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if line?.status == .error, let message = line?.message {
+                        Label(message, systemImage: "exclamationmark.triangle")
+                            .font(.callout).foregroundStyle(.red)
+                    }
                 }
             }
-            .padding(.vertical, 4)
+            .buttonStyle(.plain)
+            .accessibilityHint("Modifier la formule et choisir si son résultat doit être affiché.")
+            if let variable = AdjustableVariable(source: item.entry.source) {
+                variableSlider(variable, id: item.entry.id)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Modifier la formule et choisir si son résultat doit être affiché.")
+        .padding(.vertical, 4)
         .contextMenu {
             if !isComment {
                 Button(item.entry.isSelected ? "Masquer le résultat" : "Afficher le résultat",
@@ -223,6 +240,19 @@ struct NotebookView: View {
         .swipeActions {
             Button("Supprimer", systemImage: "trash", role: .destructive) {
                 notebook.removeLine(id: item.entry.id)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func variableSlider(_ variable: AdjustableVariable, id: UUID) -> some View {
+        if let range = notebook.adjustmentRange(for: id, variable: variable) {
+            VariableSliderView(variable: variable, range: range) { value in
+                notebook.adjustVariable(value, lineID: id, range: range)
+            } onChangeRange: { configured in
+                notebook.setAdjustmentRange(configured, for: id)
+                let bounded = min(configured.upperBound, max(configured.lowerBound, variable.value))
+                notebook.adjustVariable(bounded, lineID: id, range: configured)
             }
         }
     }

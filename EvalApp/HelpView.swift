@@ -32,9 +32,18 @@ struct HelpView: View {
                     Text("Une valeur sans unité est sans dimension. Pour vérifier une formule physique, attribuez les unités aux grandeurs concernées.")
                 }
 
+                Section("Ajuster une variable en glissant") {
+                    Text("Un curseur apparaît sous les déclarations numériques, comme a = 7,2 m/s². Glissez vers la gauche ou la droite pour changer la valeur et recalculer les résultats. En mode Texte, ces curseurs se trouvent dans Ajuster les variables.")
+                    Text("Le bouton de réglage du curseur permet de choisir le minimum, le maximum et le pas. Les réglages sont sauvegardés avec la feuille. Les unités et les commentaires sont conservés ; une valeur en km/h reste saisie en km/h.")
+                    Text("Les variables calculées, comme E = 0,5 * m * v², se modifient dans l’éditeur de formules. Leurs valeurs suivent automatiquement celles des variables ajustées.")
+                }
+
                 Section("Constantes reconnues") {
                     example("h * c / lambda\nlambda = 550 nm", explanation: "h et c sont reconnus et leurs valeurs apparaissent dans « Constantes reconnues ».")
-                    Text("Le catalogue Références contient les constantes disponibles. Vous pouvez remplacer une constante en déclarant vous-même son symbole dans la feuille.")
+                    Text("Le catalogue Références contient les constantes de physique, de chimie, d’astronomie et de mathématiques. Filtrez par domaine ou cherchez un nom, un symbole ou un identifiant de saisie.")
+                    Text("Dépliez une constante pour consulter sa valeur, sa nature et sa source, puis touchez Ajouter à la feuille. Le champ Saisie indique le nom à utiliser dans une formule, par exemple N_A pour la constante d’Avogadro.")
+                    Text("Les valeurs sont disponibles hors ligne. Exacte indique une valeur définie ou dérivée d’une définition ; Mesurée indique une valeur expérimentale ; Conventionnelle indique une valeur de référence adoptée, qui peut différer d’une valeur locale ou observée.")
+                    Text("Vous pouvez remplacer une constante en déclarant vous-même son identifiant dans la feuille. Les symboles respectent la casse : g est la pesanteur standard, G est la constante gravitationnelle.")
                 }
 
                 Section("Homogénéité physique") {
