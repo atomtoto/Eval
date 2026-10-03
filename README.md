@@ -40,6 +40,20 @@ lambda = 550 nm
 
 L’onglet **Références** permet de chercher les constantes et unités, et d’ajouter le symbole d’une constante à la feuille. Le menu propose des exemples, le partage et l’effacement avec confirmation. La feuille est sauvegardée automatiquement sur l’appareil.
 
+### Choisir les résultats à afficher
+
+Dans **Résultats → Choisir**, activer uniquement les lignes souhaitées. Le choix est aussi disponible avec **Afficher dans Résultats** dans l’éditeur d’une ligne et dans son menu contextuel. Une ligne masquée reste disponible pour les calculs qui en dépendent. Les choix sont sauvegardés avec des identités de ligne pour suivre les déplacements et les modifications ; les nouvelles lignes saisies en mode Texte commencent masquées.
+
+À la première ouverture et lors du chargement d’un exemple, les expressions et comparaisons sont affichées ; les déclarations de variables sont masquées. Les erreurs restent visibles sur les lignes en mode Formules ou dans **À corriger** en mode Texte, même lorsqu’un résultat est masqué.
+
+### Écriture mathématique
+
+Le mode **Formules** affiche les divisions comme des fractions, les puissances en exposant et les racines carrées avec leur signe. Toucher une ligne pour l’éditer ou **Ajouter une formule** pour en créer une. L’éditeur fournit un aperçu en direct et des boutons **Fraction**, **Puissance** et **Racine carrée**, avec des champs pour les opérandes. Une construction peut remplacer l’expression ou se combiner avec elle ; le membre gauche d’une déclaration ou d’une comparaison est conservé.
+
+Par exemple, pour `E = h * c / lambda`, choisir Fraction, mettre `h * c` au numérateur et `lambda` au dénominateur. Le résultat est présenté avec une barre de fraction, tout en conservant la syntaxe de calcul existante. Le mode **Texte** reste disponible pour modifier la feuille entière et pour le partage.
+
+Le rendu mathématique est composé en SwiftUI, s’adapte à Dynamic Type et défile horizontalement pour les expressions longues. Il ne nécessite pas de WebView, de bibliothèque de rendu ou de connexion réseau.
+
 ## Syntaxe
 
 - Opérateurs : `+`, `-`, `*`, `/`, `^`, ainsi que `−`, `×`, `÷`, `·` et les exposants Unicode (`²`, `³`, `⁻¹`…). Les puissances sont associatives à droite : `2^3^2 = 512` ; `-2^2 = -4`.

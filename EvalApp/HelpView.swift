@@ -12,6 +12,19 @@ struct HelpView: View {
                     Text("Les variables peuvent dépendre d’autres variables. Chaque nom doit être défini une seule fois ; les dépendances circulaires sont signalées.")
                 }
 
+                Section("Écrire avec des fractions") {
+                    Text("Le mode Formules présente les lignes en notation mathématique. Touchez une ligne pour l’éditer, ou utilisez Ajouter une formule.")
+                    Text("Les boutons Fraction, Puissance et Racine carrée ouvrent des champs dédiés. Pour une fraction, saisissez le numérateur et le dénominateur ; l’aperçu est mis à jour pendant la saisie.")
+                    Text("La construction peut remplacer l’expression ou se combiner avec elle par une addition, une multiplication ou une autre opération. Le nom déclaré, comme E =, est conservé.")
+                    Text("Le mode Texte permet de modifier toute la feuille. Une division écrite avec / apparaît comme une fraction dans le mode Formules et dans les résultats.")
+                }
+
+                Section("Choisir les résultats") {
+                    Text("Dans la section Résultats, touchez Choisir et activez les lignes à afficher. Vous pouvez aussi activer Afficher dans Résultats dans l’éditeur d’une formule.")
+                    Text("Les lignes masquées sont toujours calculées pour les autres formules. Le choix est sauvegardé et suit les lignes lorsqu’elles sont déplacées ou modifiées. Les nouvelles lignes ajoutées en mode Texte commencent masquées.")
+                    Text("Les erreurs restent signalées sur les lignes en mode Formules, et dans À corriger en mode Texte, même si leur résultat est masqué.")
+                }
+
                 Section("Valeurs et unités") {
                     example("v = 72 km/h\nt = 2 s\nv * t", explanation: "Les unités sont converties en SI : le résultat est 40 m.")
                     Text("La virgule et le point sont acceptés pour les décimales. La notation scientifique s’écrit 1,5e-3. Les noms et symboles respectent les majuscules.")
