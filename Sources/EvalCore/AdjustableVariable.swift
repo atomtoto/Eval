@@ -16,26 +16,25 @@ public struct AdjustableVariable: Sendable {
     private let fractionalDigits: Int
     private let literalExponent: Int
     private let usesScientificNotation: Bool
+    /// SI size of the entered unit, so the engine need not re-check each new value.
+    private let unitScale: Double
+    /// A display conversion adds a check on the converted value.
+    private let hasConversion: Bool
 
     /// Accepts a single signed literal and an optional, unambiguous unit suffix.
     /// Expressions, comparisons, dependent variables and invalid units are excluded.
     public init?(source: String) {
         guard source.count <= 2_000, source.rangeOfCharacter(from: .newlines) == nil else { return nil }
-        var contentEnd = source.endIndex
-        if let comment = source.firstIndex(of: "#") { contentEnd = min(contentEnd, comment) }
-        if let comment = source.range(of: "//")?.lowerBound { contentEnd = min(contentEnd, comment) }
-        let content = source[..<contentEnd]
-        guard let separator = content.firstIndex(of: "="),
-              content[content.index(after: separator)...].firstIndex(of: "=") == nil else { return nil }
-        let identifier = content[..<separator].trimmingCharacters(in: .whitespaces)
-        guard ExpressionParser.isIdentifier(identifier) else { return nil }
-
-        let afterSeparator = content.index(after: separator)
-        guard let literalStart = content[afterSeparator...].firstIndex(where: { !$0.isWhitespace }) else {
+        let line = LineSyntax(source)
+        guard line.separatorCount == 1, !line.isComparison, let identifier = line.definitionName,
+              let separator = line.separatorRange else { return nil }
+        // The value ends the body; a display conversion and a comment stay in `suffix`.
+        let contentEnd = line.bodyRange.upperBound
+        guard let literalStart = source[separator.upperBound..<contentEnd].firstIndex(where: { !$0.isWhitespace }) else {
             return nil
         }
-        let rightHandSide = String(content[literalStart...])
-        let pattern = #"^[+\-−–]?\h*(?:[0-9]+(?:[.,][0-9]*)?|[.,][0-9]+)(?:[eE][+\-−]?[0-9]+)?"#
+        let rightHandSide = String(source[literalStart..<contentEnd])
+        let pattern = #"^[+\-−–]?\h*(?:[0-9]+(?:[.,][0-9]*)?|[.,][0-9]+)(?:[eE][+\-−–]?[0-9]+)?"#
         guard let literalRange = rightHandSide.range(of: pattern, options: .regularExpression) else { return nil }
         let literal = String(rightHandSide[literalRange])
         let normalized = literal.filter { !$0.isWhitespace }
@@ -45,16 +44,16 @@ public struct AdjustableVariable: Sendable {
         guard let number = Double(normalized), number.isFinite,
               var parser = try? ExpressionParser(rightHandSide),
               let expression = try? parser.parse(), Self.isLiteralWithUnits(expression),
-              NotebookEngine.evaluate(source).lines.first?.status == .success else { return nil }
+              !Self.compactChainUses(identifier, in: expression),
+              (try? NotebookEngine.standaloneQuantity(expression)) != nil,
+              // The converted display is checked by the engine itself, which is rare enough.
+              line.arrowRange == nil || NotebookEngine.evaluate(source).lines.first?.status == .success,
+              let scale = Self.scale(ofUnitsIn: expression) else { return nil }
 
         let literalEnd = source.index(literalStart, offsetBy: literal.count)
         let unitSuffix = source[literalEnd..<contentEnd].trimmingCharacters(in: .whitespaces)
-        if !unitSuffix.isEmpty {
-            // A zero or infinite conversion factor cannot be adjusted reliably.
-            let conversion = NotebookEngine.evaluate("1 " + unitSuffix).lines.first
-            guard conversion?.status == .success,
-                  let scale = conversion?.quantity?.value, scale > 0, scale.isFinite else { return nil }
-        }
+        unitScale = scale
+        hasConversion = line.arrowRange != nil
         name = identifier
         value = number
         unit = unitSuffix
@@ -69,7 +68,7 @@ public struct AdjustableVariable: Sendable {
         automaticStep = Self.step(decimalExponent: literalExponent - fractionalDigits)
     }
 
-    /// Replaces only the number, retaining spacing, units and the comment verbatim.
+    /// Replaces only the number, retaining spacing, units, conversion and comment verbatim.
     /// Swift's shortest round-trip representation avoids rounding the input value.
     public func source(replacingValue value: Double) -> String? {
         guard value.isFinite else { return nil }
@@ -78,14 +77,47 @@ public struct AdjustableVariable: Sendable {
         // exactly. Arbitrary replacements still retain their full precision.
         let scaled = usesScientificNotation ? value / Self.step(decimalExponent: literalExponent) : value
         if scaled.isFinite, fractionalDigits <= 16 {
-            let candidate = String(format: "%.*f", locale: Locale(identifier: "en_US_POSIX"), fractionalDigits, scaled)
+            let candidate = String(format: "%.*f", fractionalDigits, scaled)
                 + (usesScientificNotation ? "e\(literalExponent)" : "")
-            if Double(candidate) == value { literal = candidate }
+            // One ulp of tolerance absorbs a binary sum such as 0.9199999999999999.
+            if let parsed = Double(candidate),
+               parsed == value || parsed != 0 && (parsed.nextUp == value || parsed.nextDown == value) {
+                literal = candidate
+            }
         }
         if usesDecimalComma { literal = literal.replacingOccurrences(of: ".", with: ",") }
         let result = prefix + literal + suffix
-        guard NotebookEngine.evaluate(result).lines.first?.status == .success else { return nil }
+        // The engine accepts a finite literal whose product with the unit stays finite.
+        guard let parsed = Double(literal.replacingOccurrences(of: ",", with: ".")), parsed.isFinite,
+              (parsed * unitScale).isFinite,
+              !hasConversion || NotebookEngine.evaluate(result).lines.first?.status == .success else { return nil }
         return result
+    }
+
+    /// The size in SI of the unit suffix, 1 without one. A zero or infinite factor
+    /// cannot be adjusted reliably.
+    private static func scale(ofUnitsIn expression: Expression) -> Double? {
+        var node = expression
+        while case .unary(_, let operand) = node { node = operand }
+        guard case .binary(.multiply, _, let units) = node else { return 1 }
+        guard let scale = (try? NotebookEngine.standaloneQuantity(units))?.value, scale > 0, scale.isFinite else { return nil }
+        return scale
+    }
+
+    /// `h = 2km/h` reads `h` as a variable inside its own compact unit chain: a cycle.
+    private static func compactChainUses(_ name: String, in expression: Expression) -> Bool {
+        var node = expression
+        while case .unary(_, let operand) = node { node = operand }
+        guard case .binary(.multiply, _, .compactUnits(let units)) = node else { return false }
+        var pending = [units]
+        while let next = pending.popLast() {
+            switch next {
+            case .unit(let symbol): if symbol == name { return true }
+            case .binary(_, let left, let right): pending.append(contentsOf: [left, right])
+            default: break
+            }
+        }
+        return false
     }
 
     private static func step(decimalExponent: Int) -> Double {
@@ -119,6 +151,7 @@ public struct AdjustableVariable: Sendable {
     private static func isUnitExpression(_ expression: Expression) -> Bool {
         switch expression {
         case .unit: return true
+        case .compactUnits(let units): return isUnitExpression(units)
         case .binary(.multiply, let left, let right), .binary(.divide, let left, let right):
             return isUnitExpression(left) && isUnitExpression(right)
         case .binary(.power, let units, let exponent):
@@ -202,12 +235,15 @@ public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
         if steps == 0 { return bounded }
         let locale = Locale(identifier: "en_US_POSIX")
         var result = bounded + Double(steps) * step
+        // Decimal covers a narrower range than Double; use it only when both
+        // operands survive the round trip. Double(String) rounds correctly,
+        // unlike NSDecimalNumber.doubleValue.
         if let start = Decimal(string: String(bounded), locale: locale),
-           let increment = Decimal(string: String(step), locale: locale) {
+           let increment = Decimal(string: String(step), locale: locale),
+           Double(start.description) == bounded, Double(increment.description) == step {
             let decimal = start + Decimal(steps) * increment
-            if !decimal.isNaN {
-                let candidate = NSDecimalNumber(decimal: decimal).doubleValue
-                if candidate.isFinite, candidate != 0 || result == 0 { result = candidate }
+            if !decimal.isNaN, let candidate = Double(decimal.description), candidate.isFinite {
+                result = candidate
             }
         }
         // A requested step may be smaller than Double's spacing at this value.

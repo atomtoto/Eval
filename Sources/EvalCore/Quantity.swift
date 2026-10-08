@@ -11,31 +11,70 @@ public struct Quantity: Hashable, Sendable {
     }
 }
 
+/// A unit chosen to display a result, as in `E -> kWh`: the symbol as typed
+/// (with `·` for `*`) and the size of one such unit in SI.
+public struct DisplayUnit: Hashable, Sendable {
+    public let symbol: String
+    public let scale: Double
+
+    public init(symbol: String, scale: Double) {
+        self.symbol = symbol
+        self.scale = scale
+    }
+}
+
 public enum QuantityFormatter: Sendable {
-    public static func string(_ quantity: Quantity) -> String {
-        let value = number(quantity.value)
+    public static func string(_ quantity: Quantity, significantDigits: Int = significantDigits) -> String {
+        let value = number(quantity.value, significantDigits: significantDigits)
         guard !quantity.dimension.isDimensionless else { return value }
         let unit = UnitCatalog.preferredSymbol(for: quantity.dimension) ?? quantity.dimension.formatted
         return value + " " + unit
     }
 
-    /// Ten significant digits, a French decimal comma, and readable scientific notation.
-    public static func number(_ value: Double) -> String {
+    /// The value expressed in `unit`, followed by its symbol (attached for `°`).
+    /// Without a unit, the result is in SI as with `string(_:)`.
+    public static func string(_ quantity: Quantity, in unit: DisplayUnit?,
+                              significantDigits: Int = significantDigits) -> String {
+        guard let unit else { return string(quantity, significantDigits: significantDigits) }
+        return number(quantity.value / unit.scale, significantDigits: significantDigits) + (unit.symbol == "°" ? "" : " ") + unit.symbol
+    }
+
+    /// The unit written after a value: the requested one, else the SI unit of the
+    /// dimension. Empty for a dimensionless quantity, for axis labels.
+    public static func unitSymbol(for dimension: Dimension, in unit: DisplayUnit? = nil) -> String {
+        if let unit { return unit.symbol }
+        return dimension.isDimensionless ? "" : UnitCatalog.preferredSymbol(for: dimension) ?? dimension.formatted
+    }
+
+    /// Significant digits shown for results; calculations keep the full `Double`.
+    public static let significantDigits = 6
+    /// For text that must tell close values apart, such as an entered number or an exponent.
+    public static let preciseDigits = 10
+
+    /// Six significant digits, a French decimal comma, readable scientific notation,
+    /// and the true minus sign `−` (U+2212), which the parser reads back.
+    /// Whole numbers below 10⁹ keep every integer digit, so `c` reads 299792458.
+    public static func number(_ value: Double, significantDigits: Int = significantDigits) -> String {
+        let text = plainNumber(value, digits: significantDigits)
+        return text.hasPrefix("-") ? "−" + text.dropFirst() : text
+    }
+
+    private static func plainNumber(_ value: Double, digits: Int) -> String {
         if value.isNaN { return "indéfini" }
         if value == .infinity { return "∞" }
         if value == -.infinity { return "−∞" }
         if value == 0 { return "0" }
 
-        let locale = Locale(identifier: "en_US_POSIX")
-        let formatted = String(format: "%.9e", locale: locale, value).lowercased()
+        // No locale: the C formatting keeps the decimal point and is much faster.
+        let formatted = String(format: "%.*e", digits - 1, value).lowercased()
         let components = formatted.split(separator: "e")
         if components.count == 2, let exponent = Int(components[1]) {
             if exponent >= 9 || exponent < -4 {
                 let mantissa = trimFraction(String(components[0])).replacingOccurrences(of: ".", with: ",")
                 return mantissa + " × 10" + Dimension.superscript(String(exponent))
             }
-            let decimalPlaces = max(0, 9 - exponent)
-            return trimFraction(String(format: "%.*f", locale: locale, decimalPlaces, value))
+            let decimalPlaces = max(0, digits - 1 - exponent)
+            return trimFraction(String(format: "%.*f", decimalPlaces, value))
                 .replacingOccurrences(of: ".", with: ",")
         }
         return formatted.replacingOccurrences(of: ".", with: ",")
@@ -47,5 +86,13 @@ public enum QuantityFormatter: Sendable {
         while trimmed.last == "0" { trimmed.removeLast() }
         if trimmed.last == "." { trimmed.removeLast() }
         return trimmed
+    }
+}
+
+extension EvaluatedLine {
+    /// The value as the sheet shows it: in the unit requested with `→` when
+    /// there is one, else in SI. Nil for a line without a value.
+    public var formattedValue: String? {
+        quantity.map { QuantityFormatter.string($0, in: displayUnit) }
     }
 }

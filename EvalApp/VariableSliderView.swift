@@ -2,41 +2,49 @@ import EvalCore
 import SwiftUI
 
 /// Adjusts the number in its entered unit, so 72 km/h stays in km/h.
+/// In Formules mode the formula above is the label and the ruler stands alone;
+/// the value is repeated in text only where the ruler sits apart, in Texte mode.
 struct VariableSliderView: View {
     let variable: AdjustableVariable
     let range: VariableAdjustmentRange
     let usesAutomaticStep: Bool
-    let onChangeValue: (Double) -> Void
+    var showsLabel = true
+    let onChangeValue: (Double, Bool) -> Void
+    var onEditingChanged: (Bool) -> Void = { _ in }
     let onChangeRange: (VariableAdjustmentRange, Bool) -> Void
     @State private var showsRangeEditor = false
 
     private var valueLabel: String {
-        QuantityFormatter.number(variable.value) + (variable.unit.isEmpty ? "" : " " + variable.unit)
+        QuantityFormatter.number(variable.value, significantDigits: QuantityFormatter.preciseDigits) + (variable.unit.isEmpty ? "" : " " + variable.unit)
+    }
+
+    /// A number with the unit named, as VoiceOver reads it: « 81 kilogrammes ».
+    private func spoken(_ value: Double) -> String {
+        SpokenValue.text(value, unit: variable.unit,
+                         fallback: QuantityFormatter.number(value, significantDigits: QuantityFormatter.preciseDigits) + (variable.unit.isEmpty ? "" : " " + variable.unit))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            if showsLabel {
                 Text("\(variable.name) = \(valueLabel)")
                     .font(.callout.monospacedDigit())
-                Spacer()
-                Button("Régler le curseur de \(variable.name)", systemImage: "slider.horizontal.3") {
-                    showsRangeEditor = true
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
             }
 
             HStack {
                 Spacer(minLength: 0)
                 VariableRulerView(value: variable.value, range: range,
                                   label: "Valeur de \(variable.name)", valueLabel: valueLabel,
-                                  onChangeValue: onChangeValue)
+                                  spokenValue: spoken(variable.value), spokenStep: spoken(range.step),
+                                  usesAutomaticStep: usesAutomaticStep,
+                                  onChangeValue: onChangeValue, onEditingChanged: onEditingChanged)
                 Spacer(minLength: 0)
+                Button("Régler le curseur de \(variable.name)", systemImage: "slider.horizontal.3") {
+                    showsRangeEditor = true
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
             }
-            Text("Pas : \(QuantityFormatter.number(range.step))\(usesAutomaticStep ? " · automatique" : "")")
-                .font(.caption)
-                .foregroundStyle(.secondary)
 
             if !(range.lowerBound...range.upperBound).contains(variable.value) {
                 Text("Valeur hors des bornes. Glissez pour la ramener dans l’intervalle, ou modifiez les réglages.")
@@ -86,7 +94,7 @@ private struct VariableRangeEditor: View {
                     field("Maximum", text: $maximum, focus: .maximum)
                     Toggle("Pas automatique", isOn: $usesAutomaticStep)
                     if usesAutomaticStep {
-                        LabeledContent("Pas", value: QuantityFormatter.number(configuredRange?.step ?? variable.automaticStep))
+                        LabeledContent("Pas", value: QuantityFormatter.number(configuredRange?.step ?? variable.automaticStep, significantDigits: QuantityFormatter.preciseDigits))
                     } else {
                         field("Pas", text: $step, focus: .step)
                     }
@@ -125,6 +133,7 @@ private struct VariableRangeEditor: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annuler") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Enregistrer") {
@@ -132,24 +141,39 @@ private struct VariableRangeEditor: View {
                         onSave(range, usesAutomaticStep)
                         dismiss()
                     }
+                    .keyboardShortcut(.return, modifiers: .command)
                     .disabled(configuredRange == nil)
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Terminé") { focusedField = nil }
                 }
             }
         }
     }
 
-    private func field(_ title: String, text: Binding<String>, focus: Field) -> some View {
+    private func field(_ title: LocalizedStringKey, text: Binding<String>, focus: Field) -> some View {
         LabeledContent(title) {
-            TextField(title, text: text)
-                .multilineTextAlignment(.trailing)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .focused($focusedField, equals: focus)
-                .accessibilityLabel(title)
+            HStack {
+                TextField(title, text: text)
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.numbersAndPunctuation)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($focusedField, equals: focus)
+                    .submitLabel(nextField(after: focus) == nil ? .done : .next)
+                    .onSubmit { focusedField = nextField(after: focus) }
+                    .accessibilityLabel(title)
+                if !variable.unit.isEmpty {
+                    Text(variable.unit).foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+    }
+
+    /// The field that Return moves to; the step is skipped while it is automatic.
+    private func nextField(after field: Field) -> Field? {
+        switch field {
+        case .minimum: .maximum
+        case .maximum: usesAutomaticStep ? nil : .step
+        case .step: nil
         }
     }
 
@@ -159,7 +183,8 @@ private struct VariableRangeEditor: View {
             .replacingOccurrences(of: "−", with: "-"))
     }
 
+    /// A plain decimal number in the current language, without grouping or an exponent.
     private static func editableNumber(_ value: Double) -> String {
-        String(value).replacingOccurrences(of: ".", with: ",")
+        value.formatted(.number.grouping(.never).precision(.significantDigits(1...15)))
     }
 }

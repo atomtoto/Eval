@@ -84,10 +84,10 @@ public struct Dimension: Hashable, Sendable {
             guard abs(exponent) > 1e-10 else { return nil }
             if abs(exponent - 1) <= 1e-10 { return symbol }
             if exponent.isFinite, abs(exponent - exponent.rounded()) <= 1e-10 {
-                let power = String(format: "%.0f", locale: Locale(identifier: "en_US_POSIX"), exponent)
+                let power = abs(exponent) < 1e15 ? String(Int(exponent.rounded())) : String(format: "%.0f", exponent)
                 return symbol + Self.superscript(power)
             }
-            return symbol + "^(" + QuantityFormatter.number(exponent) + ")"
+            return symbol + "^(" + QuantityFormatter.number(exponent, significantDigits: QuantityFormatter.preciseDigits) + ")"
         }
         return parts.isEmpty ? "1" : parts.joined(separator: "·")
     }
@@ -96,11 +96,12 @@ public struct Dimension: Hashable, Sendable {
         [length, mass, time, electricCurrent, temperature, amount, luminousIntensity]
     }
 
+    private static let superscriptDigits: [Character: Character] = [
+        "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵",
+        "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻", "+": "⁺"
+    ]
+
     static func superscript(_ value: String) -> String {
-        let digits: [Character: Character] = [
-            "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵",
-            "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻", "+": "⁺"
-        ]
-        return String(value.map { digits[$0] ?? $0 })
+        String(value.map { superscriptDigits[$0] ?? $0 })
     }
 }

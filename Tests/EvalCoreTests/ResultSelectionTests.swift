@@ -62,6 +62,80 @@ final class ResultSelectionTests: XCTestCase {
         XCTAssertEqual(selectedIndexes(selection), [2])
     }
 
+    func testTypedDeletionOfOneDuplicateKeepsTheSurvivorsOwnChoice() {
+        var selection = ResultSelection(source: "x = 1\ny*2\nz\ny*2", initiallySelectedLineIDs: [1])
+        let survivor = selection.entries[3].id
+        selection.reconcile(source: "x = 1\nz\ny*2")
+        XCTAssertEqual(selection.entries[2].id, survivor)
+        XCTAssertFalse(selection.isSelected(at: 2))
+
+        var mirror = ResultSelection(source: "a*2\nb\na*2", initiallySelectedLineIDs: [2])
+        let chosen = mirror.entries[2].id
+        mirror.reconcile(source: "b\na*2")
+        XCTAssertEqual(mirror.entries[1].id, chosen)
+        XCTAssertEqual(selectedIndexes(mirror), [1])
+    }
+
+    func testCutThenPasteRestoresIdentityAndChoice() {
+        var selection = ResultSelection(source: "v = 5 m/s\nt = 2 s\nd = v*t\nd", initiallySelectedLineIDs: [3])
+        let moved = selection.entries[3].id
+        selection.reconcile(source: "v = 5 m/s\nt = 2 s\nd = v*t\n")
+        XCTAssertFalse(selection.entries.contains { $0.id == moved })
+        XCTAssertTrue(selection.retainedIDs.contains(moved))
+        selection.reconcile(source: "d\nv = 5 m/s\nt = 2 s\nd = v*t\n")
+        XCTAssertEqual(selection.entries[0].id, moved)
+        XCTAssertEqual(selectedIndexes(selection), [0])
+
+        // A declaration keeps its identity too, so data keyed by it can follow.
+        let declaration = selection.entries[1].id
+        selection.reconcile(source: "d\nt = 2 s\nd = v*t\n")
+        XCTAssertTrue(selection.retainedIDs.contains(declaration))
+        selection.reconcile(source: "d\nt = 2 s\nd = v*t\nv = 5 m/s")
+        XCTAssertEqual(selection.entries[3].id, declaration)
+        XCTAssertEqual(selection.retainedIDs, Set(selection.entries.map(\.id)))
+    }
+
+    func testRetypedDeclarationRecoversItsIdentity() {
+        var selection = ResultSelection(source: "m = 80 kg\nm*g", initiallySelectedLineIDs: [0])
+        let original = selection.entries[0].id
+        selection.reconcile(source: "m\nm*g")
+        XCTAssertNotEqual(selection.entries[0].id, original)
+        selection.reconcile(source: "m = 90 kg\nm*g")
+        XCTAssertEqual(selection.entries[0].id, original)
+        XCTAssertTrue(selection.isSelected(at: 0))
+    }
+
+    func testRemovedLinesAreRememberedWithinABound() {
+        let source = (0..<30).map { "x*\($0)" }.joined(separator: "\n")
+        var selection = ResultSelection(source: source)
+        let ids = selection.entries.map(\.id)
+        selection.removeEntry(at: 0)
+        selection.reconcile(source: (1..<30).map { "x*\($0)" }.joined(separator: "\n"))
+        XCTAssertTrue(selection.retainedIDs.contains(ids[0]))
+        selection.reconcile(source: "# vide\n")
+        XCTAssertEqual(selection.retainedIDs.count, 22)
+        XCTAssertTrue(selection.retainedIDs.isSuperset(of: ids.suffix(20)))
+        XCTAssertFalse(selection.retainedIDs.contains(ids[0]))
+        // Blank lines and comments are not worth remembering.
+        selection.reconcile(source: "")
+        XCTAssertEqual(selection.retainedIDs.count, 21)
+    }
+
+    func testRemovedLinesSurviveCodingAndEarlierDataStillDecodes() throws {
+        var selection = ResultSelection(source: "a*2\nb*3", initiallySelectedLineIDs: [0])
+        let removed = selection.entries[0].id
+        selection.reconcile(source: "b*3")
+        let restored = try JSONDecoder().decode(ResultSelection.self, from: JSONEncoder().encode(selection))
+        XCTAssertEqual(restored, selection)
+        XCTAssertTrue(restored.retainedIDs.contains(removed))
+
+        let id = UUID()
+        let legacy = Data(#"{"entries":[{"id":"\#(id.uuidString)","source":"x*2","isSelected":true}]}"#.utf8)
+        let decoded = try JSONDecoder().decode(ResultSelection.self, from: legacy)
+        XCTAssertEqual(decoded.entries.map(\.id), [id])
+        XCTAssertEqual(decoded.retainedIDs, [id])
+    }
+
     func testExplicitDeletionOfOneDuplicateKeepsTheSurvivorsOwnChoice() {
         var selection = ResultSelection(source: "2+2\n2+2", initiallySelectedLineIDs: [0])
         let survivingID = selection.entries[1].id
@@ -161,6 +235,57 @@ final class ResultSelectionTests: XCTestCase {
         let previous = selection
         selection.reconcile(source: "a = 2\na*3")
         XCTAssertEqual(selection, previous)
+    }
+
+    func testMovingALineKeepsTheMemoryOfRemovedLines() throws {
+        var selection = ResultSelection(source: "a = 1\nb = 2\na * b\na + b", initiallySelectedLineIDs: [2])
+        let cutID = selection.entries[2].id
+        selection.reconcile(source: "a = 1\nb = 2\na + b")               // cut "a * b"
+        var moved = try XCTUnwrap(selection.rearranged(by: [1, 0, 2]))    // reorder in Formules mode
+        XCTAssertTrue(moved.retainedIDs.contains(cutID))
+        moved.reconcile(source: "b = 2\na = 1\na + b\na * b")             // pasted back
+        XCTAssertEqual(moved.entries[3].id, cutID)
+        XCTAssertTrue(moved.entries[3].isSelected)
+        // Inserting a line keeps the memory too.
+        var inserted = try XCTUnwrap(selection.inserting(ResultSelection.Entry(source: "c = 3"), at: 1))
+        XCTAssertTrue(inserted.retainedIDs.contains(cutID))
+        inserted.reconcile(source: "a = 1\nc = 3\nb = 2\na + b\na * b")
+        XCTAssertEqual(inserted.entries[4].id, cutID)
+    }
+
+    func testLargePasteStaysResponsive() {
+        // 500 lines replaced by 499 unrelated formulas: every pair used to be compared.
+        let old = (0..<500).map { "f\($0) * g + h\($0) / k" }.joined(separator: "\n")
+        let new = (0..<499).map { "p\($0) + q * r\($0) - s" }.joined(separator: "\n")
+        var selection = ResultSelection(source: old)
+        var start = Date()
+        selection.reconcile(source: new)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 0.5)
+        XCTAssertEqual(selection.entries.count, 499)
+
+        // Same size: lines are paired by position and kind, without similarity search.
+        selection = ResultSelection(source: old)
+        start = Date()
+        selection.reconcile(source: (0..<500).map { "p\($0) + q * r\($0) - s" }.joined(separator: "\n"))
+        XCTAssertLessThan(Date().timeIntervalSince(start), 0.5)
+
+        // A paste in the middle of a big sheet, with one line edited.
+        let lines = (0..<500).map { "x\($0) = \($0) m" }
+        selection = ResultSelection(source: lines.joined(separator: "\n"))
+        var edited = lines
+        edited.insert(contentsOf: (0..<40).map { "y\($0) + z\($0)" }, at: 250)
+        edited[10] = "x10 = 1000 m"
+        start = Date()
+        selection.reconcile(source: edited.joined(separator: "\n"))
+        XCTAssertLessThan(Date().timeIntervalSince(start), 0.5)
+    }
+
+    func testSmallEditsStillKeepTheirChoiceAfterTheOptimisation() {
+        var selection = ResultSelection(source: "a = 2\nm * v^2\nm * v", initiallySelectedLineIDs: [1])
+        let chosenID = selection.entries[1].id
+        selection.reconcile(source: "a = 2\nb = 3\nm * v^2 / 2\nm * v")
+        XCTAssertEqual(selection.entries[2].id, chosenID)
+        XCTAssertEqual(selectedIndexes(selection), [2])
     }
 
     private func selectedIndexes(_ selection: ResultSelection) -> Set<Int> {

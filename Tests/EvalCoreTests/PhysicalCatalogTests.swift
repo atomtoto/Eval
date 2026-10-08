@@ -187,6 +187,131 @@ final class PhysicalCatalogTests: XCTestCase {
         XCTAssertFalse(evaluation.constants.contains { $0.id == "F_const" })
     }
 
+    func testNonSIUnitReferenceValues() throws {
+        typealias Dim = EvalCore.Dimension
+        let pressure = Dim(length: -1, mass: 1, time: -2)
+        let energy = Dim(length: 2, mass: 1, time: -2)
+        let force = Dim(length: 1, mass: 1, time: -2)
+        let expected: [(String, Double, Dim)] = [
+            ("atm", 101_325, pressure), ("Torr", 101_325.0 / 760, pressure),
+            ("mmHg", 133.322_387_415, pressure), ("cal", 4.184, energy), ("Wh", 3_600, energy),
+            ("Ah", 3_600, Dim(time: 1, electricCurrent: 1)), ("Å", 1e-10, .length),
+            ("ly", 9_460_730_472_580_800, .length), ("pc", 3.085_677_581_491_367e16, .length),
+            ("Da", 1.660_539_068_92e-27, .mass), ("jour", 86_400, .time), ("an", 31_557_600, .time),
+            ("tr", 2 * Double.pi, .dimensionless), ("rpm", 2 * Double.pi / 60, Dim(time: -1)),
+            ("%", 0.01, .dimensionless), ("ppm", 1e-6, .dimensionless), ("ft", 0.3048, .length),
+            ("mi", 1_609.344, .length), ("lb", 0.453_592_37, .mass), ("lbf", 4.448_221_615_260_5, force)
+        ]
+        for (symbol, value, dimension) in expected {
+            let unit = try XCTUnwrap(UnitCatalog.lookup(symbol), symbol)
+            XCTAssertEqual(unit.quantity.value, value, accuracy: abs(value) * 1e-15, symbol)
+            XCTAssertTrue(unit.quantity.dimension.isEquivalent(to: dimension), symbol)
+        }
+        for (alias, symbol) in [("angstrom", "Å"), ("day", "jour"), ("yr", "an"), ("year", "an")] {
+            XCTAssertEqual(UnitCatalog.lookup(alias)?.quantity, UnitCatalog.lookup(symbol)?.quantity, alias)
+        }
+        XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup("Da")).quantity.value,
+                       try constant("m_u").quantity.value)
+    }
+
+    func testNonSIUnitsAcceptOnlyListedPrefixes() throws {
+        XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup("mbar")).quantity.value, 100, accuracy: 1e-12)
+        XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup("kWh")).quantity.value, 3.6e6)
+        XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup("mAh")).quantity.value, 3.6, accuracy: 1e-12)
+        XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup("kcal")).quantity.value, 4184, accuracy: 1e-9)
+        for symbol in ["kpc", "Mpc", "kDa", "mTorr", "hPa", "kbar", "MWh"] {
+            XCTAssertNotNil(UnitCatalog.lookup(symbol), symbol)
+        }
+        for symbol in ["kmi", "Min", "kft", "kan", "Matm", "hbar", "Mbar", "mcal", "kly", "mmmHg", "kjour", "k%", "mrpm"] {
+            XCTAssertNil(UnitCatalog.lookup(symbol), symbol)
+        }
+        for symbol in ["mbar", "hPa", "kWh", "MWh", "mAh", "kcal", "kpc", "Mpc", "kDa", "mTorr"] {
+            XCTAssertTrue(UnitCatalog.all.contains { $0.symbol == symbol }, symbol)
+        }
+    }
+
+    func testHbarRemainsReducedPlanckConstant() throws {
+        let evaluation = NotebookEngine().evaluate("hbar\n1 hbar\nhbar / h")
+        let planck = try constant("hbar").quantity
+        XCTAssertEqual(try successfulQuantity(evaluation.lines[0]), planck)
+        XCTAssertEqual(try successfulQuantity(evaluation.lines[1]), planck)
+        XCTAssertEqual(try successfulQuantity(evaluation.lines[2]).value, 1 / (2 * .pi), accuracy: 1e-15)
+    }
+
+    func testCommonVariableNamesAreNotUnits() throws {
+        let names = ["t", "d", "a", "u", "j", "x", "y", "z", "v", "r", "p", "q", "n", "psi", "phi", "chi", "rho",
+                     "eta", "theta", "omega", "lambda", "mu", "nu", "xi", "pt", "Mt", "kt", "dt", "da", "in", "kn",
+                     "G", "Gs"]
+        for name in names where name != "Gs" {
+            XCTAssertNil(UnitCatalog.lookup(name), name)
+        }
+        // Gigasecond predates this policy and stays.
+        XCTAssertNotNil(UnitCatalog.lookup("Gs"))
+        let grandfathered: Set = ["g", "h"]
+        for constant in ConstantCatalog.all {
+            let spellings = [constant.id, constant.symbol] + ConstantCatalog.aliases(for: constant)
+            for spelling in spellings where !grandfathered.contains(spelling) {
+                XCTAssertNil(UnitCatalog.lookup(spelling), spelling)
+            }
+        }
+    }
+
+    func testAngstromAcceptsBothUnicodeForms() throws {
+        let angstromSign = try XCTUnwrap(UnitCatalog.lookup("\u{212B}"))
+        let latinA = try XCTUnwrap(UnitCatalog.lookup("\u{00C5}"))
+        XCTAssertEqual(angstromSign.quantity, latinA.quantity)
+        XCTAssertEqual(latinA.quantity.value, 1e-10)
+    }
+
+    func testPrefixedLitreOhmAndBarSpellings() throws {
+        let litre = try XCTUnwrap(UnitCatalog.lookup("L")).quantity.value
+        for (symbol, factor) in [("ml", 1e-3), ("mL", 1e-3), ("cl", 1e-2), ("dl", 1e-1), ("hl", 1e2), ("kl", 1e3),
+                                 ("µl", 1e-6), ("μl", 1e-6), ("ul", 1e-6), ("l", 1)] {
+            XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup(symbol), symbol).quantity.value, litre * factor,
+                           accuracy: litre * factor * 1e-12, symbol)
+        }
+        XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup("kohm")).quantity.value, 1e3, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup("Mohm")).quantity.value, 1e6)
+        XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup("kΩ")).quantity.value, 1e3)
+        XCTAssertEqual(UnitCatalog.lookup("kohm")?.symbol, "kohm")
+        // Explicit aliases keep short variable names free.
+        for symbol in ["al", "pl", "fl", "kh", "mmin", "kdeg"] { XCTAssertNil(UnitCatalog.lookup(symbol), symbol) }
+        for source in ["5 ml", "33 cl", "2 hl", "4,7 kohm", "1013 mbar", "2 kWh", "1 atm"] {
+            XCTAssertEqual(NotebookEngine.evaluate(source).lines[0].status, .success, source)
+        }
+    }
+
+    func testUnitIndexFollowsPrefixPolicyForEveryPrefixAndUnit() throws {
+        for prefix in UnitCatalog.prefixes {
+            for base in UnitCatalog.baseAndDerived {
+                let symbol = prefix.symbol + base.symbol
+                let found = UnitCatalog.lookup(symbol)
+                let allowed = UnitCatalog.allowedPrefixes[base.symbol]?.contains(prefix.symbol) ?? true
+                let listed = UnitCatalog.baseAndDerived.contains { $0.symbol == symbol }
+                    || UnitCatalog.all.contains { $0.symbol == symbol }
+                if allowed || listed {
+                    XCTAssertNotNil(found, symbol)
+                    if listed { continue }
+                    // Another prefix may read the same letters (dam, mmol): the first one wins.
+                    let candidates = UnitCatalog.prefixes.compactMap { other -> Double? in
+                        guard symbol.hasPrefix(other.symbol),
+                              let unit = UnitCatalog.baseAndDerived.first(where: { $0.symbol == String(symbol.dropFirst(other.symbol.count)) }),
+                              UnitCatalog.allowedPrefixes[unit.symbol]?.contains(other.symbol) ?? true
+                        else { return nil }
+                        return other.scale * unit.quantity.value
+                    }
+                    XCTAssertEqual(found?.quantity.value, candidates.first, symbol)
+                } else {
+                    XCTAssertNil(found, symbol)
+                }
+            }
+        }
+        for (symbol, value) in [("mm", 1e-3), ("Pa", 1), ("dam", 10), ("kmol", 1e3), ("µs", 1e-6)] {
+            XCTAssertEqual(try XCTUnwrap(UnitCatalog.lookup(symbol)).quantity.value, value, symbol)
+        }
+        XCTAssertEqual(UnitCatalog.lookup("μs"), UnitCatalog.lookup("µs"))
+    }
+
     private func constant(_ identifier: String) throws -> ConstantDefinition {
         try XCTUnwrap(ConstantCatalog.lookup(identifier), identifier)
     }

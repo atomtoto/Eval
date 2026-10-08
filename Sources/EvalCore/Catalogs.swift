@@ -19,11 +19,12 @@ public enum UnitCatalog: Sendable {
     private static let power = energy - .time
     private static let charge = Dimension.electricCurrent + .time
     private static let voltage = power - .electricCurrent
+    private static let pressure = force - .length.scaled(by: 2)
 
     // SI definitions and decimal prefixes: NIST SP 330, sections 2 and 3.
     // https://www.nist.gov/pml/special-publication-330/sp-330-section-2
     // https://www.nist.gov/pml/special-publication-330/sp-330-section-3
-    private static let baseAndDerived: [UnitDefinition] = [
+    static let baseAndDerived: [UnitDefinition] = [
         unit("m", "Mètre", .length),
         unit("kg", "Kilogramme", .mass),
         unit("g", "Gramme", .mass, scale: 1e-3),
@@ -58,7 +59,41 @@ public enum UnitCatalog: Sendable {
         unit("h", "Heure", .time, scale: 3_600),
         unit("L", "Litre", .length.scaled(by: 3), scale: 1e-3),
         unit("bar", "Bar", force - .length.scaled(by: 2), scale: 1e5),
-        unit("eV", "Électronvolt", energy, scale: 1.602_176_634e-19)
+        unit("eV", "Électronvolt", energy, scale: 1.602_176_634e-19),
+        // Common non-SI units. Their prefixes follow `allowedPrefixes`.
+        unit("atm", "Atmosphère normale", pressure, scale: 101_325),
+        unit("Torr", "Torr", pressure, scale: 101_325 / 760),
+        unit("mmHg", "Millimètre de mercure", pressure, scale: 133.322_387_415),
+        unit("cal", "Calorie", energy, scale: 4.184),
+        unit("Wh", "Wattheure", energy, scale: 3_600),
+        unit("Ah", "Ampèreheure", charge, scale: 3_600),
+        unit("Å", "Ångström", .length, scale: 1e-10),
+        unit("ly", "Année-lumière", .length, scale: 9_460_730_472_580_800),
+        unit("pc", "Parsec", .length, scale: 3.085_677_581_491_367e16),
+        unit("Da", "Dalton", .mass, scale: 1.660_539_068_92e-27),
+        unit("jour", "Jour", .time, scale: 86_400),
+        unit("an", "Année", .time, scale: 31_557_600),
+        unit("tr", "Tour", .dimensionless, scale: 2 * .pi),
+        unit("rpm", "Tour par minute", .dimensionless - .time, scale: 2 * .pi / 60),
+        unit("%", "Pour cent", .dimensionless, scale: 0.01),
+        unit("ppm", "Partie par million", .dimensionless, scale: 1e-6),
+        unit("ft", "Pied", .length, scale: 0.3048),
+        unit("mi", "Mille", .length, scale: 1_609.344),
+        unit("lb", "Livre", .mass, scale: 0.453_592_37),
+        unit("lbf", "Livre-force", force, scale: 4.448_221_615_260_5)
+    ]
+
+    /// Prefixes a unit accepts; a unit that is absent accepts every SI prefix.
+    /// Short symbols such as t, d, a, u, in, psi or G are deliberately not units:
+    /// they are everyday variable names, and a spaced suffix would shadow them.
+    static let allowedPrefixes: [String: Set<String>] = [
+        "kg": [], "min": [], "h": [], "deg": [],
+        "bar": ["m", "k"], // Not h: hbar stays the reduced Planck constant.
+        "atm": [], "Torr": ["m"], "mmHg": [], "cal": ["k"],
+        "Wh": ["m", "k", "M", "G", "T"], "Ah": ["m"],
+        "Å": [], "ly": [], "pc": ["k", "M", "G"], "Da": ["k", "M"],
+        "jour": [], "an": [], "tr": [], "rpm": [], "%": [], "ppm": [],
+        "ft": [], "mi": [], "lb": [], "lbf": []
     ]
 
     /// Units presented in the reference; lookup also accepts every SI decimal prefix.
@@ -66,30 +101,82 @@ public enum UnitCatalog: Sendable {
         "km", "cm", "mm", "µm", "nm", "mg", "µg", "ms", "µs", "ns",
         "mA", "µA", "kHz", "MHz", "GHz", "kN", "kPa", "MPa", "kJ", "MJ",
         "mW", "kW", "MW", "mV", "kV", "mF", "µF", "nF", "pF", "mH",
-        "mL", "keV", "MeV", "GeV"
+        "mL", "keV", "MeV", "GeV", "mbar", "hPa", "kWh", "MWh", "mAh", "kcal",
+        "kpc", "Mpc", "kDa", "mTorr"
     ].compactMap { prefixedUnit($0) }
+
+    /// Spellings that name a unit without being its symbol. The litre aliases are
+    /// explicit: a generic «*l» rule would turn variables such as al or pl into units.
+    private static let aliases: [String: String] = [
+        "ohm": "Ω", "Ohm": "Ω", "Omega": "Ω", "l": "L", "hr": "h", "hour": "h", "heure": "h",
+        "minute": "min", "°": "deg", "degree": "deg", "angstrom": "Å", "day": "jour",
+        "yr": "an", "year": "an",
+        "kl": "kL", "hl": "hL", "dl": "dL", "cl": "cL", "ml": "mL",
+        "µl": "µL", "μl": "µL", "ul": "µL"
+    ]
+
+    /// Every accepted symbol, built once: prefixed forms first, then listed
+    /// units, which take precedence, as `all` always did.
+    private static let index: [String: UnitDefinition] = {
+        var table: [String: UnitDefinition] = [:]
+        for prefix in prefixes {
+            for base in baseAndDerived where accepts(prefix.symbol, base.symbol) {
+                let symbol = prefix.symbol + base.symbol
+                if table[symbol] == nil { table[symbol] = prefixed(symbol, prefix, base) }
+            }
+            // kohm, Mohm: the spelled-out ohm takes prefixes like its symbol.
+            if let ohm = baseAndDerived.first(where: { $0.symbol == "Ω" }) {
+                for spelling in ["ohm", "Ohm"] {
+                    let symbol = prefix.symbol + spelling
+                    if table[symbol] == nil { table[symbol] = prefixed(symbol, prefix, ohm) }
+                }
+            }
+        }
+        for unit in all.reversed() { table[unit.symbol] = unit }
+        return table
+    }()
 
     /// Unit symbols are case-sensitive: m, M, g and G are not interchangeable.
     public static func lookup(_ identifier: String) -> UnitDefinition? {
-        let aliases: [String: String] = [
-            "ohm": "Ω", "Ohm": "Ω", "Omega": "Ω", "Ω": "Ω",
-            "l": "L", "hr": "h", "hour": "h", "heure": "h", "minute": "min",
-            "°": "deg", "degree": "deg"
-        ]
-        let symbol = aliases[identifier] ?? identifier.replacingOccurrences(of: "μ", with: "µ")
-        return all.first { $0.symbol == symbol } ?? prefixedUnit(symbol)
+        if let alias = aliases[identifier] { return index[alias] }
+        if identifier.contains("μ") { return index[identifier.replacingOccurrences(of: "μ", with: "µ")] }
+        return index[identifier]
+    }
+
+    /// Unit expressions offered by an "Afficher en" menu, in presentation order.
+    private static let displaySuggestionSymbols = [
+        "km/h", "m/s", "km", "m", "cm", "mm", "µm", "nm", "Å", "au", "ly", "pc", "ft", "mi",
+        "kg", "g", "mg", "lb", "Da", "s", "min", "h", "jour", "an", "ms", "µs",
+        "J", "kJ", "MJ", "Wh", "kWh", "cal", "kcal", "eV", "keV", "MeV", "W", "kW", "MW",
+        "N", "kN", "lbf", "Pa", "kPa", "hPa", "bar", "mbar", "atm", "mmHg",
+        "L", "mL", "g/cm³", "kg/m³", "mol/L", "Hz", "kHz", "MHz", "rad/s", "tr/min", "Bq",
+        "A", "mA", "mAh", "Ah", "C", "V", "mV", "kV", "Ω", "kΩ", "F", "µF", "H", "T",
+        "%", "ppm", "deg", "rad", "tr"
+    ]
+
+    private static let displaySuggestionIndex: [(symbol: String, dimension: Dimension)] =
+        displaySuggestionSymbols.compactMap { symbol in
+            NotebookEngine.unitQuantity(of: symbol).map { (symbol, $0.dimension) }
+        }
+
+    /// Curated units for displaying a result of this dimension with `->`.
+    /// Dimensionally identical units (Hz, rad/s, Bq) are all offered: only the
+    /// user knows which one is meant.
+    public static func displaySuggestions(compatibleWith dimension: Dimension) -> [String] {
+        displaySuggestionIndex.filter { $0.dimension.isEquivalent(to: dimension) }.map(\.symbol)
     }
 
     /// Dimensional analysis cannot distinguish dimensionally identical named units,
-    /// so the display favors ordinary mechanics and electrical SI units.
+    /// so the display favors ordinary mechanics and electrical SI units. Hz and Bq
+    /// are never inferred: s⁻¹ may be a frequency, an angular velocity or an activity.
     static func preferredSymbol(for dimension: Dimension) -> String? {
-        let preferred = ["kg", "m", "s", "A", "K", "mol", "cd", "Hz", "N", "Pa", "J", "W", "C", "V", "F", "Ω", "S", "Wb", "T", "H", "kat"]
+        let preferred = ["kg", "m", "s", "A", "K", "mol", "cd", "N", "Pa", "J", "W", "C", "V", "F", "Ω", "S", "Wb", "T", "H", "kat"]
         return preferred.first { symbol in
             baseAndDerived.first { $0.symbol == symbol }?.quantity.dimension.isEquivalent(to: dimension) == true
         }
     }
 
-    private static let prefixes: [(symbol: String, name: String, scale: Double)] = [
+    static let prefixes: [(symbol: String, name: String, scale: Double)] = [
         ("da", "déca", 1e1), ("Q", "quetta", 1e30), ("R", "ronna", 1e27),
         ("Y", "yotta", 1e24), ("Z", "zetta", 1e21), ("E", "exa", 1e18),
         ("P", "péta", 1e15), ("T", "téra", 1e12), ("G", "giga", 1e9),
@@ -101,17 +188,26 @@ public enum UnitCatalog: Sendable {
         ("q", "quecto", 1e-30)
     ]
 
+    private static func accepts(_ prefix: String, _ unit: String) -> Bool {
+        allowedPrefixes[unit]?.contains(prefix) ?? true
+    }
+
+    private static func prefixed(_ symbol: String, _ prefix: (symbol: String, name: String, scale: Double),
+                                 _ base: UnitDefinition) -> UnitDefinition {
+        UnitDefinition(
+            symbol: symbol,
+            name: prefix.name + base.name.lowercased(),
+            quantity: Quantity(value: prefix.scale * base.quantity.value, dimension: base.quantity.dimension)
+        )
+    }
+
+    /// The first prefix, in declaration order, that gives a unit with this symbol.
     private static func prefixedUnit(_ symbol: String) -> UnitDefinition? {
         for prefix in prefixes where symbol.hasPrefix(prefix.symbol) {
             let suffix = String(symbol.dropFirst(prefix.symbol.count))
-            // Kilogram already contains a prefix. Prefix mass units from gram instead.
-            guard suffix != "kg", suffix != "min", suffix != "h", suffix != "deg", suffix != "bar",
-                  let base = baseAndDerived.first(where: { $0.symbol == suffix }) else { continue }
-            return UnitDefinition(
-                symbol: symbol,
-                name: prefix.name + base.name.lowercased(),
-                quantity: Quantity(value: prefix.scale * base.quantity.value, dimension: base.quantity.dimension)
-            )
+            guard let base = baseAndDerived.first(where: { $0.symbol == suffix }),
+                  accepts(prefix.symbol, suffix) else { continue }
+            return prefixed(symbol, prefix, base)
         }
         return nil
     }

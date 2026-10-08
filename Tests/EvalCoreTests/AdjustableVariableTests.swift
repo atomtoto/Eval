@@ -57,6 +57,35 @@ final class AdjustableVariableTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(AdjustableVariable(source: whole.source(replacingValue: 7)!)).automaticStep, 1)
     }
 
+    func testRulerWritesDecimalValuesWithoutBinaryNoise() throws {
+        let variable = try XCTUnwrap(AdjustableVariable(source: "x = 1,00"))
+        let range = try XCTUnwrap(VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep))
+        let value = range.adjustedValue(from: 1, steps: -8)
+        XCTAssertEqual(value, 0.92)
+        XCTAssertEqual(variable.source(replacingValue: value), "x = 0,92")
+        // A value one ulp away from the decimal still keeps the entered precision.
+        XCTAssertEqual(variable.source(replacingValue: 0.9199999999999999), "x = 0,92")
+        let quarter = try XCTUnwrap(AdjustableVariable(source: "x = 2,25"))
+        let quarterRange = try XCTUnwrap(VariableAdjustmentRange.suggested(for: 2.25, step: quarter.automaticStep))
+        XCTAssertEqual(quarter.source(replacingValue: quarterRange.adjustedValue(from: 2.25, steps: -1)), "x = 2,24")
+        let symmetric = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -10, upperBound: 10, step: 0.1))
+        XCTAssertEqual(symmetric.adjustedValue(from: 0.3, steps: -3), 0)
+    }
+
+    func testScrubbingKeepsTheEnteredPrecisionAcrossTheWholeRange() throws {
+        let sources = ["x = 0,0", "x = 0,00", "x = 1,00", "x = 5,0", "x = 9,81", "x = 0,000",
+                       "x = 12,5", "x = 3,14", "x = 5e-3 s", "x = 1,25e-3", "x = -7,2", "x = 2,5e3"]
+        for source in sources {
+            let variable = try XCTUnwrap(AdjustableVariable(source: source))
+            let range = try XCTUnwrap(VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep))
+            for steps in -250...250 {
+                let written = try XCTUnwrap(variable.source(replacingValue: range.adjustedValue(from: variable.value, steps: steps)))
+                let reparsed = try XCTUnwrap(AdjustableVariable(source: written), written)
+                XCTAssertEqual(reparsed.automaticStep, variable.automaticStep, written)
+            }
+        }
+    }
+
     func testRelativeRulerFreezesItsOriginAndHonorsCustomBounds() throws {
         let range = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -10, upperBound: 10, step: 0.1))
         // Each drag update uses total displacement, not the previous result.
@@ -96,10 +125,18 @@ final class AdjustableVariableTests: XCTestCase {
         }
     }
 
+    func testCompactUnitChainIsAdjustable() throws {
+        let variable = try XCTUnwrap(AdjustableVariable(source: "v = 72km/h # vitesse"))
+        XCTAssertEqual(variable.value, 72)
+        XCTAssertEqual(variable.unit, "km/h")
+        XCTAssertEqual(variable.source(replacingValue: 90), "v = 90km/h # vitesse")
+        XCTAssertNil(AdjustableVariable(source: "v = 2m"))
+    }
+
     func testFractionalLiteralsAndScientificSigns() throws {
         let examples: [(String, Double)] = [
             ("x = ,5", 0.5), ("x = -.5", -0.5), ("x = 2,5E+3 mm", 2_500),
-            ("x = -2e−3 s", -0.002), ("x = 7. m", 7)
+            ("x = -2e−3 s", -0.002), ("x = 7. m", 7), ("x = –2e–3 s", -0.002)
         ]
         for (source, expected) in examples {
             XCTAssertEqual(try XCTUnwrap(AdjustableVariable(source: source)).value, expected, source)
@@ -270,5 +307,43 @@ final class AdjustableVariableTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(VariableAdjustmentRange.self, from: data), range)
         let invalid = Data(#"{"lowerBound":5,"upperBound":2,"step":1}"#.utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(VariableAdjustmentRange.self, from: invalid))
+    }
+
+    /// The ruler no longer evaluates a whole sheet line per tick: its answer must
+    /// still be the engine's, including overflow with a large unit.
+    func testReplacementValidityMatchesTheEngineOverAGridOfValues() throws {
+        let templates = ["x = 5 km", "x = 5 Mm", "v = 72 km/h", "x = 1,5e3 pc", "t = 2 h", "x = 7", "x = 3 µm",
+                         "x = 2 ly", "v = 72 km/h -> m/s", "p = 5 bar"]
+        let values: [Double] = [0, 1, -1, 1e-5, 1e308, -1e308, 1.7e307, 123_456.789, 5e-324, 1e22, 0.1 + 0.2, 8.99e307]
+        for template in templates {
+            let variable = try XCTUnwrap(AdjustableVariable(source: template), template)
+            let literalEnd = template.firstIndex(of: "=").map { template.index(after: $0) }!
+            let unitStart = template[literalEnd...].dropFirst().firstIndex(of: " ")
+            let rest = unitStart.map { String(template[$0...]) } ?? ""
+            let name = template[..<literalEnd]
+            for value in values {
+                let naive = "\(name) \(value)\(rest)"
+                let expected = NotebookEngine.evaluate(naive).lines.first?.status == .success
+                let replaced = variable.source(replacingValue: value)
+                XCTAssertEqual(replaced != nil, expected, "\(template) ← \(value)")
+                if let replaced {
+                    XCTAssertEqual(NotebookEngine.evaluate(replaced).lines.first?.status, .success, replaced)
+                }
+            }
+        }
+        XCTAssertNil(try XCTUnwrap(AdjustableVariable(source: "x = 5 km")).source(replacingValue: 1e308))
+    }
+
+    func testOnlyEngineAcceptableLinesGetARuler() {
+        let accepted = ["x = 5", "x = -5,5 m", "v = 72 km/h", "v = 72 km/h -> m/s # vitesse", "n = 1,5e3 pc", "x = 2 ml", "max = 5"]
+        let rejected = ["h = 2km/h", "x = 5 m + 2 m", "x = y", "x = 5 foo", "x = 2 m -> s", "x = 5 -> ", "a == 5"]
+        for source in accepted { XCTAssertNotNil(AdjustableVariable(source: source), source) }
+        for source in rejected { XCTAssertNil(AdjustableVariable(source: source), source) }
+    }
+
+    func testConversionSuffixIsPreserved() throws {
+        let variable = try XCTUnwrap(AdjustableVariable(source: "v = 72 km/h -> m/s # vitesse"))
+        XCTAssertEqual(variable.unit, "km/h")
+        XCTAssertEqual(variable.source(replacingValue: 80), "v = 80 km/h -> m/s # vitesse")
     }
 }

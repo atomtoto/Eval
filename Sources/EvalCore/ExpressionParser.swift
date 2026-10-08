@@ -8,7 +8,13 @@ indirect enum Expression: Sendable {
     case unit(String)
     case unary(UnaryOperator, Expression)
     case binary(BinaryOperator, Expression, Expression)
-    case function(String, Expression)
+    /// A call with its canonical name and arguments separated by `;` in the source.
+    case function(String, [Expression])
+    /// `n!`, a postfix factorial that binds tighter than `^` and a unary minus.
+    case factorial(Expression)
+    /// An unspaced unit chain after a number, such as 72km/h: units unless
+    /// the sheet declares one of its symbols.
+    case compactUnits(Expression)
 
     enum UnaryOperator: Sendable { case plus, minus }
     enum BinaryOperator: Sendable { case add, subtract, multiply, divide, power }
@@ -18,7 +24,9 @@ indirect enum Expression: Sendable {
         case .binary(let operation, let left, let right):
             return operation == .add || operation == .subtract
                 || left.checksHomogeneity || right.checksHomogeneity
-        case .unary(_, let expression), .function(_, let expression):
+        case .function(let name, let arguments):
+            return ["min", "max", "atan2"].contains(name) || arguments.contains { $0.checksHomogeneity }
+        case .unary(_, let expression), .factorial(let expression):
             return expression.checksHomogeneity
         default:
             return false
@@ -30,20 +38,42 @@ indirect enum Expression: Sendable {
     var isNumericExpression: Bool {
         switch self {
         case .number: return true
-        case .unary(_, let argument), .function(_, let argument):
+        case .unary(_, let argument), .factorial(let argument):
             return argument.isNumericExpression
+        case .function(_, let arguments):
+            return arguments.allSatisfy(\.isNumericExpression)
         case .binary(_, let left, let right):
             return left.isNumericExpression && right.isNumericExpression
-        case .identifier, .unit: return false
+        case .identifier, .unit, .compactUnits: return false
         }
     }
 }
 
 enum CalculationError: Error, LocalizedError, Sendable {
     case invalid(String)
+    /// A cycle, or a depth limit reached along one: the message depends on
+    /// where evaluation started, so it is shown unchanged and never remembered.
+    case circular(String)
+    /// Names the declaration at fault instead of repeating its own diagnostic.
+    case dependency(String)
 
     var errorDescription: String? {
-        switch self { case .invalid(let message): return message }
+        switch self {
+        case .invalid(let message), .circular(let message), .dependency(let message): return message
+        }
+    }
+
+    var isCircular: Bool {
+        if case .circular = self { return true }
+        return false
+    }
+
+    /// Errors that already describe the identifier itself or its root cause.
+    var isAttributed: Bool {
+        switch self {
+        case .circular, .dependency: return true
+        case .invalid: return false
+        }
     }
 }
 
@@ -53,6 +83,8 @@ struct ExpressionParser {
     private enum TokenKind: Equatable {
         case number(Double), identifier(String)
         case plus, minus, multiply, divide, power, leftParenthesis, rightParenthesis
+        /// `;` separates function arguments; a `,` not followed by a digit is a stray comma.
+        case semicolon, comma, factorial
         case end
     }
 
@@ -60,6 +92,15 @@ struct ExpressionParser {
         let kind: TokenKind
         let column: Int
         var hasLeadingWhitespace = false
+        /// A number written with a decimal comma, such as 2,3.
+        var hasDecimalComma = false
+    }
+
+    /// A function's canonical name and the number of arguments it accepts.
+    struct FunctionSpec {
+        let name: String
+        let arity: ClosedRange<Int>
+        let example: String
     }
 
     private let tokens: [Token]
@@ -75,9 +116,18 @@ struct ExpressionParser {
         let expression = try parseAddition()
         guard current == .end else {
             if current == .rightParenthesis { throw error("Parenthèse fermante inattendue.") }
+            try rejectSeparator()
             throw error("Symbole inattendu ; vérifiez les opérateurs et les parenthèses.")
         }
         return expression
+    }
+
+    /// A `;` or `,` that is not inside a function call.
+    private func rejectSeparator() throws {
+        if current == .semicolon { throw error("« ; » sépare les arguments d’une fonction, par exemple max(a; b).") }
+        if current == .comma {
+            throw error("Virgule inattendue : la virgule est le séparateur décimal (2,5). Séparez les arguments d’une fonction par « ; ».")
+        }
     }
 
     private var current: TokenKind { tokens[position].kind }
@@ -111,13 +161,22 @@ struct ExpressionParser {
                 advance()
                 expression = .binary(operation, expression, try parseUnary())
             } else if startsPrimary(current) {
-                if case .number = current, case .number = tokens[position - 1].kind {
-                    throw error("Deux nombres consécutifs nécessitent un opérateur. Les séparateurs de milliers ne sont pas pris en charge.")
-                }
+                try rejectConsecutiveNumbers()
                 expression = .binary(.multiply, expression, try parseUnary())
             } else {
                 return expression
             }
+        }
+    }
+
+    // The recursive path (addition → … → primary → call → addition) runs once per
+    // nesting level, on stacks as small as 512 KB in debug builds. Its functions
+    // therefore stay lean: bulky or rarely taken code lives in `@inline(never)`
+    // helpers, whose frames are gone before the recursion goes deeper.
+    @inline(never)
+    private func rejectConsecutiveNumbers() throws {
+        if case .number = current, case .number = tokens[position - 1].kind {
+            throw error("Deux nombres consécutifs nécessitent un opérateur. Les séparateurs de milliers ne sont pas pris en charge.")
         }
     }
 
@@ -134,13 +193,34 @@ struct ExpressionParser {
 
     private mutating func parsePower(allowUnitSuffix: Bool) throws -> Expression {
         var expression = try parsePrimary()
+        while current == .factorial {
+            advance()
+            expression = .factorial(expression)
+        }
         if current == .power {
             advance()
             expression = .binary(.power, expression, try parseUnary(allowUnitSuffix: false))
         }
+        return try parseUnitSuffix(expression, allowUnitSuffix: allowUnitSuffix)
+    }
+
+    /// `3 m`, `72km/h`, `3g/cm³`: units written after a numeric expression.
+    @inline(never)
+    private mutating func parseUnitSuffix(_ expression: Expression, allowUnitSuffix: Bool) throws -> Expression {
         if allowUnitSuffix, expression.isNumericExpression,
            tokens[position].hasLeadingWhitespace, isUnitToken(current) {
             return .binary(.multiply, expression, try parseUnitProduct())
+        }
+        // 72km/h or 3g/cm³: an unspaced chain joined by an operator reads as
+        // units, whereas a lone 3g keeps the variable namespace.
+        if allowUnitSuffix, expression.isNumericExpression, !tokens[position].hasLeadingWhitespace,
+           isUnitToken(current), position + 2 < tokens.count,
+           [.multiply, .divide, .power].contains(tokens[position + 1].kind),
+           !tokens[position + 1].hasLeadingWhitespace, !tokens[position + 2].hasLeadingWhitespace {
+            let start = position
+            let units = try parseUnitProduct()
+            if position - start > 1 { return .binary(.multiply, expression, .compactUnits(units)) }
+            position = start
         }
         return expression
     }
@@ -152,36 +232,96 @@ struct ExpressionParser {
             return .number(value)
         case .identifier(let name):
             advance()
-            let function = Self.functionName(name)
-            if let function, current == .leftParenthesis {
+            if current == .leftParenthesis, let function = Self.function(named: name) {
                 advance()
-                let argument = try parseAddition()
-                guard current == .rightParenthesis else {
-                    throw error("La fonction \(name) attend un argument entre parenthèses.")
-                }
-                advance()
-                return .function(function, argument)
+                return try parseCall(name, function)
             }
-            if function == "sqrt", name == "√" {
-                return .function("sqrt", try parseUnary())
-            }
-            if function != nil {
-                throw error("Utilisez \(name)(expression) pour cette fonction.")
-            }
-            return .identifier(name)
+            return try parseBareIdentifier(name)
         case .leftParenthesis:
             advance()
             let expression = try parseAddition()
-            guard current == .rightParenthesis else { throw error("Parenthèse fermante manquante.") }
-            advance()
+            try closeParenthesis()
             return expression
-        case .end:
-            throw error("Il manque un nombre, une variable ou une expression après l’opérateur.")
-        case .rightParenthesis:
-            throw error("La parenthèse ne contient pas d’expression valide.")
         default:
-            throw error("Un nombre, une variable ou une parenthèse est attendu.")
+            throw primaryError()
         }
+    }
+
+    /// A name not followed by `(`: a variable or unit, or `√`.
+    @inline(never)
+    private mutating func parseBareIdentifier(_ name: String) throws -> Expression {
+        let function = Self.function(named: name)
+        if function?.name == "sqrt", name == "√" {
+            // A spaced unit stays outside the root: √2 m is (√2)·m.
+            return .function("sqrt", [try parseUnary(allowUnitSuffix: false)])
+        }
+        // A function name is a call only when followed by `(`. Otherwise it is an
+        // ordinary name: a variable called max, or the unit min. When nothing
+        // declares it, the engine suggests the call syntax.
+        return .identifier(name)
+    }
+
+    @inline(never)
+    private mutating func closeParenthesis() throws {
+        guard current == .rightParenthesis else {
+            try rejectSeparator()
+            throw error("Parenthèse fermante manquante.")
+        }
+        advance()
+    }
+
+    @inline(never)
+    private func primaryError() -> CalculationError {
+        switch current {
+        case .end: return error("Il manque un nombre, une variable ou une expression après l’opérateur.")
+        case .rightParenthesis: return error("La parenthèse ne contient pas d’expression valide.")
+        default: return error("Un nombre, une variable ou une parenthèse est attendu.")
+        }
+    }
+
+    /// The arguments after `name(`, separated by `;`. The decimal comma makes `,`
+    /// ambiguous, so it is explained instead of guessed.
+    private mutating func parseCall(_ name: String, _ function: FunctionSpec) throws -> Expression {
+        let start = position
+        var arguments = [try parseAddition()]
+        while current == .semicolon {
+            advance()
+            arguments.append(try parseAddition())
+        }
+        try closeCall(name, function, count: arguments.count, start: start)
+        return .function(function.name, arguments)
+    }
+
+    @inline(never)
+    private mutating func closeCall(_ name: String, _ function: FunctionSpec, count: Int, start: Int) throws {
+        if current == .comma {
+            if function.arity.upperBound == 1 {
+                throw error("\(name) attend un seul argument ; la virgule est le séparateur décimal (2,5).")
+            }
+            throw error("Séparez les arguments de \(name) par « ; » : la virgule est le séparateur décimal, par exemple \(name)(2,5; 3).")
+        }
+        guard current == .rightParenthesis else {
+            throw error("La fonction \(name) attend un argument entre parenthèses.")
+        }
+        advance()
+        guard function.arity.contains(count) else {
+            var message = Self.arityMessage(name, function, count: count)
+            if count == 1, tokens[start].hasDecimalComma, position - start == 2 {
+                message += " Attention : avec une virgule, 2,3 est un nombre décimal."
+            }
+            throw CalculationError.invalid(message)
+        }
+    }
+
+    private static func arityMessage(_ name: String, _ function: FunctionSpec, count: Int) -> String {
+        let arity = function.arity
+        if arity.upperBound == 1 { return "\(name) attend un seul argument." }
+        if arity.lowerBound == 1 { return "\(name) attend 1 ou 2 arguments : \(name)(x) ou \(function.example)." }
+        if count > arity.upperBound, arity.lowerBound != arity.upperBound {
+            return "\(name) accepte au plus \(arity.upperBound) arguments."
+        }
+        let amount = arity.lowerBound == arity.upperBound ? "\(arity.lowerBound) arguments" : "au moins \(arity.lowerBound) arguments"
+        return "\(name) attend \(amount) séparés par « ; », par exemple \(function.example)."
     }
 
     /// Only known units are consumed here. `5 m * a` therefore leaves `a` in
@@ -228,12 +368,31 @@ struct ExpressionParser {
         }
     }
 
-    private static func functionName(_ name: String) -> String? {
+    /// Functions by spelling. `log10` keeps its own name; the inverse trigonometric
+    /// functions accept the arc spellings.
+    static func function(named name: String) -> FunctionSpec? {
+        func spec(_ canonical: String, _ arity: ClosedRange<Int> = 1...1, _ example: String = "") -> FunctionSpec {
+            FunctionSpec(name: canonical, arity: arity, example: example)
+        }
         switch name {
-        case "sqrt", "√": return "sqrt"
-        case "sin", "cos", "tan", "abs", "exp", "ln", "log", "log10": return name
+        case "sqrt", "√": return spec("sqrt")
+        case "arcsin": return spec("asin")
+        case "arccos": return spec("acos")
+        case "arctan": return spec("atan")
+        case "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "abs", "exp", "ln", "log10",
+             "cbrt", "floor", "ceil", "round":
+            return spec(name)
+        case "log": return spec(name, 1...2, "log(x; b)")
+        case "atan2": return spec(name, 2...2, "atan2(y; x)")
+        case "root": return spec(name, 2...2, "root(x; n)")
+        case "min", "max": return spec(name, 2...50, "\(name)(a; b)")
         default: return nil
         }
+    }
+
+    /// Whether the name is a function, which a call `name(…)` reaches even if a variable shares it.
+    static func isFunctionName(_ name: String) -> Bool {
+        name != "√" && function(named: name) != nil
     }
 
     static func isIdentifier(_ source: String) -> Bool {
@@ -247,9 +406,17 @@ struct ExpressionParser {
             || character == "π" || character == "√"
     }
 
+    /// √ and ° end a name: a√2 is a·√2 and θ° is θ·°.
     private static func isIdentifierContinuation(_ character: Character) -> Bool {
-        isIdentifierStart(character) || "0123456789₀₁₂₃₄₅₆₇₈₉".contains(character)
+        (isIdentifierStart(character) && character != "√" && character != "°")
+            || "0123456789₀₁₂₃₄₅₆₇₈₉".contains(character)
     }
+
+    private static let superscriptDigits: [Character: Character] = [
+        "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+        "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+        "⁻": "-", "⁺": "+"
+    ]
 
     private static func tokenize(_ source: String) throws -> [Token] {
         let characters = Array(source)
@@ -258,13 +425,13 @@ struct ExpressionParser {
         }
         var result: [Token] = []
         var index = 0
-        let superscripts: [Character: Character] = [
-            "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
-            "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
-            "⁻": "-", "⁺": "+"
-        ]
+        let superscripts = Self.superscriptDigits
 
         func isASCIIDigit(_ character: Character) -> Bool { "0123456789".contains(character) }
+        // A comma is decimal only before a digit: 2,5 is a number, max(2, 3) has a comma.
+        func isDecimalComma(at position: Int) -> Bool {
+            position + 1 < characters.count && characters[position] == "," && isASCIIDigit(characters[position + 1])
+        }
 
         while index < characters.count {
             let character = characters[index]
@@ -279,6 +446,9 @@ struct ExpressionParser {
             case "^": simple = .power
             case "(": simple = .leftParenthesis
             case ")": simple = .rightParenthesis
+            case ";": simple = .semicolon
+            case ",": simple = isDecimalComma(at: index) ? nil : .comma
+            case "!": simple = .factorial
             default: simple = nil
             }
             if let simple {
@@ -299,27 +469,34 @@ struct ExpressionParser {
             } else if character == "√" {
                 result.append(Token(kind: .identifier("√"), column: column))
                 index += 1
-            } else if isASCIIDigit(character) || character == "." || character == "," {
+            } else if character == "%" {
+                result.append(Token(kind: .identifier("%"), column: column,
+                                    hasLeadingWhitespace: index > 0 && characters[index - 1].isWhitespace))
+                index += 1
+            } else if isASCIIDigit(character) || character == "." || isDecimalComma(at: index) {
                 let start = index
                 var decimalSeen = false
+                var hasComma = false
                 var digits = 0
                 while index < characters.count {
                     let next = characters[index]
                     if isASCIIDigit(next) { digits += 1; index += 1 }
-                    else if (next == "." || next == ","), !decimalSeen {
-                        decimalSeen = true; index += 1
+                    else if next == "." || isDecimalComma(at: index), !decimalSeen {
+                        decimalSeen = true
+                        hasComma = next == ","
+                        index += 1
                     } else { break }
                 }
                 guard digits > 0 else {
                     throw CalculationError.invalid("Nombre décimal invalide (colonne \(column)).")
                 }
-                if index < characters.count, characters[index] == "." || characters[index] == "," {
+                if index < characters.count, characters[index] == "." || isDecimalComma(at: index) {
                     throw CalculationError.invalid("Un nombre ne peut contenir qu’un seul séparateur décimal (colonne \(index + 1)).")
                 }
                 // An e/E is a scientific exponent only when followed by digits.
                 if index < characters.count, characters[index] == "e" || characters[index] == "E" {
                     var end = index + 1
-                    if end < characters.count, characters[end] == "+" || characters[end] == "-" || characters[end] == "−" {
+                    if end < characters.count, "+-−–".contains(characters[end]) {
                         end += 1
                     }
                     if end < characters.count, isASCIIDigit(characters[end]) {
@@ -330,10 +507,11 @@ struct ExpressionParser {
                 let literal = String(characters[start..<index])
                     .replacingOccurrences(of: ",", with: ".")
                     .replacingOccurrences(of: "−", with: "-")
+                    .replacingOccurrences(of: "–", with: "-")
                 guard let value = Double(literal), value.isFinite else {
                     throw CalculationError.invalid("Ce nombre dépasse la plage de calcul (colonne \(column)).")
                 }
-                result.append(Token(kind: .number(value), column: column))
+                result.append(Token(kind: .number(value), column: column, hasDecimalComma: hasComma))
             } else if isIdentifierStart(character) {
                 let start = index
                 index += 1

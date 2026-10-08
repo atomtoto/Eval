@@ -39,6 +39,17 @@ final class MathFormulaTests: XCTestCase {
         ]))
     }
 
+    func testNegativeRightOperandsKeepTheirParentheses() {
+        let negated = MathFormula.parentheses(.row([.atom("−"), .atom("b")]))
+        XCTAssertEqual(MathNotation.formula("a-(-b)"), .row([.atom("a"), .atom(" − "), negated]))
+        XCTAssertEqual(MathNotation.formula("a*-b"), .row([.atom("a"), .atom(" · "), negated]))
+        XCTAssertEqual(MathNotation.formula("a·(−b)"), .row([.atom("a"), .atom(" · "), negated]))
+        XCTAssertEqual(MathNotation.formula("a + -b"), .row([.atom("a"), .atom(" + "), negated]))
+        // A leading sign and a fraction bar need no extra grouping.
+        XCTAssertEqual(MathNotation.formula("-a*b"), .row([.atom("−"), .atom("a"), .atom(" · "), .atom("b")]))
+        XCTAssertEqual(MathNotation.formula("a/-b"), .fraction(.atom("a"), .row([.atom("−"), .atom("b")])))
+    }
+
     func testPowersKeepTheirBaseGroupingAndAssociativity() {
         XCTAssertEqual(MathNotation.formula("(a+b)^(c+d)"), .power(
             .parentheses(.row([.atom("a"), .atom(" + "), .atom("b")])),
@@ -101,6 +112,33 @@ final class MathFormulaTests: XCTestCase {
         ]))
     }
 
+    func testEnteredSpellingKeepsItsTrailingZeros() {
+        XCTAssertEqual(MathNotation.formula("x = 8,0"), .row([.atom("x"), .atom(" = "), .atom("8,0")]))
+        XCTAssertEqual(MathNotation.formula("a = 9,0 m/s²"), .row([
+            .atom("a"), .atom(" = "), .atom("9,0"), .atom(" "),
+            .fraction(.atom("m"), .power(.atom("s"), .atom("2")))
+        ]))
+        XCTAssertEqual(MathNotation.formula("1,0e3"), .row([
+            .atom("1,0"), .atom(" × "), .power(.atom("10"), .atom("3"))
+        ]))
+        XCTAssertEqual(MathNotation.formula("8,00"), .atom("8,00"))
+        XCTAssertEqual(MathNotation.formula("8"), .atom("8"))
+    }
+
+    func testEnDashIsAMinusSignInScientificExponents() {
+        XCTAssertEqual(MathNotation.formula("2e–3 + 1"), .row([
+            .atom("2"), .atom(" × "), .power(.atom("10"), .atom("−3")), .atom(" + "), .atom("1")
+        ]))
+    }
+
+    func testBareRadicalKeepsASpacedUnitOutsideTheRoot() {
+        XCTAssertEqual(MathNotation.formula("√2 m"), .row([.radical(.atom("2")), .atom(" "), .atom("m")]))
+        XCTAssertEqual(MathNotation.formula("a√2"), .row([.atom("a"), .atom(" · "), .radical(.atom("2"))]))
+        XCTAssertEqual(MathNotation.formula("√(4 m²)"), .radical(.row([
+            .atom("4"), .atom(" "), .power(.atom("m"), .atom("2"))
+        ])))
+    }
+
     func testUnitAndVariableNamespacesRemainVisible() {
         XCTAssertEqual(MathNotation.formula("2m"), .row([.atom("2"), .atom(" · "), .atom("m")]))
         XCTAssertEqual(MathNotation.formula("2 m"), .row([.atom("2"), .atom(" "), .atom("m")]))
@@ -109,6 +147,13 @@ final class MathFormulaTests: XCTestCase {
                 .row([.atom("kg"), .atom(" · "), .atom("m")]), .power(.atom("s"), .atom("2"))
             )
         ]))
+    }
+
+    func testCompactUnitChainsDrawAsUnits() {
+        XCTAssertEqual(MathNotation.formula("v = 72km/h"), .row([
+            .atom("v"), .atom(" = "), .atom("72"), .atom(" "), .fraction(.atom("km"), .atom("h"))
+        ]))
+        XCTAssertEqual(MathNotation.formula("3g"), .row([.atom("3"), .atom(" · "), .atom("g")]))
     }
 
     func testDeclarationsEquationsAndInlineComments() {
@@ -156,5 +201,47 @@ final class MathFormulaTests: XCTestCase {
         XCTAssertNil(MathNotation.formula(String(repeating: "x", count: 2_001)))
         XCTAssertNil(MathNotation.formula(String(repeating: "(", count: 100) + "x" + String(repeating: ")", count: 100)))
         XCTAssertNil(MathNotation.formula(Array(repeating: "a", count: 300).joined(separator: "+")))
+    }
+
+    func testConversionArrowIsRendered() {
+        XCTAssertEqual(MathNotation.formula("E = m*c² -> MeV"), .row([
+            .atom("E"), .atom(" = "), .atom("m"), .atom(" · "), .power(.atom("c"), .atom("2")),
+            .atom(" → "), .atom("MeV")
+        ]))
+        XCTAssertEqual(MathNotation.formula("v → km/h  # vitesse"), .row([
+            .atom("v"), .atom(" → "), .fraction(.atom("km"), .atom("h"))
+        ]))
+        for source in ["v ->", "-> km", "v -> km -> m", "v -> 2 +"] {
+            XCTAssertNil(MathNotation.formula(source), source)
+        }
+    }
+
+    func testMultiArgumentFunctionRendersSemicolons() {
+        XCTAssertEqual(MathNotation.formula("max(a; b)"), .row([
+            .atom("max"), .parentheses(.row([.atom("a"), .atom(" ; "), .atom("b")]))
+        ]))
+        XCTAssertEqual(MathNotation.formula("log(8; 2)"), .row([
+            .atom("log"), .parentheses(.row([.atom("8"), .atom(" ; "), .atom("2")]))
+        ]))
+        XCTAssertEqual(MathNotation.formula("atan2(y; x)"), .row([
+            .atom("atan2"), .parentheses(.row([.atom("y"), .atom(" ; "), .atom("x")]))
+        ]))
+        XCTAssertNil(MathNotation.formula("max(a, b)"))
+    }
+
+    func testInverseFunctionsUseArcNamesAndRootsKeepTheirIndex() {
+        XCTAssertEqual(MathNotation.formula("asin(x)"), .row([.atom("arcsin"), .parentheses(.atom("x"))]))
+        XCTAssertEqual(MathNotation.formula("arccos(x)"), .row([.atom("arccos"), .parentheses(.atom("x"))]))
+        XCTAssertEqual(MathNotation.formula("atan(x)"), .row([.atom("arctan"), .parentheses(.atom("x"))]))
+        XCTAssertEqual(MathNotation.formula("cbrt(x)"), .root(index: .atom("3"), radicand: .atom("x")))
+        XCTAssertEqual(MathNotation.formula("root(x; 4)"), .root(index: .atom("4"), radicand: .atom("x")))
+    }
+
+    func testFactorialAndPercentRender() {
+        XCTAssertEqual(MathNotation.formula("n!"), .row([.atom("n"), .atom("!")]))
+        XCTAssertEqual(MathNotation.formula("(a+b)!"), .row([
+            .parentheses(.row([.atom("a"), .atom(" + "), .atom("b")])), .atom("!")
+        ]))
+        XCTAssertEqual(MathNotation.formula("35 %"), .row([.atom("35"), .atom(" "), .atom("%")]))
     }
 }

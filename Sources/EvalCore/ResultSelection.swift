@@ -16,6 +16,24 @@ public struct ResultSelection: Codable, Sendable, Equatable {
     }
 
     public private(set) var entries: [Entry]
+    /// Formulas and declarations removed by recent edits, most recent last.
+    /// A line cut in one edit and pasted in the next gets its identity back.
+    private var detached: [Entry] = []
+    private static let detachedLimit = 20
+
+    /// Identities of current lines and of recently removed ones that may
+    /// still return. Keep data attached to a line for all of these.
+    public var retainedIDs: Set<UUID> { Set(entries.map(\.id) + detached.map(\.id)) }
+
+    /// The same selection with other current entries: the recently removed
+    /// lines stay remembered, unless they are among the new entries.
+    func replacingEntries(_ newEntries: [Entry]) -> ResultSelection {
+        var copy = self
+        copy.entries = newEntries
+        let current = Set(newEntries.map(\.id))
+        copy.detached = detached.filter { !current.contains($0.id) }
+        return copy
+    }
 
     public init(source: String, initiallySelectedLineIDs: Set<Int> = []) {
         entries = Self.sourceLines(source).enumerated().map { index, line in
@@ -24,8 +42,9 @@ public struct ResultSelection: Codable, Sendable, Equatable {
     }
 
     /// Keeps choices through insertions, removals, moves and ordinary edits.
-    /// Equal lines and duplicate declarations match in occurrence order.
-    /// New lines start unselected.
+    /// Equal lines match between the same unchanged neighbours, then in
+    /// occurrence order. New lines start unselected unless they restore a
+    /// recently removed line or declaration.
     public mutating func reconcile(source: String) {
         let lines = Self.sourceLines(source)
         guard entries.map(\.source) != lines else { return }
@@ -33,22 +52,26 @@ public struct ResultSelection: Codable, Sendable, Equatable {
         var matches: [Int: Int] = [:] // New index → previous index.
         var available = Set(previous.indices)
 
-        // Exact matches also keep choices when an existing line is moved.
-        var occurrences: [String: [Int]] = [:]
-        for index in previous.indices {
-            occurrences[previous[index].source, default: []].append(index)
+        // Lines found once in each version anchor the edit, so a duplicate
+        // keeps the identity of the copy between the same neighbours.
+        let previousOccurrences = Self.occurrences(previous.map(\.source))
+        var uniqueMatches: [Int: Int] = [:]
+        for (line, indices) in Self.occurrences(lines) where indices.count == 1 {
+            if let old = previousOccurrences[line], old.count == 1 { uniqueMatches[indices[0]] = old[0] }
         }
-        var offsets: [String: Int] = [:]
-        for index in lines.indices {
-            let line = lines[index]
-            let offset = offsets[line, default: 0]
-            if let candidates = occurrences[line], offset < candidates.count {
-                let oldIndex = candidates[offset]
-                matches[index] = oldIndex
-                available.remove(oldIndex)
-                offsets[line] = offset + 1
+        var gapStart = (old: 0, new: 0)
+        for anchor in Self.orderedAnchors(uniqueMatches) + [(old: previous.count, new: lines.count)] {
+            Self.matchEqualLines(old: gapStart.old..<anchor.old, new: gapStart.new..<anchor.new,
+                                 previous: previous, lines: lines, matches: &matches, available: &available)
+            if anchor.old < previous.count {
+                matches[anchor.new] = anchor.old
+                available.remove(anchor.old)
             }
+            gapStart = (anchor.old + 1, anchor.new + 1)
         }
+        // Remaining exact matches also keep choices when a line is moved.
+        Self.matchEqualLines(old: previous.indices, new: lines.indices,
+                             previous: previous, lines: lines, matches: &matches, available: &available)
 
         // A declaration still denotes the same result after its value changes.
         var declarations: [String: [Int]] = [:]
@@ -69,6 +92,15 @@ public struct ResultSelection: Codable, Sendable, Equatable {
             }
         }
 
+        // A line removed by an earlier edit, such as a cut, returns as it was.
+        var detached = self.detached
+        var restored: [Int: Entry] = [:]
+        for index in lines.indices where matches[index] == nil {
+            if let position = detached.lastIndex(where: { $0.source == lines[index] }) {
+                restored[index] = detached.remove(at: position)
+            }
+        }
+
         // Use the longest sequence of ordered matches as edit boundaries.
         // Matched lines moved elsewhere are excluded from those boundaries.
         let anchors = Self.orderedAnchors(matches)
@@ -76,7 +108,7 @@ public struct ResultSelection: Codable, Sendable, Equatable {
         var newStart = 0
         for anchor in anchors + [(old: previous.count, new: lines.count)] {
             let oldIndices = (oldStart..<anchor.old).filter { available.contains($0) }
-            let newIndices = (newStart..<anchor.new).filter { matches[$0] == nil }
+            let newIndices = (newStart..<anchor.new).filter { matches[$0] == nil && restored[$0] == nil }
             if oldIndices.count == newIndices.count {
                 for (oldIndex, newIndex) in zip(oldIndices, newIndices) {
                     if Self.editKind(previous[oldIndex].source) == Self.editKind(lines[newIndex]) {
@@ -96,11 +128,21 @@ public struct ResultSelection: Codable, Sendable, Equatable {
             newStart = anchor.new + 1
         }
 
+        // A declaration retyped after being cleared returns with its identity.
+        var detachedNames = detached.map { Self.definitionName($0.source) }
+        for index in lines.indices where matches[index] == nil && restored[index] == nil && !detached.isEmpty {
+            guard let name = Self.definitionName(lines[index]),
+                  let position = detachedNames.lastIndex(of: name) else { continue }
+            detachedNames.remove(at: position)
+            restored[index] = detached.remove(at: position)
+        }
+
         entries = lines.enumerated().map { index, line in
-            guard let oldIndex = matches[index] else { return Entry(source: line) }
-            let old = previous[oldIndex]
+            guard let old = matches[index].map({ previous[$0] }) ?? restored[index] else { return Entry(source: line) }
             return Entry(id: old.id, source: line, isSelected: old.isSelected)
         }
+        let removed = previous.indices.filter { available.contains($0) }.map { previous[$0] }
+        self.detached = Self.remembered(detached + removed)
     }
 
     public mutating func setSelected(_ selected: Bool, at lineIndex: Int) {
@@ -126,7 +168,7 @@ public struct ResultSelection: Codable, Sendable, Equatable {
     /// the identities and choices of surviving identical formulas.
     public mutating func removeEntry(at lineIndex: Int) {
         guard entries.indices.contains(lineIndex) else { return }
-        entries.remove(at: lineIndex)
+        detached = Self.remembered(detached + [entries.remove(at: lineIndex)])
     }
 
     /// Applies the choice to the supplied evaluable lines, clearing choices on
@@ -142,25 +184,69 @@ public struct ResultSelection: Codable, Sendable, Equatable {
         entries.indices.contains(lineIndex) && entries[lineIndex].isSelected
     }
 
+    private enum CodingKeys: String, CodingKey { case entries, detachedEntries }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        entries = try values.decode([Entry].self, forKey: .entries)
+        // Selections saved before removed lines were remembered have none.
+        let current = Set(entries.map(\.id))
+        detached = Self.remembered((try values.decodeIfPresent([Entry].self, forKey: .detachedEntries) ?? [])
+            .filter { !current.contains($0.id) })
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(entries, forKey: .entries)
+        try values.encode(detached, forKey: .detachedEntries)
+    }
+
+    /// Keeps the most recent formulas and declarations; blank lines and
+    /// comments carry no choice worth restoring.
+    private static func remembered(_ entries: [Entry]) -> [Entry] {
+        var kept: [Entry] = []
+        for entry in entries.reversed() {
+            guard kept.count < detachedLimit else { break }
+            let kind = editKind(entry.source)
+            if kind != .empty && kind != .comment { kept.append(entry) }
+        }
+        return kept.reversed()
+    }
+
+    private static func occurrences(_ lines: [String]) -> [String: [Int]] {
+        var result: [String: [Int]] = [:]
+        for index in lines.indices { result[lines[index], default: []].append(index) }
+        return result
+    }
+
+    /// Pairs equal lines in occurrence order among those still unmatched.
+    private static func matchEqualLines(
+        old oldRange: Range<Int>, new newRange: Range<Int>, previous: [Entry], lines: [String],
+        matches: inout [Int: Int], available: inout Set<Int>
+    ) {
+        var candidates: [String: [Int]] = [:]
+        for index in oldRange.reversed() where available.contains(index) {
+            candidates[previous[index].source, default: []].append(index)
+        }
+        guard !candidates.isEmpty else { return }
+        for index in newRange where matches[index] == nil {
+            guard let oldIndex = candidates[lines[index]]?.popLast() else { continue }
+            matches[index] = oldIndex
+            available.remove(oldIndex)
+        }
+    }
+
     private static func sourceLines(_ source: String) -> [String] {
         source.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n").components(separatedBy: "\n")
     }
 
     private static func content(_ source: String) -> String {
-        var end = source.endIndex
-        if let marker = source.firstIndex(of: "#") { end = min(end, marker) }
-        if let marker = source.range(of: "//")?.lowerBound { end = min(end, marker) }
-        return source[..<end].trimmingCharacters(in: .whitespacesAndNewlines)
+        LineSyntax(source).content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func definitionName(_ source: String) -> String? {
-        let text = content(source)
-        guard let separator = text.firstIndex(of: "=") else { return nil }
-        let next = text.index(after: separator)
-        guard next == text.endIndex || text[next] != "=" else { return nil }
-        let name = text[..<separator].trimmingCharacters(in: .whitespaces)
-        return ExpressionParser.isIdentifier(name) ? name : nil
+        LineSyntax(source).definitionName
     }
 
     private enum EditKind: Equatable {
@@ -169,8 +255,9 @@ public struct ResultSelection: Codable, Sendable, Equatable {
 
     private static func editKind(_ source: String) -> EditKind {
         if source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .empty }
-        if content(source).isEmpty { return .comment }
-        if let name = definitionName(source) { return .definition(name) }
+        let line = LineSyntax(source)
+        if line.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .comment }
+        if let name = line.definitionName { return .definition(name) }
         return .formula
     }
 
@@ -201,43 +288,52 @@ public struct ResultSelection: Codable, Sendable, Equatable {
         return result.reversed()
     }
 
+    /// The largest number of old/new line pairs compared after an edit. A bigger
+    /// batch, such as a large paste, keeps only exact and declaration matches.
+    static let relatedEditPairLimit = 20_000
+
     private static func matchRelatedEdits(
         oldIndices: [Int], newIndices: [Int], previous: [Entry], lines: [String],
         matches: inout [Int: Int], available: inout Set<Int>
     ) {
         // An invalid, oversized pasted sheet should still remain responsive.
-        // Exact and declaration matches above are retained in this case.
         guard !oldIndices.isEmpty, !newIndices.isEmpty,
-              oldIndices.count <= 250_000 / newIndices.count else { return }
+              oldIndices.count <= relatedEditPairLimit / newIndices.count else { return }
+        // Parse every line once, not once per pair.
+        let oldFormulas = oldIndices.compactMap { index -> (index: Int, text: [Character])? in
+            editKind(previous[index].source) == .formula ? (index, compactContent(previous[index].source)) : nil
+        }
+        let newFormulas = newIndices.compactMap { index -> (index: Int, text: [Character])? in
+            editKind(lines[index]) == .formula ? (index, compactContent(lines[index])) : nil
+        }
         // Work in source order and use only a clear best match. Avoid guessing
         // when a batch edit has created several equally plausible formulas.
         var lastNewIndex = -1
-        for oldIndex in oldIndices {
-            let kind = editKind(previous[oldIndex].source)
-            guard kind == .formula else { continue }
+        for old in oldFormulas {
             var best: (index: Int, score: Double)?
             var tied = false
-            for newIndex in newIndices where newIndex > lastNewIndex && matches[newIndex] == nil {
-                guard editKind(lines[newIndex]) == kind else { continue }
-                let score = editSimilarity(previous[oldIndex].source, lines[newIndex])
+            for new in newFormulas where new.index > lastNewIndex && matches[new.index] == nil {
+                let score = editSimilarity(old.text, new.text)
                 guard score >= 0.6 else { continue }
                 if best == nil || score > best!.score {
-                    best = (newIndex, score)
+                    best = (new.index, score)
                     tied = false
                 } else if score == best!.score {
                     tied = true
                 }
             }
             guard let best, !tied else { continue }
-            matches[best.index] = oldIndex
-            available.remove(oldIndex)
+            matches[best.index] = old.index
+            available.remove(old.index)
             lastNewIndex = best.index
         }
     }
 
-    private static func editSimilarity(_ lhs: String, _ rhs: String) -> Double {
-        let left = Array(content(lhs).filter { !$0.isWhitespace })
-        let right = Array(content(rhs).filter { !$0.isWhitespace })
+    private static func compactContent(_ source: String) -> [Character] {
+        Array(content(source).filter { !$0.isWhitespace })
+    }
+
+    private static func editSimilarity(_ left: [Character], _ right: [Character]) -> Double {
         guard !left.isEmpty, !right.isEmpty else { return 0 }
         // Count the unchanged prefix and suffix. Formula edits made while
         // typing generally add a term or replace a small middle fragment.
