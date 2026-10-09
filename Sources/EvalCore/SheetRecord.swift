@@ -14,6 +14,9 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
     public let id: UUID
     /// A title chosen by the user. When absent, the first note of the sheet names it.
     public var customTitle: String?
+    /// Set once the sheet has been offered an automatic title, or the user named it,
+    /// so that an automatic title is requested at most once.
+    public var automaticTitleAttempted: Bool
     public var source: String
     public var resultSelection: ResultSelection
     /// Ruler bounds and steps, keyed by the line identities of `resultSelection`.
@@ -29,6 +32,7 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
     public init(
         id: UUID = UUID(),
         customTitle: String? = nil,
+        automaticTitleAttempted: Bool = false,
         source: String,
         resultSelection: ResultSelection? = nil,
         adjustmentRanges: [UUID: VariableAdjustmentRange] = [:],
@@ -39,6 +43,7 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
     ) {
         self.id = id
         self.customTitle = customTitle
+        self.automaticTitleAttempted = automaticTitleAttempted
         self.source = source
         self.resultSelection = resultSelection ?? ResultSelection(source: source)
         self.adjustmentRanges = adjustmentRanges
@@ -191,7 +196,7 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
     // MARK: Coding
 
     private enum CodingKeys: String, CodingKey {
-        case id, customTitle, source, resultSelection, adjustmentRanges, manualStepIDs
+        case id, customTitle, automaticTitleAttempted, source, resultSelection, adjustmentRanges, manualStepIDs
         case createdAt, modifiedAt, schemaVersion
     }
 
@@ -201,6 +206,8 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(UUID.self, forKey: .id)
         customTitle = try values.decodeIfPresent(String.self, forKey: .customTitle)
+        // Absent from files written before automatic titles.
+        automaticTitleAttempted = (try? values.decodeIfPresent(Bool.self, forKey: .automaticTitleAttempted)) ?? false
         source = try values.decode(String.self, forKey: .source)
         createdAt = try values.decode(Date.self, forKey: .createdAt)
         modifiedAt = try values.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
@@ -229,6 +236,9 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(id, forKey: .id)
         try values.encodeIfPresent(customTitle, forKey: .customTitle)
+        if automaticTitleAttempted {
+            try values.encode(true, forKey: .automaticTitleAttempted)
+        }
         try values.encode(source, forKey: .source)
         try values.encode(resultSelection, forKey: .resultSelection)
         try values.encode(Dictionary(uniqueKeysWithValues: adjustmentRanges.map { ($0.key.uuidString, $0.value) }),

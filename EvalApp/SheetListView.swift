@@ -137,6 +137,9 @@ private struct SheetRow: View {
             Text(record.displayTitle)
                 .font(.headline)
                 .lineLimit(lineLimit)
+                // An automatic title arrives a moment after the sheet is left.
+                .contentTransition(.opacity)
+                .animation(.smooth, value: record.displayTitle)
             detailLayout {
                 Text(record.modifiedAt, format: .relative(presentation: .named))
                     .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: false)

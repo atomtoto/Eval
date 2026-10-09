@@ -25,6 +25,8 @@ final class SheetLibrary {
     @ObservationIgnored private var pendingWrites: [UUID: SheetRecord] = [:]
     @ObservationIgnored private var writeTask: Task<Void, Never>?
     @ObservationIgnored private let storage: SheetStorage
+    /// Sheets whose automatic title is being generated.
+    @ObservationIgnored private var titleRequests: Set<UUID> = []
 
     /// With no repository, the library keeps its sheets in memory, does not
     /// touch the migration state, and reports the problem in `storageProblem`.
@@ -118,8 +120,47 @@ final class SheetLibrary {
         }
         guard customTitle != record.customTitle else { return }
         record.customTitle = customTitle
+        record.automaticTitleAttempted = true
         record.modifiedAt = Date()
         update(record)
+    }
+
+    /// Asks Apple Intelligence, on the device, to name a sheet the user leaves
+    /// for the first time while it is still « Nouvelle feuille ». The title
+    /// arrives later, unless the sheet was named meanwhile; nothing happens
+    /// when the setting is off or the model is unavailable.
+    func suggestTitleIfNeeded(for id: UUID) {
+        guard AutomaticTitleSetting.isEnabled, !titleRequests.contains(id),
+              let record = sessions[id]?.record ?? record(for: id),
+              AutomaticSheetTitle.isEligible(record),
+              SheetTitleGenerator.isAvailable else { return }
+        titleRequests.insert(id)
+        let content = AutomaticSheetTitle.content(for: record.source)
+        Task { [weak self] in
+            let outcome = await Task.detached(priority: .utility) {
+                await SheetTitleGenerator.title(for: content)
+            }.value
+            self?.finishTitleRequest(for: id, with: outcome)
+        }
+    }
+
+    private func finishTitleRequest(for id: UUID, with outcome: SheetTitleGenerator.Outcome) {
+        titleRequests.remove(id)
+        let title: String?
+        switch outcome {
+        case .title(let proposal): title = proposal
+        case .noTitle: title = nil
+        case .retryLater: return
+        }
+        if let session = sessions[id] {
+            session.applyAutomaticTitle(title)
+        } else if var record = record(for: id), !record.automaticTitleAttempted {
+            record.automaticTitleAttempted = true
+            if let title, record.displayTitle == SheetRecord.untitledTitle {
+                record.customTitle = title
+            }
+            update(record)
+        }
     }
 
     func deleteSheet(id: UUID) {

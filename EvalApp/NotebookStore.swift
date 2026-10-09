@@ -25,8 +25,22 @@ final class NotebookStore {
             let normalized = title?.isEmpty == false ? title : nil
             guard normalized != storedTitle else { return }
             storedTitle = normalized
+            // A sheet the user has named is never named automatically.
+            automaticTitleAttempted = true
             recordDidChange()
         }
+    }
+
+    /// Ends the automatic naming of the sheet: it takes `title` if it is still
+    /// called « Nouvelle feuille » and was not named meanwhile. A nil title only
+    /// records the attempt. The modification date does not change.
+    func applyAutomaticTitle(_ title: String?) {
+        guard !isClosed, !automaticTitleAttempted else { return }
+        automaticTitleAttempted = true
+        if let title, storedTitle == nil, SheetRecord.noteTitle(in: text) == nil {
+            storedTitle = title
+        }
+        recordDidChange(updatesModificationDate: false)
     }
 
     private(set) var resultSelection: ResultSelection
@@ -64,6 +78,7 @@ final class NotebookStore {
 
     private var text: String
     private var storedTitle: String?
+    @ObservationIgnored private var automaticTitleAttempted: Bool
     private var resultsByLineID: [UUID: EvaluatedLine] = [:]
     @ObservationIgnored private let createdAt: Date
     @ObservationIgnored private var lineIndexByID: [UUID: Int] = [:]
@@ -87,6 +102,7 @@ final class NotebookStore {
         id = record.id
         text = record.source
         storedTitle = record.customTitle
+        automaticTitleAttempted = record.automaticTitleAttempted
         createdAt = record.createdAt
         modifiedAt = record.modifiedAt
         displayTitle = record.displayTitle
@@ -99,7 +115,8 @@ final class NotebookStore {
     }
 
     var record: SheetRecord {
-        SheetRecord(id: id, customTitle: storedTitle, source: text, resultSelection: resultSelection,
+        SheetRecord(id: id, customTitle: storedTitle, automaticTitleAttempted: automaticTitleAttempted,
+                    source: text, resultSelection: resultSelection,
                     adjustmentRanges: adjustmentRanges, manualStepIDs: manualStepIDs,
                     createdAt: createdAt, modifiedAt: modifiedAt)
     }
@@ -453,9 +470,9 @@ final class NotebookStore {
         requestEvaluation(debounced: !evaluatesImmediately)
     }
 
-    private func recordDidChange() {
+    private func recordDidChange(updatesModificationDate: Bool = true) {
         guard !isClosed else { return }
-        modifiedAt = Date()
+        if updatesModificationDate { modifiedAt = Date() }
         let record = record
         if displayTitle != record.displayTitle { displayTitle = record.displayTitle }
         onChange(record)

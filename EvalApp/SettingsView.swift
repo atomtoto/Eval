@@ -142,6 +142,8 @@ struct SettingsView: View {
     @AppStorage(SignificantDigitsSetting.storageKey) private var digits = QuantityFormatter.defaultDigits
     @AppStorage(AccentSetting.storageKey) private var accent = AccentSetting.orange
     @AppStorage(WarmBackgroundSetting.storageKey) private var warmBackground = true
+    @AppStorage(AutomaticTitleSetting.storageKey) private var automaticTitles = true
+    @State private var titleAvailability = SheetTitleGenerator.availability
     @State private var icon = AppIconChoice.current
     @State private var iconError: String?
 
@@ -183,6 +185,22 @@ struct SettingsView: View {
         }
     }
 
+    /// Shown from iOS 26; off and disabled while Apple Intelligence is unavailable.
+    private func automaticTitlesSection(_ availability: SheetTitleGenerator.Availability) -> some View {
+        Section {
+            Toggle("Nommer les feuilles automatiquement",
+                   isOn: availability == .available ? $automaticTitles : .constant(false))
+                .disabled(availability != .available)
+        } footer: {
+            switch availability {
+            case .available:
+                Text("Quand vous quittez pour la première fois une feuille sans titre, Apple Intelligence lui donne un nom d’après son contenu. Tout se passe sur l’appareil : la feuille n’est pas envoyée.")
+            case .unavailable(let reason):
+                Text(reason)
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -203,6 +221,10 @@ struct SettingsView: View {
                     }
                 } footer: {
                     Text("Nombre de chiffres significatifs des résultats affichés. Les calculs gardent toujours toute leur précision.")
+                }
+
+                if let titleAvailability {
+                    automaticTitlesSection(titleAvailability)
                 }
 
                 Section {

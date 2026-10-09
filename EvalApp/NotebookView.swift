@@ -6,7 +6,9 @@ import SwiftUI
 /// where it is; a last row adds a line, as in Reminders.
 struct NotebookView: View {
     @Bindable var notebook: NotebookStore
-    let createFromExample: (ExampleSheet) -> Void
+    /// Shows another sheet in this window, such as a copy or a new example.
+    let open: (UUID) -> Void
+    @Environment(SheetLibrary.self) private var library
     @AppStorage(FormulaInputMode.storageKey) private var inputMode = FormulaInputMode.text
     @Environment(\.undoManager) private var undoManager
     /// The line whose field has the keyboard.
@@ -79,8 +81,19 @@ struct NotebookView: View {
                 withAnimation { proxy.scrollTo(lineID, anchor: UnitPoint(x: 0.5, y: 0.6)) }
             }
         }
-        .navigationTitle(notebook.displayTitle)
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleMenu {
+            RenameButton()
+            Button("Dupliquer", systemImage: "plus.square.on.square") {
+                if let copy = library.duplicateSheet(id: notebook.id) { open(copy) }
+            }
+            ShareLink(item: notebook.sharedText(includingResults: true),
+                      subject: Text("Feuille Eval"),
+                      preview: SharePreview("Feuille Eval", image: Image(systemName: "function"))) {
+                Label("Partager la feuille", systemImage: "square.and.arrow.up")
+            }
+        }
         .toolbar { toolbarContent }
         .environment(\.editMode, $editMode)
         .focusedSceneValue(\.notebookActions, commandActions)
@@ -118,6 +131,20 @@ struct NotebookView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in refreshUndoState() }
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidUndoChange)) { _ in refreshUndoState() }
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { _ in refreshUndoState() }
+    }
+
+    private func createFromExample(_ example: ExampleSheet) {
+        open(library.createSheet(from: example))
+    }
+
+    /// The title in the bar, renamed in place from its menu, with the same
+    /// rules as the Renommer alert.
+    private var title: Binding<String> {
+        Binding {
+            notebook.displayTitle
+        } set: { title in
+            library.renameSheet(id: notebook.id, to: title)
+        }
     }
 
     private func refreshUndoState() {

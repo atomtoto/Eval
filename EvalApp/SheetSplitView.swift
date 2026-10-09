@@ -5,6 +5,7 @@ import SwiftUI
 struct SheetSplitView: View {
     @Environment(SheetLibrary.self) private var library
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.scenePhase) private var scenePhase
     @Binding var selection: UUID?
     @Binding var columnVisibility: NavigationSplitViewVisibility
     @Binding var column: NavigationSplitViewColumn
@@ -16,10 +17,8 @@ struct SheetSplitView: View {
             SheetListView(selection: $selection, searchRequest: searchRequest, open: open)
         } detail: {
             if let id = selection, let notebook = library.session(for: id) {
-                NotebookView(notebook: notebook) { example in
-                    open(library.createSheet(from: example))
-                }
-                .id(id)
+                NotebookView(notebook: notebook, open: open)
+                    .id(id)
             } else {
                 ContentUnavailableView {
                     Label("Aucune feuille", systemImage: "doc.text")
@@ -33,7 +32,13 @@ struct SheetSplitView: View {
         .onChange(of: selection) { previous, _ in
             // Another sheet takes over the window: the steps of the sheet left behind
             // are not undoable here. Showing another tab keeps them.
-            if let previous { library.openSession(for: previous)?.removeUndoSteps(from: undoManager) }
+            guard let previous else { return }
+            library.openSession(for: previous)?.removeUndoSteps(from: undoManager)
+            // Leaving a sheet, back to the list or for another one, may name it.
+            library.suggestTitleIfNeeded(for: previous)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background, let selection { library.suggestTitleIfNeeded(for: selection) }
         }
     }
 

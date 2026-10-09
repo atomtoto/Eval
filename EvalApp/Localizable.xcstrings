@@ -84,6 +84,9 @@
     "000" : {
 
     },
+    "À partir d’iOS 26, avec Apple Intelligence, une feuille sans titre ni note # reçoit un nom d’après son contenu la première fois que vous la quittez, par exemple « Chute libre ». Tout se passe sur l’appareil. Le réglage Nommer les feuilles automatiquement le désactive." : {
+
+    },
     "Action impossible : la feuille a été modifiée dans une autre fenêtre." : {
 
     },
@@ -527,7 +530,7 @@
     "Modifier en texte" : {
 
     },
-    "Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu ou avec le bouton engrenage de la liste des feuilles, choisissent la saisie des formules, le nombre de chiffres significatifs, la couleur d’accent (orange industriel par défaut, ou bleu), le fond chaud des feuilles en mode clair et le style de l’icône de l’app (Lentille ou Point), qui suit la couleur d’accent. Pendant la saisie, une barre flotte juste au-dessus du clavier avec le menu Insérer, les touches courantes et Terminé." : {
+    "Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu ou avec le bouton engrenage de la liste des feuilles, choisissent la saisie des formules, le nombre de chiffres significatifs, le nom automatique des feuilles, la couleur d’accent (orange industriel par défaut, ou bleu), le fond chaud des feuilles en mode clair et le style de l’icône de l’app (Lentille ou Point), qui suit la couleur d’accent. Pendant la saisie, une barre flotte juste au-dessus du clavier avec le menu Insérer, les touches courantes et Terminé." : {
 
     },
     "Modifier en texte…" : {
@@ -548,10 +551,25 @@
     "Nature" : {
 
     },
+    "Nécessite Apple Intelligence, dont le modèle est en cours de préparation. Réessayez plus tard." : {
+
+    },
+    "Nécessite Apple Intelligence, que cet appareil ne prend pas en charge." : {
+
+    },
+    "Nécessite Apple Intelligence." : {
+
+    },
+    "Nécessite Apple Intelligence. Activez-la dans Réglages › Apple Intelligence et Siri." : {
+
+    },
     "Nom, symbole ou domaine" : {
 
     },
     "Nombre de chiffres significatifs des résultats affichés. Les calculs gardent toujours toute leur précision." : {
+
+    },
+    "Nommer les feuilles automatiquement" : {
 
     },
     "Nouvelle à partir d’un exemple" : {
@@ -611,10 +629,16 @@
     "Pour afficher un résultat dans une autre unité, ajoutez → et l’unité en fin de ligne : E → kWh. Les préfixes SI (k, m, µ…) s’ajoutent aux unités qui les acceptent." : {
 
     },
+    "Pour renommer la feuille ouverte, touchez son titre en haut de l’écran, puis Renommer." : {
+
+    },
     "Pourcentage et factorielle" : {
 
     },
     "Puissance" : {
+
+    },
+    "Quand vous quittez pour la première fois une feuille sans titre, Apple Intelligence lui donne un nom d’après son contenu. Tout se passe sur l’appareil : la feuille n’est pas envoyée." : {
 
     },
     "Racine" : {
