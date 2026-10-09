@@ -18,17 +18,24 @@ struct RootSearch {
         var negative: Double?
         /// More sign changes were found beyond the ones refined.
         var hasMore = false
+        /// Every root refined, ascending, when the search collects them all.
+        var roots: [Double] = []
         /// Evaluations that returned a value, and all evaluations.
         var valid = 0
         var evaluations = 0
     }
 
     private let function: (Double) throws -> Double?
+    /// Refines every sign change instead of the first one on each side, with a larger budget.
+    private let collectsAll: Bool
+    private let budget: Int
     private(set) var evaluations = 0
     private(set) var valid = 0
 
-    init(_ function: @escaping (Double) throws -> Double?) {
+    init(collectsAll: Bool = false, _ function: @escaping (Double) throws -> Double?) {
         self.function = function
+        self.collectsAll = collectsAll
+        budget = collectsAll ? 3 * Self.maxEvaluations : Self.maxEvaluations
     }
 
     private struct Bracket {
@@ -40,12 +47,20 @@ struct RootSearch {
         for sign in [1.0, -1.0] {
             let brackets = try scan(sign: sign)
             for (index, bracket) in brackets.enumerated() {
-                guard let root = try refine(bracket) else { continue }
+                guard let root = try refine(bracket) else {
+                    if collectsAll, evaluations >= budget { outcome.hasMore = true }
+                    continue
+                }
+                if collectsAll {
+                    outcome.roots.append(root)
+                    continue
+                }
                 if sign > 0 { outcome.positive = root } else { outcome.negative = root }
                 if brackets.count > index + 1 { outcome.hasMore = true }
                 break
             }
         }
+        outcome.roots.sort()
         outcome.valid = valid
         outcome.evaluations = evaluations
         return outcome
@@ -86,7 +101,7 @@ struct RootSearch {
         var width = abs(c - b)
         var stalled = 0
         for _ in 0..<150 {
-            guard evaluations < Self.maxEvaluations else { return nil }
+            guard evaluations < budget else { return nil }
             if (fb > 0) == (fc > 0) { (c, fc) = (a, fa); d = b - a; e = d }
             if abs(fc) < abs(fb) { (a, b, c) = (b, c, b); (fa, fb, fc) = (fb, fc, fb) }
             let tolerance = 2 * Double.ulpOfOne * abs(b) + 0.5 * Self.relativeTolerance * abs(b)

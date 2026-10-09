@@ -100,8 +100,10 @@ public enum QuantityFormatter: Sendable {
 
 extension EvaluatedLine {
     /// The value as the sheet shows it: in the unit requested with `→` when
-    /// there is one, else in SI. Nil for a line without a value.
+    /// there is one, else in SI. Nil for a line without a value. An unknown with
+    /// several solutions shows them all: « (−1 ± √10)/3 ≈ 0,720759 ; −1,38743 ».
     public var formattedValue: String? {
-        quantity.map { QuantityFormatter.string($0, in: displayUnit) }
+        if let solutions { return solutions.formatted(in: displayUnit) }
+        return quantity.map { QuantityFormatter.string($0, in: displayUnit) }
     }
 }

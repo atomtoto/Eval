@@ -84,6 +84,8 @@ final class NotebookStore {
     @ObservationIgnored private var lineIndexByID: [UUID: Int] = [:]
     /// Parsing a declaration evaluates it; unchanged lines reuse the previous parse.
     @ObservationIgnored private var variableCache: [String: AdjustableVariable?] = [:]
+    /// The simpler form of each line text met, nil when it is as simple as it gets.
+    @ObservationIgnored private var simplificationCache: [String: String?] = [:]
     @ObservationIgnored private var rulerGesture: (state: SheetState, name: String)?
     @ObservationIgnored private var pendingSnapshot: Snapshot?
     @ObservationIgnored private var evaluationLoop: Task<Void, Never>?
@@ -327,6 +329,48 @@ final class NotebookStore {
         recording("Changer l’unité d’affichage", undoManager: undoManager) {
             resultSelection.updateSource(updated, at: index)
             source = joinedSource
+        }
+    }
+
+    /// The line with its formula written more simply, or nil when it is as simple
+    /// as it gets. Computed once per text.
+    func simplification(of lineID: UUID) -> String? {
+        guard let source = lineSource(of: lineID) else { return nil }
+        if let cached = simplificationCache[source] { return cached }
+        let simpler = FormulaSimplifier.simplifiedLine(source)
+        if simplificationCache.count >= 1_000 { simplificationCache.removeAll() }
+        simplificationCache[source] = .some(simpler)
+        return simpler
+    }
+
+    /// Rewrites a line in its simpler form, as one undo step.
+    func simplifyLine(id: UUID, undoManager: UndoManager? = nil) {
+        guard let index = lineIndexByID[id], let simpler = simplification(of: id) else { return }
+        recording("Simplifier la ligne", undoManager: undoManager) {
+            resultSelection.updateSource(simpler, at: index)
+            source = joinedSource
+        }
+    }
+
+    /// Adds lines at the end of the sheet as one undo step, and shows the first of them.
+    /// A blank last line gives way to them.
+    func appendLines(_ sources: [String], undoManager: UndoManager? = nil) {
+        let added = sources.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        guard !added.isEmpty else { return }
+        recording(added.count == 1 ? "Ajouter une ligne" : "Ajouter des lignes", undoManager: undoManager) {
+            if let last = resultSelection.entries.last, !editingLineIDs.contains(last.id),
+               last.source.trimmingCharacters(in: .whitespaces).isEmpty {
+                resultSelection.removeEntry(at: resultSelection.entries.count - 1)
+            }
+            var firstID: UUID?
+            for line in added {
+                let entry = ResultSelection.Entry(source: line)
+                guard let inserted = resultSelection.inserting(entry, at: resultSelection.entries.count) else { continue }
+                resultSelection = inserted
+                firstID = firstID ?? entry.id
+            }
+            source = joinedSource
+            if let firstID { revealRequest = RevealRequest(lineID: firstID) }
         }
     }
 

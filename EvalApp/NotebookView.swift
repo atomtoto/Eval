@@ -23,6 +23,7 @@ struct NotebookView: View {
     @State private var showsSettings = false
     @State private var showsTextEditor = false
     @State private var showsReferences = false
+    @State private var showsHandwriting = false
     @State private var plotRequest: PlotRequest?
     @State private var showsClearConfirmation = false
     @State private var renaming: SheetRecord?
@@ -108,6 +109,11 @@ struct NotebookView: View {
         }
         .sheet(item: $plotRequest) { request in
             PlotView(notebook: notebook, request: request)
+        }
+        .sheet(isPresented: $showsHandwriting) {
+            HandwritingView(declaredNames: notebook.declaredNames) { lines in
+                notebook.appendLines(lines, undoManager: undoManager)
+            }
         }
         .confirmationDialog("Effacer la feuille ?", isPresented: $showsClearConfirmation, titleVisibility: .visible) {
             Button("Effacer", role: .destructive) { notebook.clear(undoManager: undoManager) }
@@ -248,6 +254,14 @@ struct NotebookView: View {
         showsTextEditor = true
     }
 
+    /// Handwriting, a scan or a photo, whose lines go to the end of the sheet.
+    private func writeByHand() {
+        if editMode.isEditing { editMode = .inactive }
+        focusedLineID = nil
+        finishEditing()
+        showsHandwriting = true
+    }
+
     /// Undo and Redo of the menu apply to whole lines: the line being edited is validated first.
     private func undo() {
         focusedLineID = nil
@@ -310,6 +324,9 @@ struct NotebookView: View {
         } actions: {
             Button("Ajouter une formule", action: newLine)
                 .buttonStyle(.borderedProminent)
+            if HandwritingRecognizer.isSupported {
+                Button("Écrire à la main", action: writeByHand)
+            }
             Menu("Partir d’un exemple") {
                 ExampleMenuContent(choose: createFromExample)
             }
@@ -386,8 +403,20 @@ struct NotebookView: View {
             }
         }
         ToolbarItem(placement: .primaryAction) {
-            Button("Nouvelle ligne", systemImage: "plus", action: newLine)
+            if HandwritingRecognizer.isSupported {
+                // A tap adds a line; a press offers the other ways to add some, as Safari's + does.
+                Menu {
+                    Button("Écrire à la main", systemImage: "pencil.and.scribble", action: writeByHand)
+                } label: {
+                    Label("Nouvelle ligne", systemImage: "plus")
+                } primaryAction: {
+                    newLine()
+                }
                 .tint(.primary)
+            } else {
+                Button("Nouvelle ligne", systemImage: "plus", action: newLine)
+                    .tint(.primary)
+            }
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
@@ -402,6 +431,9 @@ struct NotebookView: View {
                         Button("Réorganiser", systemImage: "arrow.up.arrow.down") { editMode = .active }
                     }
                     Button("Modifier en texte", systemImage: "text.alignleft", action: editAsText)
+                    if HandwritingRecognizer.isSupported {
+                        Button("Écrire à la main", systemImage: "pencil.and.scribble", action: writeByHand)
+                    }
                     Button("Renommer", systemImage: "character.cursor.ibeam") { renaming = notebook.record }
                     Menu("Nouvelle à partir d’un exemple", systemImage: "text.book.closed") {
                         ExampleMenuContent(choose: createFromExample)

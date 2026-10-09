@@ -50,6 +50,7 @@ struct FormulaRowView: View {
         // The last result of this line, even while its new text is evaluated.
         let line = notebook.result(for: id)
         let variable = notebook.variablesByLineID[id]
+        let simplified = isComment || isEditing || isReordering ? nil : notebook.simplification(of: id)
         VStack(alignment: .leading, spacing: 12) {
             if isEditing {
                 editingContent(line: line)
@@ -66,7 +67,7 @@ struct FormulaRowView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
                     .onTapGesture { edit(id) }
-                    .contextMenu { menu(line: line, variable: variable) }
+                    .modifier(LineContextMenu(simplified: simplified) { menu(line: line, variable: variable) })
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(accessibilityLabel(line: line, variable: variable))
                     .accessibilityValue(variable.map(spokenValue) ?? "")
@@ -174,7 +175,9 @@ struct FormulaRowView: View {
             }
             .menuIndicator(.hidden)
             .buttonStyle(.plain)
-            .fixedSize()
+            // Its ideal width decides whether it fits beside the formula; when it moves
+            // under it, a long value such as the solutions of an equation wraps.
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -274,6 +277,11 @@ struct FormulaRowView: View {
 
     @ViewBuilder
     private func menu(line: EvaluatedLine?, variable: AdjustableVariable?) -> some View {
+        if !isComment, notebook.simplification(of: id) != nil {
+            Section {
+                Button("Simplifier", systemImage: "wand.and.sparkles", action: simplify)
+            }
+        }
         if !isComment {
             if line?.source == source, LineSyntax(source).requestsValue || line?.kind == .equation {
                 ResultCopyItems(source: source, line: line, copies: $copies)
@@ -300,6 +308,9 @@ struct FormulaRowView: View {
             if variable != nil {
                 Button("Afficher la réglette", action: showRuler)
             }
+            if let simpler = notebook.simplification(of: id) {
+                Button(String(localized: "Simplifier en \(MathSpeech.description(simpler) ?? simpler)"), action: simplify)
+            }
             if line?.source == source, LineSyntax(source).requestsValue {
                 ResultCopyButtons(source: source, line: line, copies: $copies)
             }
@@ -317,6 +328,10 @@ struct FormulaRowView: View {
         copies += 1
     }
 
+    private func simplify() {
+        notebook.simplifyLine(id: id, undoManager: undoManager)
+    }
+
     /// The copy opens for editing: a declaration’s copy needs another name.
     private func duplicate() {
         if let copy = notebook.duplicateLine(id: id, undoManager: undoManager) { edit(copy) }
@@ -324,6 +339,41 @@ struct FormulaRowView: View {
 
     private func remove() {
         notebook.removeLine(id: id, undoManager: undoManager)
+    }
+}
+
+/// The menu of a line. When its formula has a simpler form, the press shows that
+/// form above the menu, whose first action, Simplifier, rewrites the line with it.
+private struct LineContextMenu<MenuContent: View>: ViewModifier {
+    let simplified: String?
+    @ViewBuilder let menu: () -> MenuContent
+
+    func body(content: Content) -> some View {
+        if let simplified {
+            content.contextMenu {
+                menu()
+            } preview: {
+                SimplificationPreview(source: simplified)
+            }
+        } else {
+            content.contextMenu { menu() }
+        }
+    }
+}
+
+/// The simpler form of a line, in mathematical notation, above its menu.
+private struct SimplificationPreview: View {
+    let source: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Forme simplifiée", systemImage: "wand.and.sparkles")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.tint)
+            FormulaView(source: source) { EmptyView() }
+        }
+        .padding(20)
+        .frame(minWidth: 260, alignment: .leading)
     }
 }
 

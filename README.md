@@ -1,6 +1,6 @@
 # Eval
 
-Calculatrice iOS de physique en SwiftUI : des feuilles de formules littérales, des variables et des unités, avec calcul automatique, analyse dimensionnelle, conversion d’affichage et résolution numérique d’une inconnue. Fonctionne hors ligne sur iPhone et iPad (iOS 17 ou plus).
+Calculatrice iOS de physique en SwiftUI : des feuilles de formules littérales, des variables et des unités, avec calcul automatique, analyse dimensionnelle, conversion d’affichage, simplification des formules, résolution des équations (exacte pour les polynômes jusqu’au degré 2, numérique au-delà) et lecture des formules écrites à la main ou photographiées. Fonctionne hors ligne sur iPhone et iPad (iOS 17 ou plus ; écriture manuscrite à partir d’iOS 18).
 
 ## Démarrer
 
@@ -59,7 +59,7 @@ L’onglet **Calcul** ouvre la liste **Feuilles**, de la plus récente à la plu
 
 ### Résultats sur la ligne
 
-Comme dans Notes, une ligne terminée par `=` affiche sa valeur sur la même ligne, en couleur : `E =` affiche `E = 1000 J`, `E = 0,5 * m * v² =` définit `E` et affiche sa valeur, `m * v =` affiche la valeur de l’expression. Une ligne avec une conversion (`v → km/h`) ou une inconnue (`v = ? m/s`) affiche toujours sa valeur ; une égalité `==` affiche son verdict. Les autres lignes sont calculées sans afficher de valeur, et leurs erreurs restent signalées sous la ligne. Si la place manque, la valeur passe sous la formule. Pendant qu’une ligne est modifiée, sa valeur se met à jour en direct ; une valeur calculée pour un texte précédent est grisée. Toucher une valeur ouvre le menu de la ligne.
+Comme dans Notes, une ligne terminée par `=` affiche sa valeur sur la même ligne, en couleur : `E =` affiche `E = 1000 J`, `E = 0,5 * m * v² =` définit `E` et affiche sa valeur, `m * v =` affiche la valeur de l’expression. Une ligne avec une conversion (`v → km/h`) ou une inconnue (`v = ? m/s`) affiche toujours sa valeur ; une égalité `==` affiche son verdict. Les autres lignes sont calculées sans afficher de valeur, et leurs erreurs restent signalées sous la ligne. Après une équation, `x =` affiche toutes ses solutions (voir [Résoudre une équation](#résoudre-une-équation)). Si la place manque, la valeur passe sous la formule. Pendant qu’une ligne est modifiée, sa valeur se met à jour en direct ; une valeur calculée pour un texte précédent est grisée. Toucher une valeur ouvre le menu de la ligne.
 
 Les feuilles enregistrées avant cette version, où les résultats affichés étaient choisis un par un, sont converties à l’ouverture : chaque ligne qui affichait son résultat reçoit un `=` final.
 
@@ -77,6 +77,10 @@ La réglette utilise une petite composition SwiftUI (Canvas et DragGesture), né
 
 Pour une ligne calculée (expression ou définition), le menu de la ligne propose **Tracer en fonction de** puis le nom d’une variable à réglette dont le résultat dépend. La courbe couvre l’**intervalle du graphique** de la variable (par défaut de 0 à deux fois sa valeur, ou de −10 à 10 pour zéro), modifiable par ses réglages ; une ligne pointillée marque la valeur actuelle et toucher le graphique lit une valeur. Les points où le calcul échoue (racine d’un nombre négatif, division par zéro) laissent un trou dans la courbe. Si le résultat est affiché avec `→`, le tracé suit cette unité.
 
+### Simplifier une formule
+
+Un appui long sur une formule qui peut s’écrire plus simplement montre, au-dessus de son menu, sa **forme simplifiée** en écriture mathématique ; l’action **Simplifier**, en tête du menu, réécrit la ligne (une étape d’annulation). Sinon le menu reste le même. La simplification est symbolique et exacte : les nombres sont calculés en fractions (`0,1 + 0,2` → `0,3`, `x / 3 + x / 6` → `x / 2`), les termes semblables regroupés (`2x + 3x` → `5x`), les facteurs communs simplifiés (`E = 0,5 * m * v^2 * 2 / m` → `E = v²`), les puissances fusionnées (`x * x * x` → `x³`), les racines réduites (`sqrt(12)` → `2√3`), les sommes développées quand le résultat est plus court (`x(x + 1) - x^2` → `x`), les fractions rationnelles d’une seule variable réduites (`(x^2 - 1) / (x - 1)` → `x + 1`), et les valeurs évidentes appliquées (`sin(x)^2 + cos(x)^2` → `1`, `ln(exp(t))` → `t`). Une forme n’est proposée que si elle est plus courte, ou de même longueur avec des nombres plus petits ; `(a + b)^2` reste factorisé. Le nom déclaré, la flèche `→`, le `=` final et le commentaire sont conservés, et les deux membres d’une égalité sont simplifiés séparément. Les unités restent des unités (`2 m + 3 m` → `5 m`). La forme proposée est relue par l’analyseur et doit redonner la même expression, sinon rien n’est proposé. Comme dans tout système de calcul formel, `x / x` devient `1` sans réserver le cas `x = 0`.
+
 ### Écriture mathématique
 
 La feuille affiche les divisions comme des fractions, les puissances en exposant et les racines carrées avec leur signe. Les notes `# …` s’affichent comme des titres, les notes `// …` comme du texte secondaire. Toucher une ligne la transforme sur place en champ de texte ; elle reprend sa notation mathématique dès qu’on la quitte. **Retour** valide la ligne et crée une nouvelle ligne en dessous, avec le clavier. La dernière ligne **Nouvelle ligne**, comme le bouton **+**, ajoute une ligne à la fin. Toute la saisie d’une ligne forme une seule étape d’annulation.
@@ -91,6 +95,19 @@ Le rendu mathématique est composé en SwiftUI, s’adapte à Dynamic Type et d�
 
 Au-dessus du clavier, une barre insère à l’emplacement du curseur `+`, `−`, `×` et des parenthèses `( )`. Son menu **Insérer** propose les modèles **Fraction**, **Puissance** et **Racine**, qui entourent la sélection (`(a + b)/()`), et ajoute `=`, `÷`, `^`, `²`, `³`, `⁻¹`, `π` et `deg`, les variables de la feuille, ou ouvre **Constantes et unités…**, un sélecteur avec recherche qui insère le nom choisi. L’insertion à la position du curseur nécessite iOS 18 ; sous iOS 17, le symbole est ajouté en fin de texte. Le bouton **Terminé** ferme le clavier.
 
+### Écrire à la main ou photographier
+
+**Écrire à la main** (appui long sur **+**, menu **Actions de la feuille** ou feuille vide ; iOS 18 ou plus) ouvre une page où écrire avec l’Apple Pencil ou le doigt, une formule par ligne, avec la palette d’outils PencilKit (stylo, gomme, lasso, annulation). Le menu caméra propose aussi **Scanner une page** (scanner de documents VisionKit, qui détecte et redresse la page) et **Choisir une photo** (sélecteur Photos du système, sans accès à la photothèque entière). **Lire** reconnaît les formules, puis l’écran **Vérifier les lignes** montre chaque ligne lue, modifiable, avec son aperçu mathématique ou l’indication « À corriger » ; un glissement vers la gauche supprime une ligne. **Ajouter** les place à la fin de la feuille, en une étape d’annulation.
+
+La lecture se fait sur l’appareil, sans réseau :
+
+- la reconnaissance de texte de Vision lit les caractères ; Eval reconstruit les **exposants** d’après la position et la taille des chiffres (un 2 écrit petit et en haut après `x` devient `x²`), et les **fractions** d’après les barres horizontales avec du texte au-dessus et au-dessous (y compris un trait de fraction tracé d’un seul geste) ;
+- avec **Apple Intelligence** (iOS 27 ou plus, modèle avec vision), le modèle sur l’appareil lit aussi l’image et écrit directement la syntaxe d’Eval (fractions, exposants, racines). Sa lecture n’est retenue que si elle concorde avec celle de Vision, car un modèle qui lit mal une image peut inventer des formules plausibles ; sinon la lecture de Vision est gardée. Une ligne coupée après un opérateur (`2x =` puis `4`) est recollée.
+
+Les caractères sont ensuite écrits pour la feuille : tirets et signes moins, `**`, LaTeX éventuel (`\frac{1}{2} m v^{2}` → `1/2 * m v^2`), `O` entre deux chiffres. Comme `0,5 m` désigne un demi-mètre dans la feuille, un nombre suivi d’un nom déclaré (dans la feuille ou dans les lignes lues) reçoit un `*` : `m = 80 kg` puis `1000 J = 0,5 m v²` devient `1000 J = 0,5 * m v^2`. La permission de la caméra n’est demandée qu’à l’ouverture du scanner ; l’image n’est ni conservée ni envoyée.
+
+Sur iPad, l’Apple Pencil peut aussi écrire directement dans le champ d’une ligne en cours de saisie, grâce à Griffonner (Scribble) du système.
+
 ### Annuler et rétablir
 
 **Annuler** et **Rétablir** (menu **Actions de la feuille**), le geste de secousse et ⌘Z défont l’ajout, la suppression, la modification, le déplacement d’une ligne ou le choix d’une unité d’affichage. La saisie d’une ligne, du toucher à sa sortie, et un geste de réglette, quelle que soit sa durée, comptent chacun pour une seule étape ; pendant la saisie, ⌘Z ne concerne que le texte de la ligne. Si la même feuille a été modifiée dans une autre fenêtre, l’annulation est refusée plutôt que d’effacer cette modification.
@@ -99,7 +116,7 @@ Au-dessus du clavier, une barre insère à l’emplacement du curseur `+`, `−`
 
 ### Copier et partager
 
-Le menu contextuel d’une ligne propose **Copier la valeur** (`1000 J`), **Copier la ligne** (`E = 1000 J` pour une déclaration, `m * v = 400 kg·m·s⁻¹` pour une expression), **Copier la formule**, **Partager le résultat**, **Modifier**, **Dupliquer** et **Supprimer**. **Copier la valeur**, **Copier la ligne** et **Partager le résultat** n’apparaissent que pour une ligne qui affiche une valeur. La valeur copiée est celle affichée, en unités SI ou dans l’unité choisie avec `→`, et se colle comme une entrée valide (les nombres négatifs s’affichent avec le vrai signe moins `−`, que l’analyseur accepte). La copie créée par **Dupliquer** s’ouvre en modification : une déclaration copiée doit recevoir un autre nom, car un nom ne se déclare qu’une fois.
+Le menu contextuel d’une ligne propose **Copier la valeur** (`1000 J`), **Copier la ligne** (`E = 1000 J` pour une déclaration, `m * v = 400 kg·m·s⁻¹` pour une expression), **Copier la formule**, **Partager le résultat**, **Modifier**, **Dupliquer** et **Supprimer**. **Copier la valeur**, **Copier la ligne** et **Partager le résultat** n’apparaissent que pour une ligne qui affiche une valeur. La valeur copiée est celle affichée, en unités SI ou dans l’unité choisie avec `→`, et se colle comme une entrée valide (les nombres négatifs s’affichent avec le vrai signe moins `−`, que l’analyseur accepte). Pour une ligne `x =` qui a plusieurs solutions, c’est la liste affichée qui est copiée. La copie créée par **Dupliquer** s’ouvre en modification : une déclaration copiée doit recevoir un autre nom, car un nom ne se déclare qu’une fois.
 
 **Partager la feuille** envoie son texte en ajoutant à chaque ligne qui affiche une valeur cette valeur en note, par exemple `E = 0,5 * m * v² =  # 1000 J`, de sorte que le texte se rouvre comme une feuille ; **Partager sans les résultats** envoie la source seule.
 
@@ -191,7 +208,23 @@ Les opérateurs **sans espaces** prolongent le suffixe d’unités : `2 kg*m/s²
 
 Si `e` n’est pas déclaré, il désigne la charge élémentaire : `e^(0,5)` est donc refusé, avec le conseil d’écrire `exp(0,5)` (**1,64872**). Une puissance entière comme `e^2` reste acceptée ; pour l’exponentielle, utiliser `exp`.
 
-### Résoudre une inconnue
+### Résoudre une équation
+
+Écrire une équation qui contient un nom non déclaré, puis ce nom suivi de `=`, affiche ses solutions :
+
+```text
+3x^2 + 2x - 3 = 0
+x =
+```
+
+La ligne `x =` affiche **(−1 ± √10)/3 ≈ 0,720759 ; −1,38743**. L’équation est une ligne avec `=` (dont le membre gauche n’est pas un simple nom) ou `==`. Le nom demandé ne doit être ni déclaré, ni une constante, ni une unité (`l` est le litre, `h` la constante de Planck) ; seule une ligne `x =` (ou `x → unité`) en fait une inconnue, de sorte qu’une faute de frappe dans une relation reste signalée, avec le conseil d’ajouter `x =`.
+
+- **Polynômes** : l’équation est développée et réduite (les déclarations qui lisent l’inconnue sont remplacées par leur formule). Jusqu’au degré 2, les solutions s’affichent sous forme exacte, puis en décimales : `x^2 - 5x + 6 = 0` donne **2 ; 3**, `3x = 2` donne **2/3 ≈ 0,666667**, `x^3 = 2x` donne **0 ; ±√2 ≈ 0 ; 1,41421 ; −1,41421**. Au-delà, les racines rationnelles sont trouvées exactement et le reste numériquement. Une racine double est signalée (« Solution double. ») ; sans solution réelle, les solutions complexes sont données (`3x^2 + 2x + 1 = 0` : « x = (−1 ± i√2)/3 »). La forme exacte suppose des coefficients sans dimension et de petites fractions ; sinon les solutions sont numériques.
+- **Unités** : la dimension de l’inconnue se déduit de l’équation. Avec `m = 80 kg` et `1000 J = 0,5 * m * v^2`, `v =` affiche **−5 m·s⁻¹ ; 5 m·s⁻¹**, et `v → km/h =` les montre en km/h.
+- **Autres équations** : `exp(x) = 2` ou `2 s = 2 * pi * sqrt(d / g)` sont résolues numériquement (balayage de 10⁻¹² à 10¹² aux deux signes, puis méthode de Brent), et toutes les solutions trouvées sont listées, six au plus.
+- Les autres lignes qui utilisent l’inconnue prennent la plus petite solution positive (sinon la plus proche de zéro), ce qu’une note rappelle. Une seule équation doit contenir l’inconnue, et une seule inconnue par équation ; sinon un message l’explique. Une équation vraie pour toute valeur, ou qui ne dépend plus de l’inconnue une fois simplifiée, est signalée.
+
+### Résoudre une inconnue déclarée
 
 Écrire `v = ? m/s` déclare une inconnue et son unité. Avec **exactement une relation** (`==`, ou `=` qui n’est pas une déclaration) qui contient `v`, directement ou par les déclarations dont elle dépend, Eval cherche **numériquement** la valeur qui vérifie la relation.
 
@@ -221,19 +254,21 @@ a = 7,2 m/s²
 
 La relation est homogène et l’égalité est vérifiée. Une dimension cohérente et une valeur numérique égale sont deux vérifications distinctes. Une simple multiplication donne la dimension de son résultat (`m * v =` affiche **400 kg·m·s⁻¹**) sans prétendre valider une loi physique : seules les sommes, les comparaisons et les égalités vérifient l’homogénéité.
 
-Sans unité, une valeur est considérée comme sans dimension : renseigner les unités pour une vérification physique utile. Eval effectue l’évaluation numérique de variables définies et la résolution numérique d’une inconnue ; la résolution symbolique, les unités avec décalage (°C, °F) et la propagation des incertitudes ne sont pas implémentées. Les valeurs utilisent `Double`. Les résultats s’affichent avec six chiffres significatifs par défaut, de 3 à 12 dans les **Réglages** (les nombres entiers inférieurs à 10⁹ gardent tous leurs chiffres) ; les calculs, les valeurs saisies, les constantes de Références et les messages d’égalité non vérifiée en gardent dix.
+Sans unité, une valeur est considérée comme sans dimension : renseigner les unités pour une vérification physique utile. Eval évalue numériquement les variables définies, résout exactement les équations polynomiales jusqu’au degré 2 et numériquement les autres, et simplifie les formules sur demande ; les systèmes de plusieurs équations, les unités avec décalage (°C, °F) et la propagation des incertitudes ne sont pas implémentés. Les valeurs utilisent `Double`. Les résultats s’affichent avec six chiffres significatifs par défaut, de 3 à 12 dans les **Réglages** (les nombres entiers inférieurs à 10⁹ gardent tous leurs chiffres) ; les calculs, les valeurs saisies, les constantes de Références et les messages d’égalité non vérifiée en gardent dix.
 
 Les erreurs de syntaxe, variables inconnues (avec un renvoi vers **Références › Unités**), doublons, dépendances circulaires, domaines de fonctions, divisions par zéro et dépassements numériques sont signalés par ligne. Si la déclaration dont dépend une ligne est en erreur, cette ligne l’indique (« La déclaration de « x » (ligne 1) contient une erreur. »). Des limites de taille et de profondeur protègent l’éditeur des expressions excessives.
 
 ## Structure et validation
 
-- `EvalApp/` : interface native SwiftUI (`NavigationSplitView`, `TabView`, `NavigationStack`, `List`, `Form`, `TextEditor`, Swift Charts, menus et présentations système) : liste et fenêtres de feuilles, saisie sur place des lignes (texte ou écriture mathématique), réglettes, tracés, Références, Réglages, aide, nom automatique des feuilles avec Foundation Models sur l’appareil (`SheetTitleGenerator`, iOS 26 ou plus, derrière `#if canImport(FoundationModels)` et `if #available`), et chaînes localisables dans `Localizable.xcstrings`.
+- `EvalApp/` : interface native SwiftUI (`NavigationSplitView`, `TabView`, `NavigationStack`, `List`, `Form`, `TextEditor`, Swift Charts, menus et présentations système) : liste et fenêtres de feuilles, saisie sur place des lignes (texte ou écriture mathématique), aperçu de simplification dans le menu contextuel d’une ligne, réglettes, tracés, Références, Réglages, aide, nom automatique des feuilles avec Foundation Models sur l’appareil (`SheetTitleGenerator`, iOS 26 ou plus, derrière `#if canImport(FoundationModels)` et `if #available`), écriture manuscrite (`HandwritingView`, `HandwritingRecognizer` avec Vision et Foundation Models en iOS 27 ; `HandwritingCanvas` réunit les deux seuls ponts UIKit, `PKCanvasView` et `VNDocumentCameraViewController`, faute d’équivalents SwiftUI), et chaînes localisables dans `Localizable.xcstrings`.
 - `Sources/EvalCore/` : moteur indépendant de SwiftUI.
-  - Analyse et calcul : `ExpressionParser`, `NotebookEngine` (graphe de dépendances), `RootSearch` (résolution numérique), `Quantity`, `Dimension`, `Catalogs` (constantes et unités), `LineSyntax` (corps, flèche `→`, `=` final et commentaire d’une ligne).
+  - Analyse et calcul : `ExpressionParser`, `NotebookEngine` (graphe de dépendances, inconnues demandées par `x =`), `RootSearch` (résolution numérique), `Quantity`, `Dimension`, `Catalogs` (constantes et unités), `LineSyntax` (corps, flèche `→`, `=` final et commentaire d’une ligne).
+  - Algèbre : `Algebra` (fractions exactes, termes symboliques, simplification, développement, réduction au même dénominateur, écriture en syntaxe Eval, `FormulaSimplifier`), `EquationSolving` (racines réelles des polynômes, formes exactes, `EquationSolutions`).
+  - Écriture manuscrite : `RecognizedMath` (exposants et fractions d’après la géométrie, lignes, nettoyage du texte reconnu, accord entre deux lectures).
   - Feuilles : `SheetRecord` (une feuille, l’identité de ses lignes et ses réglettes), `SheetRepository` (un fichier JSON par feuille), `LegacyNotebookMigration` (reprise de l’ancienne feuille unique), `ExampleLibrary` (les 23 exemples), `SheetLineEditing` (copie et partage), `AutomaticSheetTitle` (feuilles à nommer automatiquement, nettoyage du titre proposé), `ResultSelection` (identité des lignes d’une feuille, d’une modification à l’autre).
   - Édition : `MathFormula` (fractions, puissances, racines), `MathEditing` (modèle de l’éditeur en écriture mathématique), `FormulaInsertion` (insertion au curseur), `AdjustableVariable` (réglettes et pas).
   - Tracé et accessibilité : `VariableSweep` (échantillonnage d’un résultat en fonction d’une variable), `MathSpeech` (lecture parlée des formules).
-- `Tests/EvalCoreTests/` : tests du moteur et des catalogues (calcul, conversions, fonctions, résolution, diagnostics, formats, exemples, feuilles, réglettes, lecture parlée, tracé).
+- `Tests/EvalCoreTests/` : tests du moteur et des catalogues (calcul, conversions, fonctions, résolution, équations, simplification, texte reconnu, diagnostics, formats, exemples, feuilles, réglettes, lecture parlée, tracé).
 - `Scripts/generate-app-icon.swift` : génère les quatre documents Icon Composer `EvalApp/AppIcon.icon` (icône principale : un point teinté sous une grande lentille Liquid Glass, en orange), `EvalApp/AppIconPoint.icon` (un seul point en Liquid Glass, orange), `EvalApp/AppIconBlue.icon` (lentille, bleu) et `EvalApp/AppIconPointBlue.icon` (point, bleu), ainsi que leurs aperçus pour les Réglages. Le dessin (parabole au-dessus d’une réglette) est fait de tracés vectoriels, sans SF Symbol ; le système en dérive les apparences sombre, teintée et transparente, et Xcode les icônes des versions antérieures d’iOS. L’icône suit la couleur d’accent : le style se choisit dans **Réglages › Icône de l’app**, et les trois icônes alternatives sont déclarées dans `ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES`.
 
 ```sh

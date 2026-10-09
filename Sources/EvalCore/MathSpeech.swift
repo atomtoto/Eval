@@ -441,7 +441,8 @@ extension QuantityFormatter {
 extension EvaluatedLine {
     /// The result read aloud, in the line's display unit.
     public var spokenResult: String? {
-        quantity.map { QuantityFormatter.spokenString($0, in: displayUnit) }
+        if let solutions { return solutions.spoken(in: displayUnit) }
+        return quantity.map { QuantityFormatter.spokenString($0, in: displayUnit) }
     }
 
     /// `dimensionMessage` read aloud: « Homogène : kilogramme mètre carré par seconde carrée ».

@@ -30,6 +30,9 @@ public struct EvaluatedLine: Identifiable, Sendable {
     /// are not listed, nor is the name a declaration defines. Empty for a sheet
     /// over the size limit.
     public let dependencies: Set<String>
+    /// For `x =` after an equation in x that nothing declares: every real solution,
+    /// when there are several or an exact form. `quantity` is the one the sheet uses.
+    public let solutions: EquationSolutions?
 }
 
 public struct ResolvedVariable: Identifiable, Sendable {
@@ -108,9 +111,12 @@ public struct NotebookEngine: Sendable {
                                                    displayUnit: unit))
                     } else {
                         let note = dimensionNote(quantity, expression: left)
-                        results.append(line.result(quantity: quantity, message: line.note, status: .success,
+                        let solutions = line.requestedName.flatMap { resolver.solutionSets[$0] }
+                        let message = line.requestedName.flatMap { resolver.unknownNotes[$0] } ?? line.note
+                        results.append(line.result(quantity: quantity, message: message, status: .success,
                                                    dimensionMessage: note.message, isHomogeneous: note.isHomogeneous,
-                                                   displayUnit: try line.displayUnit(for: quantity)))
+                                                   displayUnit: try line.displayUnit(for: quantity),
+                                                   solutions: solutions))
                     }
                 }
             } catch {
@@ -145,14 +151,14 @@ public struct NotebookEngine: Sendable {
             guard index == errorIndex else {
                 return EvaluatedLine(id: index, source: source, kind: kinds[index], quantity: nil,
                                      message: nil, status: .neutral, dimensionMessage: nil, displayUnit: nil,
-                                     isHomogeneous: false, requestsValue: requests, dependencies: [])
+                                     isHomogeneous: false, requestsValue: requests, dependencies: [], solutions: nil)
             }
             // A comment would not be listed among the results.
             let kind = kinds[index] == .empty || kinds[index] == .comment ? .expression : kinds[index]
             return EvaluatedLine(id: index, source: source, kind: kind, quantity: nil,
                                  message: "Feuille trop longue (500 lignes et 100 000 caractères maximum).",
                                  status: .error, dimensionMessage: nil, displayUnit: nil, isHomogeneous: false,
-                                 requestsValue: requests, dependencies: [])
+                                 requestsValue: requests, dependencies: [], solutions: nil)
         }
         return NotebookEvaluation(lines: lines, constants: [], variables: [], symbolUnits: [])
     }
@@ -288,11 +294,17 @@ private struct ParsedLine {
 
     func result(quantity: Quantity? = nil, message: String? = nil, status: LineStatus,
                 dimensionMessage: String? = nil, isHomogeneous: Bool = false,
-                displayUnit: DisplayUnit? = nil) -> EvaluatedLine {
+                displayUnit: DisplayUnit? = nil, solutions: EquationSolutions? = nil) -> EvaluatedLine {
         EvaluatedLine(id: id, source: source, kind: kind, quantity: quantity,
                       message: message, status: status, dimensionMessage: dimensionMessage,
                       displayUnit: displayUnit, isHomogeneous: isHomogeneous,
-                      requestsValue: requestsValue, dependencies: dependencies)
+                      requestsValue: requestsValue, dependencies: dependencies, solutions: solutions)
+    }
+
+    /// The name this line asks for alone, as in `x =` or `x → cm`.
+    var requestedName: String? {
+        guard kind == .expression, right == nil, requestsValue, case .identifier(let name)? = left else { return nil }
+        return name
     }
 }
 
@@ -361,6 +373,11 @@ private final class Resolver {
     private var nestedUnknown: String?
     /// What was found besides the value: the other root, or a warning.
     private(set) var unknownNotes: [String: String] = [:]
+    /// Names asked for alone (`x =`) that nothing declares and no catalogue knows:
+    /// each is solved from the one equation that contains it.
+    private let implicitUnknowns: Set<String>
+    /// Every solution found for an implicit unknown, for its `x =` lines.
+    private(set) var solutionSets: [String: EquationSolutions] = [:]
 
     var usedConstants: [ConstantDefinition] { trails[0].compactMap(\.constant) }
     var usedUnits: [UnitDefinition] { trails[0].compactMap(\.unit) }
@@ -372,6 +389,14 @@ private final class Resolver {
             if definitions[name] == nil { orderedNames.append(name) }
             definitions[name, default: []].append(line)
         }
+        var requested = Set<String>()
+        for line in lines {
+            guard let name = line.requestedName, definitions[name] == nil, ConstantCatalog.lookup(name) == nil,
+                  UnitCatalog.lookup(name) == nil, Diagnostics.offsetTemperature(name) == nil,
+                  !ExpressionParser.isFunctionName(name) else { continue }
+            requested.insert(name)
+        }
+        implicitUnknowns = requested
     }
 
     /// Resolves each declaration after the declarations it uses, with an
@@ -426,6 +451,11 @@ private final class Resolver {
             guard line.kind != .empty, line.kind != .comment else { return [] }
             var direct = declared([line.left, line.right].compactMap { $0 })
             if let name = line.name, line.unknown != nil { direct.formUnion(unknownReads(of: name)) }
+            for expression in [line.left, line.right].compactMap({ $0 }) {
+                for name in Self.references(in: expression) where implicitUnknowns.contains(name) {
+                    direct.formUnion(unknownReads(of: name))
+                }
+            }
             var result = Set<String>()
             for name in direct where !result.contains(name) {
                 // A closure is transitively closed: a name already in `result` brought its own reads.
@@ -518,9 +548,11 @@ private final class Resolver {
             note(constantTrails[name] ?? [])
             throw failure
         }
-        guard definitions[name] != nil else { return try catalogValue(name) }
+        guard definitions[name] != nil else {
+            return implicitUnknowns.contains(name) ? try resolveUnknown(name, nil) : try catalogValue(name)
+        }
         if let declarations = definitions[name], declarations.count == 1, let unknown = declarations[0].unknown {
-            return try resolveUnknown(name, declarations[0], unknown)
+            return try resolveUnknown(name, unknown)
         }
         let expression = try declaredExpression(name, depth: depth)
         visiting.append(name)
@@ -611,10 +643,11 @@ private final class Resolver {
         }
     }
 
-    /// Solves `name = ? unit` from the one relation that reads it. A separate
-    /// function keeps `resolve`, which recurses for every dependency, small.
+    /// Solves `name = ? unit`, or a name asked for with `name =` (spec nil), from the
+    /// one relation that reads it. A separate function keeps `resolve`, which
+    /// recurses for every dependency, small.
     @inline(never)
-    private func resolveUnknown(_ name: String, _ line: ParsedLine, _ spec: UnknownSpec) throws -> Measured {
+    private func resolveUnknown(_ name: String, _ spec: UnknownSpec?) throws -> Measured {
         if let current = solving, current != name {
             nestedUnknown = name
             throw CalculationError.invalid("Une seule inconnue par relation.")
@@ -625,13 +658,21 @@ private final class Resolver {
             guard candidate.kind == .equation, let left = candidate.left, let right = candidate.right else { return false }
             return !family.isDisjoint(with: Self.references(in: left) + Self.references(in: right))
         }
+        if spec == nil, relations.isEmpty {
+            throw CalculationError.invalid("Aucune équation ne contient « \(name) ». Écrivez-en une sur une ligne, par exemple 2\(name) + 1 = 0, ou déclarez \(name) = ….")
+        }
         let saved = visiting
         visiting = []
         solving = name
         trails.append([])
-        var outcome: Result<(value: Measured, note: String?), CalculationError>
+        var outcome: Result<Solved, CalculationError>
         do {
-            outcome = .success(try solve(name, spec, relations: relations, dependents: dependents))
+            if let spec {
+                let solved = try solve(name, spec, relations: relations, dependents: dependents)
+                outcome = .success(Solved(value: solved.value, note: solved.note))
+            } else {
+                outcome = .success(try solveImplicitly(name, relations: relations, dependents: dependents))
+            }
         } catch let error as CalculationError {
             outcome = .failure(error)
         } catch {
@@ -650,6 +691,7 @@ private final class Resolver {
             cache[name] = solution.value
             constantTrails[name] = trail
             unknownNotes[name] = solution.note
+            solutionSets[name] = solution.solutions
             return solution.value
         case .failure(var error):
             if let nested {
@@ -715,6 +757,319 @@ private final class Resolver {
         return (Measured(Quantity(value: root * scale, dimension: dimension)), notes.isEmpty ? nil : notes.joined(separator: " "))
     }
 
+    /// What solving an unknown found: its value for the sheet, a remark, and for a
+    /// name asked for with `x =`, every solution.
+    struct Solved {
+        let value: Measured
+        let note: String?
+        var solutions: EquationSolutions?
+    }
+
+    // MARK: Equations in a name asked for with `x =`
+
+    /// Solves the one equation that contains `name`, directly or through the
+    /// declarations that read it: exactly when it is a polynomial in `name`,
+    /// numerically otherwise.
+    private func solveImplicitly(_ name: String, relations: [ParsedLine], dependents: [String]) throws -> Solved {
+        guard relations.count == 1, let relation = relations.first, let left = relation.left, let right = relation.right else {
+            let numbers = relations.map { String($0.id + 1) }.joined(separator: ", ")
+            throw CalculationError.invalid("Plusieurs équations contiennent « \(name) » (lignes \(numbers)). Gardez-en une seule pour le calculer.")
+        }
+        let line = relation.id + 1
+        // The declarations that read the unknown are replaced by their formulas.
+        let replaced = Set(dependents)
+        let lhs = try substituting(replaced, in: left, chain: 0)
+        let rhs = try substituting(replaced, in: right, chain: 0)
+        let residual = Term(.binary(.subtract, lhs, rhs)) { [unowned self] in self.compactReading($0) }
+        let found = try residual.flatMap { try solvePolynomial(name, $0.simplified, line: line) }
+            ?? solveNumerically(name, lhs, rhs, residual: residual, line: line)
+        let values = found.roots
+        // The sheet uses the smallest solution that is not negative, else the one closest to zero.
+        let principal = values.indices.filter { values[$0] >= 0 }.min { values[$0] < values[$1] }
+            ?? values.indices.max { values[$0] < values[$1] } ?? 0
+        let quantities = values.map { Quantity(value: $0, dimension: found.dimension) }
+        var notes = found.notes
+        if values.count > 1, isUsedElsewhere(name, besides: relation.id, dependents: dependents) {
+            notes.append("Les autres lignes utilisent \(name) = \(QuantityFormatter.string(quantities[principal])).")
+        }
+        let solutions = values.count > 1 || found.exact != nil
+            ? EquationSolutions(values: quantities, exact: found.exact, principalIndex: principal) : nil
+        return Solved(value: Measured(quantities[principal]), note: notes.isEmpty ? nil : notes.joined(separator: " "),
+                      solutions: solutions)
+    }
+
+    private typealias Roots = (roots: [Double], dimension: Dimension, exact: String?, notes: [String])
+
+    /// The real roots of an equation that is a polynomial in `name` once expanded,
+    /// in the order shown; nil when it is not one.
+    private func solvePolynomial(_ name: String, _ residual: Term, line: Int) throws -> Roots? {
+        var budget = 2_000
+        guard let expanded = residual.expanded(budget: &budget) else { return nil }
+        var groups: [Int: [Term]] = [:]
+        let terms: [Term]
+        if case .sum(let parts) = expanded { terms = parts } else { terms = [expanded] }
+        for term in terms {
+            var power = 0
+            var rest: [Term] = []
+            let factors: [Term]
+            if case .product(let inner) = term { factors = inner } else { factors = [term] }
+            for factor in factors {
+                switch factor {
+                case .symbol(name):
+                    power += 1
+                case .power(.symbol(name), .number(let exponent)) where exponent.isInteger:
+                    power += exponent.numerator
+                default:
+                    guard !factor.contains(symbol: name) else { return nil }
+                    rest.append(factor)
+                }
+            }
+            guard abs(power) <= 40 else { return nil }
+            groups[power, default: []].append(Term.multiply(rest))
+        }
+        // Each coefficient takes the sheet's values; a residue of rounding counts as zero.
+        var coefficients: [Int: (term: Term, value: Measured)] = [:]
+        for (power, parts) in groups {
+            let term = Term.add(parts)
+            let value = try measure(term.expression, depth: 0)
+            guard value.value != 0, abs(value.value) > value.scale * 1e-10 else { continue }
+            coefficients[power] = (term, value)
+        }
+        guard let high = coefficients.keys.max(), let low = coefficients.keys.min() else {
+            throw CalculationError.invalid("L’équation de la ligne \(line) est vérifiée pour toute valeur de « \(name) » : elle ne permet pas de le calculer.")
+        }
+        guard high > 0 else {
+            throw CalculationError.invalid(high == 0
+                ? "L’équation de la ligne \(line) n’a pas de solution : « \(name) » disparaît en la simplifiant."
+                : "L’équation de la ligne \(line) n’a pas de solution.")
+        }
+        guard high > low else {
+            // c·xᵏ = 0
+            return ([0], .dimensionless, nil, high > 1 ? [Self.multiplicityNote(high)] : [])
+        }
+        // Every term c·xᵏ has the same dimension, dim c + k·D, which fixes D.
+        guard let lowest = coefficients[low], let highest = coefficients[high] else { return nil }
+        let dimension = (lowest.value.dimension - highest.value.dimension).scaled(by: 1 / Double(high - low))
+        let reference = highest.value.dimension + dimension.scaled(by: Double(high))
+        for coefficient in coefficients
+        where !(coefficient.value.value.dimension + dimension.scaled(by: Double(coefficient.key))).isEquivalent(to: reference) {
+            throw CalculationError.invalid("Équation non homogène : aucune dimension de « \(name) » n’accorde tous les termes de la ligne \(line).")
+        }
+        // Lowest degree first; zero roots stay as leading zeros, negative powers are multiplied out.
+        let powers = Array(min(low, 0)...high)
+        var roots: [(value: Double, multiplicity: Int)]
+        var exact: String?
+        var complex: String?
+        if dimension.isDimensionless, let whole = Self.wholeCoefficients(powers.map { coefficients[$0] }),
+           let exactRoots = ExactPolynomialRoots(whole) {
+            roots = exactRoots.roots.map { ($0.value, $0.multiplicity) }
+            exact = exactRoots.exactSpelling
+            complex = exactRoots.complexPair
+        } else {
+            roots = RealPolynomial.roots(powers.map { coefficients[$0]?.value.value ?? 0 })
+        }
+        guard !roots.isEmpty else {
+            throw CalculationError.invalid("Aucune solution réelle" + (complex.map { " : les solutions sont complexes, \(name) = \($0)." } ?? "."))
+        }
+        var notes: [String] = []
+        if roots.count == 1, roots[0].multiplicity > 1 { notes.append(Self.multiplicityNote(roots[0].multiplicity)) }
+        if let complex { notes.append("Deux autres solutions sont complexes : \(name) = \(complex).") }
+        return (roots.map(\.value), dimension, exact, notes)
+    }
+
+    /// Coefficients made whole when every one is a small fraction without dimension,
+    /// with a positive leading coefficient; nil otherwise.
+    private static func wholeCoefficients(_ coefficients: [(term: Term, value: Measured)?]) -> [Int]? {
+        var fractions: [Rational] = []
+        for coefficient in coefficients {
+            guard let coefficient else { fractions.append(.zero); continue }
+            guard coefficient.value.dimension.isDimensionless else { return nil }
+            if case .number(let rational) = coefficient.term.simplified {
+                fractions.append(rational)
+            } else if let rational = Rational(exactly: coefficient.value.value, maximumDenominator: 10_000),
+                      abs(rational.numerator) <= 1_000_000_000 {
+                fractions.append(rational)
+            } else {
+                return nil
+            }
+        }
+        var multiple = 1
+        for fraction in fractions {
+            let divisor = Rational.gcd(multiple, fraction.denominator)
+            let (next, overflow) = (multiple / divisor).multipliedReportingOverflow(by: fraction.denominator)
+            guard !overflow else { return nil }
+            multiple = next
+        }
+        var whole: [Int] = []
+        for fraction in fractions {
+            guard let scaled = fraction.multiplied(by: Rational(multiple)), scaled.isInteger else { return nil }
+            whole.append(scaled.numerator)
+        }
+        let common = whole.reduce(0) { Rational.gcd($0, $1) }
+        guard common > 0, let leading = whole.last, leading != .min else { return nil }
+        let sign = leading < 0 ? -1 : 1
+        return whole.map { sign * $0 / common }
+    }
+
+    private static func multiplicityNote(_ multiplicity: Int) -> String {
+        switch multiplicity {
+        case 2: "Solution double."
+        case 3: "Solution triple."
+        default: "Solution de multiplicité \(multiplicity)."
+        }
+    }
+
+    /// Scans the magnitudes of `name` for every sign change of lhs − rhs.
+    private func solveNumerically(_ name: String, _ lhs: Expression, _ rhs: Expression, residual: Term?,
+                                  line: Int) throws -> Roots {
+        let dimension = residual.flatMap { unknownDimension(name, in: $0) } ?? .dimensionless
+        var firstError: CalculationError?
+        let difference: (Double) throws -> Double? = { [unowned self] trial in
+            cache[name] = Measured(Quantity(value: trial, dimension: dimension))
+            let sides: (Measured, Measured)
+            do {
+                sides = (try measure(lhs, depth: 0), try measure(rhs, depth: 0))
+            } catch let error as CalculationError {
+                firstError = firstError ?? error
+                return nil
+            }
+            guard sides.0.dimension.isEquivalent(to: sides.1.dimension) else {
+                throw CalculationError.invalid("Équation non homogène : le membre gauche a pour dimension \(sides.0.dimension.formatted), le membre droit \(sides.1.dimension.formatted).")
+            }
+            let value = sides.0.value - sides.1.value
+            return value.isFinite ? value : nil
+        }
+        var search = RootSearch(collectsAll: true, difference)
+        let found = try search.run()
+        guard found.valid > 0 else {
+            let reason = firstError?.localizedDescription ?? "Aucune valeur n’a pu être calculée."
+            throw CalculationError.invalid("L’équation de la ligne \(line) ne peut pas être évaluée pour « \(name) » : \(reason)")
+        }
+        var roots = found.roots
+        if try difference(0) == 0 { roots.append(0) }
+        roots.sort()
+        var distinct: [Double] = []
+        for root in roots where distinct.last.map({ abs(root - $0) > 1e-9 * max(abs(root), 1e-300) }) ?? true {
+            distinct.append(root)
+        }
+        guard !distinct.isEmpty else {
+            throw CalculationError.invalid("Aucune solution trouvée pour « \(name) » entre 10⁻¹² et 10¹².")
+        }
+        var notes: [String] = []
+        if distinct.count > 6 {
+            distinct = Array(distinct.sorted { abs($0) < abs($1) }.prefix(6)).sorted()
+            notes.append("D’autres solutions existent ; les six plus proches de zéro sont affichées.")
+        } else if found.hasMore {
+            notes.append("D’autres solutions sont possibles.")
+        }
+        return (distinct, dimension, nil, notes)
+    }
+
+    /// The dimension that makes the equation homogeneous for the unknown. Each part
+    /// has the dimension A + w·D, where D is the unknown's: a sum, the argument of
+    /// a function or an exponent then fixes D. Nil when nothing does.
+    private func unknownDimension(_ name: String, in term: Term) -> Dimension? {
+        typealias Affine = (base: Dimension, weight: Double)
+        var found: Dimension?
+        func agree(_ a: Affine, _ b: Affine) {
+            guard found == nil, a.weight != b.weight else { return }
+            found = (b.base - a.base).scaled(by: 1 / (a.weight - b.weight))
+        }
+        let none: Affine = (.dimensionless, 0)
+        func visit(_ term: Term) throws -> Affine {
+            switch term {
+            case .number, .real:
+                return none
+            case .symbol(name):
+                return (.dimensionless, 1)
+            case .symbol(let other):
+                return (try measure(.identifier(other), depth: 0).dimension, 0)
+            case .unit(let symbol):
+                return (try Self.unit(symbol).dimension, 0)
+            case .sum(let terms):
+                let parts = try terms.map(visit)
+                parts.dropFirst().forEach { agree(parts[0], $0) }
+                return parts.first ?? none
+            case .product(let factors):
+                return try factors.map(visit).reduce(none) { ($0.base + $1.base, $0.weight + $1.weight) }
+            case .power(let base, let exponent):
+                let inner = try visit(base)
+                if exponent.contains(symbol: name) {
+                    agree(inner, none)
+                    agree(try visit(exponent), none)
+                    return none
+                }
+                let power = try measure(exponent.expression, depth: 0).value
+                return (inner.base.scaled(by: power), inner.weight * power)
+            case .function(let function, let arguments):
+                let parts = try arguments.map(visit)
+                guard let first = parts.first else { return none }
+                switch function {
+                case "abs", "floor", "ceil", "round":
+                    if function != "abs" { agree(first, none) }
+                    return function == "abs" ? first : none
+                case "min", "max":
+                    parts.dropFirst().forEach { agree(first, $0) }
+                    return first
+                case "atan2":
+                    parts.dropFirst().forEach { agree(first, $0) }
+                    return none
+                case "cbrt":
+                    return (first.base.scaled(by: 1.0 / 3), first.weight / 3)
+                case "root":
+                    let index = try measure(arguments[1].expression, depth: 0).value
+                    return (first.base.scaled(by: 1 / index), first.weight / index)
+                default:
+                    parts.forEach { agree($0, none) }
+                    return none
+                }
+            case .factorial(let argument):
+                agree(try visit(argument), none)
+                return none
+            }
+        }
+        _ = try? visit(term)
+        return found
+    }
+
+    /// The expression with each of `names` replaced by its declared formula, in turn.
+    private func substituting(_ names: Set<String>, in expression: Expression, chain: Int) throws -> Expression {
+        guard !names.isEmpty else { return expression }
+        switch expression {
+        case .identifier(let name) where names.contains(name):
+            guard chain <= 60 else { throw CalculationError.circular("Dépendances trop imbriquées ou circulaires.") }
+            return try substituting(names, in: try declaredExpression(name, depth: 0), chain: chain + 1)
+        case .unary(let operation, let argument):
+            return .unary(operation, try substituting(names, in: argument, chain: chain))
+        case .binary(let operation, let left, let right):
+            return .binary(operation, try substituting(names, in: left, chain: chain),
+                           try substituting(names, in: right, chain: chain))
+        case .function(let function, let arguments):
+            return .function(function, try arguments.map { try substituting(names, in: $0, chain: chain) })
+        case .factorial(let argument):
+            return .factorial(try substituting(names, in: argument, chain: chain))
+        case .number, .identifier, .unit, .compactUnits:
+            return expression
+        }
+    }
+
+    /// Whether lines other than the equation and `name =` use the value of `name`.
+    private func isUsedElsewhere(_ name: String, besides relationID: Int, dependents: [String]) -> Bool {
+        !dependents.isEmpty || lines.contains { line in
+            line.id != relationID && line.requestedName != name
+                && [line.left, line.right].compactMap { $0 }.contains { Self.references(in: $0).contains(name) }
+        }
+    }
+
+    /// Names that equations read, for the advice on an unknown name.
+    private lazy var equationNames: Set<String> = {
+        var names = Set<String>()
+        for line in lines where line.kind == .equation {
+            for expression in [line.left, line.right].compactMap({ $0 }) { names.formUnion(Self.references(in: expression)) }
+        }
+        return names
+    }()
+
     private func catalogValue(_ name: String) throws -> Measured {
         if let constant = ConstantCatalog.lookup(name) {
             note([Used(constant)])
@@ -725,7 +1080,7 @@ private final class Resolver {
             if !Self.notationSymbols.contains(unit.symbol) { note([Used(unit)]) }
             return Measured(unit.quantity)
         }
-        throw CalculationError.invalid(Diagnostics.unknownSymbol(name))
+        throw CalculationError.invalid(Diagnostics.unknownSymbol(name, inEquation: equationNames.contains(name)))
     }
 
     private static let notationSymbols: Set<String> = ["%", "deg"]
@@ -1166,7 +1521,8 @@ enum Diagnostics {
         return "Les températures en °C ou °F ne sont pas prises en charge (unités à décalage). Utilisez le kelvin : 20 °C correspondent à 293,15 K."
     }
 
-    static func unknownSymbol(_ name: String) -> String {
+    /// `inEquation`: the name occurs in an equation, which `name =` would solve.
+    static func unknownSymbol(_ name: String, inEquation: Bool = false) -> String {
         if let message = offsetTemperature(name) { return message }
         if name == "en" || name == "in" {
             return "« \(name) » n’est pas un mot-clé. Pour afficher un résultat dans une autre unité, écrivez par exemple E -> kJ ou E → kJ."
@@ -1177,6 +1533,9 @@ enum Diagnostics {
         let stem = String(name.reversed().drop { $0.isASCII && $0.isNumber }.reversed())
         if !stem.isEmpty, stem != name, UnitCatalog.lookup(stem) != nil {
             return "« \(name) » est inconnu. Pour une puissance d’unité, écrivez \(stem)² ou \(stem)^2 ; pour une variable, ajoutez une déclaration \(name) = …."
+        }
+        if inEquation {
+            return "« \(name) » est inconnu. Pour résoudre l’équation, ajoutez une ligne \(name) = ; pour une valeur connue, déclarez-la, par exemple \(name) = 2."
         }
         return "« \(name) » n’est ni une variable déclarée, ni une constante, ni une unité connue. Ajoutez une déclaration, par exemple \(name) = 7,2 m, ou consultez Références › Unités."
     }

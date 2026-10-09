@@ -66,9 +66,20 @@ struct HelpView: View {
                     example("n = 6\nn! =", explanation: "La factorielle d’un entier de 0 à 170 : le résultat est 720.")
                 }
 
-                Section("Résoudre une inconnue") {
-                    example("E = 1000 J\nm = 80 kg\nv = ? m/s\nE == 0,5 * m * v²", explanation: "v = ? m/s déclare une inconnue : Eval la cherche numériquement. Ici v vaut 5 m/s, avec la note « Autre solution : −5 m/s. », et la relation est vérifiée.")
-                    Text("Gardez exactement une relation (==) qui contient l’inconnue, directement ou par vos déclarations. Eval affiche la plus petite solution positive entre 10⁻¹² et 10¹². Ce n’est pas un calcul symbolique : il ne transforme pas l’équation et ne résout qu’une inconnue par relation.")
+                Section("Résoudre une équation") {
+                    example("3x^2 + 2x - 3 = 0\nx =", explanation: "Écrivez l’équation, puis le nom cherché suivi de = : x = affiche (−1 ± √10)/3 ≈ 0,720759 ; −1,38743.")
+                    Text("Jusqu’au degré 2, les solutions d’un polynôme s’affichent sous forme exacte, puis en décimales ; au-delà, et pour les autres équations (exp, sin, racines…), elles sont cherchées numériquement. Les unités sont respectées : avec m = 80 kg et 1000 J = 0,5 * m * v^2, v = affiche −5 m·s⁻¹ ; 5 m·s⁻¹. Le nom cherché ne doit être ni déclaré, ni une constante, ni une unité, et une seule équation doit le contenir. Les autres lignes utilisent la plus petite solution positive.")
+                    example("E = 1000 J\nm = 80 kg\nv = ? m/s\nE == 0,5 * m * v²", explanation: "v = ? m/s déclare une inconnue avec son unité : Eval la cherche numériquement. Ici v vaut 5 m/s, avec la note « Autre solution : −5 m/s. », et la relation est vérifiée.")
+                }
+
+                Section("Simplifier une formule") {
+                    example("E = 0,5 * m * v^2 * 2 / m", explanation: "Maintenez la ligne : sa forme simplifiée, E = v², apparaît au-dessus du menu. Touchez Simplifier pour réécrire la ligne ; Annuler la rétablit.")
+                    Text("Eval calcule les nombres exactement, regroupe les termes semblables (2x + 3x → 5x), simplifie les facteurs communs, fusionne les puissances, réduit les racines (√12 → 2√3) et les fractions (x² − 1)/(x − 1) → x + 1, et développe quand le résultat est plus court. Une formule déjà simple n’affiche pas de proposition.")
+                }
+
+                Section("Écrire à la main") {
+                    Text("Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Écrire à la main. Écrivez une formule par ligne avec l’Apple Pencil ou le doigt, ou utilisez le bouton caméra pour scanner une page ou choisir une photo. Touchez Lire, vérifiez et corrigez les lignes reconnues, puis touchez Ajouter.")
+                    Text("La lecture se fait sur l’appareil. Les exposants et les fractions sont reconnus d’après leur position ; avec Apple Intelligence (iOS 27), le modèle sur l’appareil lit aussi l’image, et sa lecture est gardée lorsqu’elle concorde avec la reconnaissance de texte. Vérifiez toujours les lignes avant de les ajouter.")
                 }
 
                 Section("Ajuster une variable en glissant") {
