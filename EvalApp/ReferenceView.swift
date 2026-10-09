@@ -134,6 +134,7 @@ struct ReferenceCatalogView: View {
                 }
             }
         }
+        .warmPage()
         .overlay {
             if (kind == .constants && constants.isEmpty) || (kind == .units && units.isEmpty) {
                 ContentUnavailableView.search(text: search)
@@ -294,6 +295,7 @@ struct ConstantDetailView: View {
                 }
             }
         }
+        .warmPage()
         .navigationTitle(constant.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

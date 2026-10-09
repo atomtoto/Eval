@@ -14,6 +14,8 @@ struct NotebookView: View {
     /// The line edited in place, from the moment it is touched to the loss of its focus.
     @State private var editing: NotebookStore.LineEditingSession?
     @State private var textSelection = FormulaSelectionState()
+    /// How the bar reaches the mathematical editor of the edited line.
+    @State private var mathKeys = MathKeyHandler()
     @State private var editMode = EditMode.inactive
     @State private var showsHelp = false
     @State private var showsSettings = false
@@ -53,10 +55,16 @@ struct NotebookView: View {
                     symbolUnitsSection
                 }
             }
+            .warmPage()
             .environment(\.editMode, $editMode)
             .scrollDismissesKeyboard(.interactively)
-            // Room for the keyboard bar, which floats over the end of the list.
-            .contentMargins(.bottom, editing == nil ? 0 : 64, for: .scrollContent)
+            // The keyboard bar of the edited line floats above the keyboard, which the list keeps avoiding.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if editing != nil {
+                    LineKeyboardBar(mode: inputMode, keyboard: lineKeyboard)
+                }
+            }
+            .animation(.snappy, value: editing != nil)
             .overlay {
                 if isEmpty { emptyState }
             }
@@ -197,7 +205,7 @@ struct NotebookView: View {
 
     /// The keyboard bar of the edited line.
     private var lineKeyboard: LineKeyboard {
-        LineKeyboard(variableNames: notebook.declaredNames, insert: insertIntoLine,
+        LineKeyboard(mathKeys: mathKeys, variableNames: notebook.declaredNames, insert: insertIntoLine,
                      showReferences: { showsReferences = true }, done: { focusedLineID = nil })
     }
 

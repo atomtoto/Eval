@@ -1,5 +1,7 @@
-// Regenerate the Icon Composer documents EvalApp/AppIcon.icon and AppIconPoint.icon,
-// and their previews for Réglages: swift Scripts/generate-app-icon.swift
+// Regenerate the Icon Composer documents EvalApp/AppIcon.icon (the default: lens, orange),
+// AppIconPoint.icon (point, orange), AppIconBlue.icon (lens, blue) and AppIconPointBlue.icon
+// (point, blue), and their previews for Réglages: swift Scripts/generate-app-icon.swift
+// The icon follows the accent color of the app, orange or blue.
 // The artwork is drawn from plain paths: a parabola (E = ½mv²) above the graduated
 // ruler of the variable sliders, joined by a guide at the fixed indicator. It uses no
 // SF Symbol. The point on the curve is a Liquid Glass layer; the system derives the
@@ -63,6 +65,22 @@ func disk(radius: Double, color: String = "#FFFFFF") -> String {
     """)
 }
 
+/// The colors of an icon: a background gradient from top to bottom, and the dot under the lens.
+struct Palette {
+    let top: String
+    let bottom: String
+    let dot: String
+
+    /// A safety orange, in the family of the app's accent color (#DD5500).
+    static let orange = Palette(top: "extended-srgb:1.00000,0.46000,0.05000,1.00000",
+                                bottom: "extended-srgb:0.87000,0.27000,0.00000,1.00000",
+                                dot: "#8C2400")
+    /// The system blue.
+    static let blue = Palette(top: "extended-srgb:0.20000,0.58000,1.00000,1.00000",
+                              bottom: "extended-srgb:0.00000,0.40000,0.92000,1.00000",
+                              dot: "#002E8A")
+}
+
 struct Layer {
     let name: String
     let glass: Bool
@@ -74,6 +92,7 @@ struct Layer {
 /// One Icon Composer document: the point layers above the curve, the guide and the ruler.
 struct IconDocument {
     let name: String
+    let palette: Palette
     let pointLayers: [Layer]
     /// Drawn under the glass, above the curve.
     var underLayers: [Layer] = []
@@ -121,8 +140,8 @@ struct IconDocument {
         {
           "fill" : {
             "linear-gradient" : [
-              "extended-srgb:0.20000,0.58000,1.00000,1.00000",
-              "extended-srgb:0.00000,0.40000,0.92000,1.00000"
+              "\(palette.top)",
+              "\(palette.bottom)"
             ]
           },
           "groups" : [
@@ -149,17 +168,28 @@ struct IconDocument {
     }
 }
 
-let documents = [
-    // The alternate icon: one glass point on the curve.
-    IconDocument(name: "AppIconPoint",
+/// The point icon: one glass point on the curve.
+func pointIcon(_ name: String, _ palette: Palette) -> IconDocument {
+    IconDocument(name: name, palette: palette,
                  pointLayers: [Layer(name: "Point", glass: true, svg: disk(radius: 72))],
-                 guide: guide(clearance: 92)),
-    // The default icon: a larger point in two parts, a tinted dot seen through a glass lens.
-    IconDocument(name: "AppIcon",
+                 guide: guide(clearance: 92))
+}
+
+/// The lens icon: a larger point in two parts, a tinted dot seen through a glass lens.
+func lensIcon(_ name: String, _ palette: Palette) -> IconDocument {
+    IconDocument(name: name, palette: palette,
                  pointLayers: [Layer(name: "Lens", glass: true, svg: disk(radius: 104),
                                      fill: "extended-srgb:1.00000,1.00000,1.00000,0.18000")],
-                 underLayers: [Layer(name: "Dot", glass: false, svg: disk(radius: 40, color: "#002E8A"))],
+                 underLayers: [Layer(name: "Dot", glass: false, svg: disk(radius: 40, color: palette.dot))],
                  guide: guide(clearance: 124))
+}
+
+// AppIcon is the primary icon, in the default orange; the others are alternates.
+let documents = [
+    lensIcon("AppIcon", .orange),
+    pointIcon("AppIconPoint", .orange),
+    lensIcon("AppIconBlue", .blue),
+    pointIcon("AppIconPointBlue", .blue)
 ]
 
 let folder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("EvalApp")

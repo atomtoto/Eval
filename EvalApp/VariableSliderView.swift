@@ -124,6 +124,7 @@ private struct VariableRangeEditor: View {
                     }
                 }
             }
+            .warmPage()
             .navigationTitle("Curseur de \(variable.name)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

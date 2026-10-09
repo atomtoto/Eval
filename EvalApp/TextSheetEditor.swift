@@ -34,6 +34,7 @@ struct TextSheetEditor: View {
                     Text("Une ligne par formule ou variable. Terminez une ligne par = pour afficher sa valeur. Les unités suivent les valeurs, séparées par un espace.")
                 }
             }
+            .warmPage()
             .navigationTitle("Modifier en texte")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

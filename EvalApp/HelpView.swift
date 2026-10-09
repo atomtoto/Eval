@@ -22,7 +22,7 @@ struct HelpView: View {
                     Text("Touchez une ligne pour la modifier là où elle se trouve, ou Nouvelle ligne (ou +) pour en ajouter une. Retour valide la ligne et en crée une nouvelle en dessous. La valeur se met à jour pendant la saisie.")
                     Text("Au-dessus du clavier, la barre de symboles insère + − × et des parenthèses à l’endroit du curseur. Son menu Insérer propose les modèles Fraction, Puissance et Racine, qui entourent la sélection, ainsi que =, ÷, ^, ², ³, ⁻¹, π, deg, les variables de la feuille, ou ouvre Constantes et unités… (le curseur est suivi à partir d’iOS 18 ; avant, l’insertion se fait en fin de ligne). Terminé ferme le clavier.")
                     Text("Avec le réglage Écriture mathématique, la ligne se modifie telle qu’elle s’affiche. / fait du terme qui précède le numérateur d’une fraction, ^ ouvre un exposant. La barre propose xⁿ (exposant), √ (racine carrée), ◀ et ▶ pour déplacer le curseur, et son menu Insérer ajoute Fraction, Racine n-ième, ², ⁻¹, Monter, Descendre, =, ×, π, deg, les variables de la feuille et Constantes et unités…. Touchez la formule pour placer le curseur ; un cadre pointillé marque une case vide. L’effacement entre dans une fraction ou une racine, puis la défait quand elle est vide. Retour valide la ligne et en crée une nouvelle, comme en texte.")
-                    Text("Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu, choisissent la saisie des formules, le nombre de chiffres significatifs et l’icône de l’app.")
+                    Text("Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu, choisissent la saisie des formules, le nombre de chiffres significatifs, la couleur d’accent (orange industriel par défaut, ou bleu), le fond chaud des feuilles en mode clair et le style de l’icône de l’app (Lentille ou Point), qui suit la couleur d’accent. Pendant la saisie, une barre flotte juste au-dessus du clavier avec le menu Insérer, les touches courantes et Terminé.")
                 }
 
                 Section("Afficher un résultat") {
@@ -106,6 +106,7 @@ struct HelpView: View {
                     Text("Eval suit la taille de texte choisie dans les réglages de l’appareil. VoiceOver lit les formules comme des expressions mathématiques en français (« E égale 0,5 fois m fois v au carré ») et annonce les résultats avec leurs unités (« 1000 joules »). Sur une déclaration numérique, le geste d’ajustement de VoiceOver change la valeur au pas de la réglette, et l’action Afficher la réglette ouvre la bulle de la réglette.")
                 }
             }
+            .warmPage()
             .navigationTitle("Utiliser Eval")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

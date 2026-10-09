@@ -1,5 +1,6 @@
 import EvalCore
 import SwiftUI
+import UIKit
 
 @main
 struct EvalApp: App {
@@ -33,6 +34,7 @@ private struct EvalRootView: View {
     @SceneStorage("eval.selectedSheetID") private var storedSheetID = ""
     /// Read here so that every value is formatted again when the setting changes.
     @AppStorage(SignificantDigitsSetting.storageKey) private var significantDigits = QuantityFormatter.defaultDigits
+    @AppStorage(AccentSetting.storageKey) private var accent = AccentSetting.orange
     @State private var tab = EvalTab.calculation
     @State private var showsHelp = false
     @State private var showsSettings = false
@@ -59,6 +61,9 @@ private struct EvalRootView: View {
             .tag(EvalTab.references)
         }
         .environment(\.significantDigits, significantDigits)
+        // The accent of the whole window, sheets and alerts included.
+        .tint(accent.color)
+        .onChange(of: accent, initial: true) { _, setting in setting.applyToWindows() }
         .sheet(isPresented: $showsHelp) { HelpView() }
         .sheet(isPresented: $showsSettings) { SettingsView() }
         .alert("Enregistrement impossible", isPresented: storageAlertPresented) {

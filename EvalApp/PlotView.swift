@@ -86,6 +86,7 @@ struct PlotView: View {
                     }
                 }
             }
+            .warmPage()
             .navigationTitle(Text("\(resultName) en fonction de \(variable?.name ?? "")"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -141,10 +142,12 @@ struct PlotView: View {
                     // An isolated value has no neighbour to join: it is drawn as a point.
                     PointMark(x: .value(xLabel, point.x), y: .value(yLabel, point.y))
                         .symbolSize(20)
+                        .foregroundStyle(.tint)
                 } else {
                     ForEach(segment, id: \.index) { point in
                         LineMark(x: .value(xLabel, point.x), y: .value(yLabel, point.y),
                                  series: .value("Segment", index))
+                        .foregroundStyle(.tint)
                     }
                 }
             }
@@ -169,6 +172,7 @@ struct PlotView: View {
                         .background(.regularMaterial, in: .rect(cornerRadius: 8))
                     }
                 PointMark(x: .value(xLabel, selected.x), y: .value(yLabel, selected.y))
+                    .foregroundStyle(.tint)
             }
         }
         .chartXSelection(value: $selectedX)

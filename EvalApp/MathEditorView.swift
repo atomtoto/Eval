@@ -106,15 +106,13 @@ struct MathEditorView: View {
                 }
                 return .handled
             }
-            .toolbar {
-                MathKeyboardToolbar(variableNames: keyboard.variableNames, apply: apply,
-                                    showReferences: keyboard.showReferences, done: keyboard.done)
-            }
             .frame(width: 1, height: 1)
             .opacity(0)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
             .task {
+                // The bar of the sheet reaches this editor for the keys of the structures.
+                keyboard.mathKeys.apply = apply
                 // The field takes the focus once it exists, like the text field of a line.
                 if focus.wrappedValue != lineID { focus.wrappedValue = lineID }
             }
@@ -268,7 +266,7 @@ struct MathEditorView: View {
 }
 
 /// What the keys of the bar, and the matching accessibility actions, do.
-private enum MathKey: Hashable {
+enum MathKey: Hashable {
     case fraction, power, radical, root, left, right, up, down
     case text(String)
     case name(String)
@@ -291,53 +289,47 @@ private enum MathKey: Hashable {
     }
 }
 
-/// The keyboard bar of the mathematical editor: the structures, the caret moves
-/// most used, then a menu for the rest. « Terminé » has its own item, so that it
-/// never goes into the overflow of the bar.
-private struct MathKeyboardToolbar: ToolbarContent {
+/// The keys of the bar for the mathematical editor: the structures, the caret moves
+/// most used, and a menu for the rest. « Terminé » is not among them, so that it is
+/// always visible.
+struct MathKeys: View {
     let variableNames: [String]
     let apply: (MathKey) -> Void
     let showReferences: () -> Void
-    let done: () -> Void
 
-    var body: some ToolbarContent {
-        ToolbarItemGroup(placement: .keyboard) {
-            Menu("Insérer", systemImage: "plus.circle") {
-                Section {
-                    Button("Fraction", systemImage: "divide") { apply(.fraction) }
-                    Button("Racine n-ième ⁿ√") { apply(.root) }
-                    Button("Au carré ²") { apply(.text("²")) }
-                    Button("Inverse ⁻¹") { apply(.text("⁻¹")) }
-                }
-                Section {
-                    Button("Monter", systemImage: "arrow.up") { apply(.up) }
-                    Button("Descendre", systemImage: "arrow.down") { apply(.down) }
-                }
-                Section {
-                    Button("Égal =") { apply(.text(" = ")) }
-                    Button("Multiplier ×") { apply(.text(" * ")) }
-                    Button("π") { apply(.name("π")) }
-                    Button("Degrés (deg)") { apply(.text(" deg")) }
-                }
-                if !variableNames.isEmpty {
-                    Section("Variables de la feuille") {
-                        ForEach(variableNames, id: \.self) { name in
-                            Button(name) { apply(.name(name)) }
-                        }
+    var body: some View {
+        Menu("Insérer", systemImage: "plus.circle") {
+            Section {
+                Button("Fraction", systemImage: "divide") { apply(.fraction) }
+                Button("Racine n-ième ⁿ√") { apply(.root) }
+                Button("Au carré ²") { apply(.text("²")) }
+                Button("Inverse ⁻¹") { apply(.text("⁻¹")) }
+            }
+            Section {
+                Button("Monter", systemImage: "arrow.up") { apply(.up) }
+                Button("Descendre", systemImage: "arrow.down") { apply(.down) }
+            }
+            Section {
+                Button("Égal =") { apply(.text(" = ")) }
+                Button("Multiplier ×") { apply(.text(" * ")) }
+                Button("π") { apply(.name("π")) }
+                Button("Degrés (deg)") { apply(.text(" deg")) }
+            }
+            if !variableNames.isEmpty {
+                Section("Variables de la feuille") {
+                    ForEach(variableNames, id: \.self) { name in
+                        Button(name) { apply(.name(name)) }
                     }
                 }
-                Button("Constantes et unités…", systemImage: "books.vertical", action: showReferences)
             }
-            // Five items at most, so that « Terminé » keeps its room in the bar. The
-            // fraction is in the menu: the / of the keyboard makes one too.
-            key(.power, systemImage: "textformat.superscript")
-            key(.radical, systemImage: "x.squareroot")
-            key(.left, systemImage: "chevron.left")
-            key(.right, systemImage: "chevron.right")
+            Button("Constantes et unités…", systemImage: "books.vertical", action: showReferences)
         }
-        ToolbarItem(placement: .keyboard) {
-            Button("Terminé", action: done)
-        }
+        .labelStyle(.iconOnly)
+        // The fraction is in the menu: the / of the keyboard makes one too.
+        key(.power, systemImage: "textformat.superscript")
+        key(.radical, systemImage: "x.squareroot")
+        key(.left, systemImage: "chevron.left")
+        key(.right, systemImage: "chevron.right")
     }
 
     private func key(_ key: MathKey, systemImage: String) -> some View {
