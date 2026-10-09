@@ -1,106 +1,128 @@
-// Regenerate the app icons (light, dark, tinted): swift Scripts/generate-app-icon.swift
+// Regenerate the Icon Composer document EvalApp/AppIcon.icon: swift Scripts/generate-app-icon.swift
 // The artwork is drawn from plain paths: a parabola (E = ½mv²) above the graduated
-// ruler of the variable sliders, joined by a guide at the fixed indicator. It uses no SF Symbol.
-import CoreGraphics
+// ruler of the variable sliders, joined by a guide at the fixed indicator. It uses no
+// SF Symbol. The point on the curve is a Liquid Glass layer; the system derives the
+// dark, tinted and clear appearances, and Xcode the flattened icons for earlier iOS.
 import Foundation
-import ImageIO
-import UniformTypeIdentifiers
 
-let side = 1024
-let rgb = CGColorSpaceCreateDeviceRGB()
+let side = 1024.0
 
-struct Palette {
-    let top: CGColor
-    let bottom: CGColor
-    let ink: CGColor
-    let accent: CGColor
-}
+// SVG coordinates: origin at the top left, y downwards.
+let start = (x: 190.0, y: 624.0), control = (x: 590.0, y: 624.0), end = (x: 850.0, y: 174.0)
 
-func color(_ red: Double, _ green: Double, _ blue: Double, _ alpha: Double = 1) -> CGColor {
-    CGColor(colorSpace: rgb, components: [red, green, blue, alpha])!
-}
-
-let variants: [(file: String, palette: Palette)] = [
-    ("AppIcon.png", Palette(top: color(0.20, 0.58, 1), bottom: color(0, 0.40, 0.92),
-                            ink: color(1, 1, 1), accent: color(1, 1, 1))),
-    ("AppIcon-Dark.png", Palette(top: color(0.07, 0.11, 0.20), bottom: color(0.02, 0.04, 0.09),
-                                 ink: color(0.62, 0.78, 1), accent: color(1, 1, 1))),
-    ("AppIcon-Tinted.png", Palette(top: color(0.16, 0.16, 0.16), bottom: color(0.02, 0.02, 0.02),
-                                   ink: color(0.85, 0.85, 0.85), accent: color(1, 1, 1)))
-]
-
-// Quadratic Bézier of the parabola, in a 1024 × 1024 space with the origin at the bottom left.
-let start = CGPoint(x: 190, y: 400), control = CGPoint(x: 590, y: 400), end = CGPoint(x: 850, y: 850)
-
-func point(at t: Double) -> CGPoint {
+func point(at t: Double) -> (x: Double, y: Double) {
     let u = 1 - t
-    return CGPoint(x: u * u * start.x + 2 * u * t * control.x + t * t * end.x,
-                   y: u * u * start.y + 2 * u * t * control.y + t * t * end.y)
+    return (u * u * start.x + 2 * u * t * control.x + t * t * end.x,
+            u * u * start.y + 2 * u * t * control.y + t * t * end.y)
 }
 
-/// The curve point whose x is the center of the ruler, found by bisection.
-func parameter(forX x: Double) -> Double {
+/// The curve point above the ruler's fixed indicator, found by bisection on x.
+func point(atX x: Double) -> (x: Double, y: Double) {
     var low = 0.0, high = 1.0
     for _ in 0..<60 {
         let middle = (low + high) / 2
         if point(at: middle).x < x { low = middle } else { high = middle }
     }
-    return (low + high) / 2
+    return point(at: (low + high) / 2)
 }
 
-func render(_ palette: Palette) -> CGImage {
-    let context = CGContext(data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
-                            space: rgb, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
-    let gradient = CGGradient(colorsSpace: rgb, colors: [palette.top, palette.bottom] as CFArray, locations: [0, 1])!
-    context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: CGFloat(side)), end: .zero, options: [])
-    context.setLineCap(.round)
-    context.setLineJoin(.round)
+func svg(_ body: String) -> String {
+    """
+    <svg xmlns="http://www.w3.org/2000/svg" width="\(Int(side))" height="\(Int(side))" viewBox="0 0 \(Int(side)) \(Int(side))">\(body)</svg>
 
-    // The parabola.
-    context.setStrokeColor(palette.ink)
-    context.setLineWidth(46)
-    context.move(to: start)
-    context.addQuadCurve(to: end, control: control)
-    context.strokePath()
+    """
+}
 
-    // The ruler: fixed indicator at the center, graduations fading away from it.
-    let center = Double(side) / 2
-    for index in -6...6 {
-        let x = center + Double(index) * 62
-        let fade = 1 - abs(Double(index)) / 7
-        context.setStrokeColor(palette.ink.copy(alpha: 0.25 + 0.6 * fade)!)
-        context.setLineWidth(26)
-        context.move(to: CGPoint(x: x, y: 150))
-        context.addLine(to: CGPoint(x: x, y: index == 0 ? 330 : 270))
-        context.strokePath()
+let center = side / 2
+let marker = point(atX: center)
+
+let curve = svg("""
+<path d="M\(start.x),\(start.y) Q\(control.x),\(control.y) \(end.x),\(end.y)" fill="none" stroke="#FFFFFF" stroke-width="46" stroke-linecap="round"/>
+""")
+
+let ticks = (-6...6).map { index -> String in
+    let x = center + Double(index) * 62
+    let opacity = index == 0 ? 1 : 0.25 + 0.6 * (1 - Double(abs(index)) / 7)
+    let top = index == 0 ? 694.0 : 754.0
+    let alpha = String(format: "%.3f", opacity)
+    return "<line x1=\"\(x)\" y1=\"874\" x2=\"\(x)\" y2=\"\(top)\" stroke=\"#FFFFFF\" stroke-opacity=\"\(alpha)\" stroke-width=\"26\" stroke-linecap=\"round\"/>"
+}.joined()
+let ruler = svg(ticks)
+
+let guide = svg("""
+<line x1="\(center)" y1="652" x2="\(center)" y2="\(marker.y + 92)" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="14" stroke-linecap="round" stroke-dasharray="6 38"/>
+""")
+
+let lens = svg("""
+<circle cx="\(marker.x)" cy="\(marker.y)" r="72" fill="#FFFFFF"/>
+""")
+
+let manifest = """
+{
+  "fill" : {
+    "linear-gradient" : [
+      "extended-srgb:0.20000,0.58000,1.00000,1.00000",
+      "extended-srgb:0.00000,0.40000,0.92000,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : true,
+          "image-name" : "Point.svg",
+          "name" : "Point"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.4
+      }
+    },
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "Guide.svg",
+          "name" : "Guide"
+        },
+        {
+          "glass" : false,
+          "image-name" : "Curve.svg",
+          "name" : "Curve"
+        },
+        {
+          "glass" : false,
+          "image-name" : "Ruler.svg",
+          "name" : "Ruler"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.3
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
     }
-
-    // The guide from the indicator up to the point on the curve, then the point.
-    let marker = point(at: parameter(forX: center))
-    context.setStrokeColor(palette.accent)
-    context.setLineWidth(26)
-    context.move(to: CGPoint(x: center, y: 150))
-    context.addLine(to: CGPoint(x: center, y: 330))
-    context.strokePath()
-    context.setStrokeColor(palette.accent.copy(alpha: 0.5)!)
-    context.setLineWidth(14)
-    context.setLineDash(phase: 0, lengths: [6, 38])
-    context.move(to: CGPoint(x: center, y: 372))
-    context.addLine(to: CGPoint(x: center, y: marker.y - 70))
-    context.strokePath()
-    context.setLineDash(phase: 0, lengths: [])
-    context.setFillColor(palette.accent)
-    context.fillEllipse(in: CGRect(x: marker.x - 64, y: marker.y - 64, width: 128, height: 128))
-    context.setFillColor(palette.bottom)
-    context.fillEllipse(in: CGRect(x: marker.x - 26, y: marker.y - 26, width: 52, height: 52))
-    return context.makeImage()!
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
 }
 
-let directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    .appendingPathComponent("EvalApp/Assets.xcassets/AppIcon.appiconset")
-for variant in variants {
-    let url = directory.appendingPathComponent(variant.file) as CFURL
-    let destination = CGImageDestinationCreateWithURL(url, UTType.png.identifier as CFString, 1, nil)!
-    CGImageDestinationAddImage(destination, render(variant.palette), nil)
-    guard CGImageDestinationFinalize(destination) else { fatalError("Could not write \(variant.file)") }
+"""
+
+let document = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    .appendingPathComponent("EvalApp/AppIcon.icon")
+let assets = document.appendingPathComponent("Assets")
+try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+try manifest.write(to: document.appendingPathComponent("icon.json"), atomically: true, encoding: .utf8)
+for (name, contents) in [("Curve", curve), ("Ruler", ruler), ("Guide", guide), ("Point", lens)] {
+    try contents.write(to: assets.appendingPathComponent(name + ".svg"), atomically: true, encoding: .utf8)
 }

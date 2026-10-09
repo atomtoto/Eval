@@ -165,7 +165,9 @@ public struct AdjustableVariable: Sendable {
     }
 }
 
-/// A finite adjustment interval mapped onto the system slider's 0...1 range.
+/// The settings saved for a ruler: the interval a plot covers, and the step of
+/// a manual ruler. The ruler itself is not bounded by the interval; it moves a
+/// value from where it stands, by whole steps, in either direction without limit.
 public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
     public let lowerBound: Double
     public let upperBound: Double
@@ -174,13 +176,14 @@ public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
     public init?(lowerBound: Double, upperBound: Double, step: Double) {
         let span = upperBound - lowerBound
         guard lowerBound.isFinite, upperBound.isFinite, step.isFinite,
-              span.isFinite, span > 0, step > 0, step <= span,
+              span.isFinite, span > 0, step > 0,
               (span / step).isFinite else { return nil }
         self.lowerBound = lowerBound
         self.upperBound = upperBound
         self.step = step
     }
 
+    /// An interval around `value` for a plot: from 0 to twice the value, or ±10 for zero.
     public static func suggested(for value: Double, step requestedStep: Double? = nil) -> Self? {
         guard value.isFinite else { return nil }
         let lower: Double
@@ -199,7 +202,7 @@ public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
         }
         let span = upper - lower
         if let requestedStep {
-            return Self(lowerBound: lower, upperBound: upper, step: min(span, requestedStep))
+            return Self(lowerBound: lower, upperBound: upper, step: requestedStep)
         }
         let targetStep = max(span / 200, Double.leastNonzeroMagnitude)
         let scale = Foundation.pow(10, Foundation.floor(Foundation.log10(targetStep)))
@@ -214,80 +217,34 @@ public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
         return Self(lowerBound: lower, upperBound: upper, step: step)
     }
 
-    /// Quantizes to the chosen step; both endpoints remain exactly reachable.
-    public func value(at position: Double) -> Double {
-        let position = position.isNaN ? 0 : min(1, max(0, position))
-        if position == 0 { return lowerBound }
-        if position == 1 { return upperBound }
-        let span = upperBound - lowerBound
-        let increment = ((position * span) / step).rounded() * step
-        let value = lowerBound + increment
-        return min(upperBound, max(lowerBound, value))
-    }
-
-    public func position(for value: Double) -> Double {
-        let value = value.isNaN ? lowerBound : min(upperBound, max(lowerBound, value))
-        return (value - lowerBound) / (upperBound - lowerBound)
-    }
-
-    /// Relative scrubbing is anchored to the value at the start of a gesture.
-    /// Decimal arithmetic keeps a decimal step from producing binary artifacts
-    /// such as 8.299999999999999 in the saved source.
-    public func adjustedValue(from origin: Double, steps: Int) -> Double {
-        guard origin.isFinite else { return lowerBound }
-        let bounded = min(upperBound, max(lowerBound, origin))
-        if steps == 0 { return bounded }
+    /// The value `steps` whole steps from `origin`, with no bound in either
+    /// direction: it crosses zero and grows until Double runs out, where it
+    /// stops at the largest finite number. Relative scrubbing is anchored to the
+    /// value at the start of a gesture. Decimal arithmetic keeps a decimal step
+    /// from producing binary artifacts such as 8.299999999999999 in the saved source.
+    public static func stepped(from origin: Double, steps: Int, step: Double) -> Double {
+        guard origin.isFinite, step.isFinite, step > 0, steps != 0 else { return origin }
         let locale = Locale(identifier: "en_US_POSIX")
-        var result = bounded + Double(steps) * step
+        var result = origin + Double(steps) * step
         // Decimal covers a narrower range than Double; use it only when both
         // operands survive the round trip. Double(String) rounds correctly,
         // unlike NSDecimalNumber.doubleValue.
-        if let start = Decimal(string: String(bounded), locale: locale),
+        if let start = Decimal(string: String(origin), locale: locale),
            let increment = Decimal(string: String(step), locale: locale),
-           Double(start.description) == bounded, Double(increment.description) == step {
+           Double(start.description) == origin, Double(increment.description) == step {
             let decimal = start + Decimal(steps) * increment
             if !decimal.isNaN, let candidate = Double(decimal.description), candidate.isFinite {
                 result = candidate
             }
         }
+        if !result.isFinite {
+            return steps > 0 ? Double.greatestFiniteMagnitude : -Double.greatestFiniteMagnitude
+        }
         // A requested step may be smaller than Double's spacing at this value.
-        if result == bounded {
-            result = steps > 0 ? bounded.nextUp : bounded.nextDown
+        if result == origin {
+            result = steps > 0 ? origin.nextUp : origin.nextDown
         }
-        return min(upperBound, max(lowerBound, result))
-    }
-
-    /// Moves to the next point of the slider's grid, including an upper bound
-    /// that is not a whole number of steps from the lower bound.
-    public func adjacentValue(to value: Double, increasing: Bool) -> Double {
-        let value = value.isNaN ? lowerBound : min(upperBound, max(lowerBound, value))
-        if increasing && value == upperBound { return upperBound }
-        if !increasing && value == lowerBound { return lowerBound }
-        if !increasing && value == upperBound {
-            let lastIndex = Foundation.floor((upperBound - lowerBound) / step)
-            let lastGridValue = lowerBound + lastIndex * step
-            let candidate = lastGridValue < upperBound ? lastGridValue
-                : lowerBound + (lastIndex - 1) * step
-            return candidate < value ? max(lowerBound, candidate) : max(lowerBound, value.nextDown)
-        }
-
-        let index = (value - lowerBound) / step
-        let nearest = index.rounded()
-        // A decimal grid point may not divide back to an exact integer in Double.
-        let tolerance = max(1, abs(index)) * Double.ulpOfOne * 4
-        let isGridPoint = abs(index - nearest) <= tolerance
-        let adjacentIndex: Double
-        if increasing {
-            adjacentIndex = isGridPoint ? nearest + 1 : Foundation.floor(index) + 1
-        } else {
-            adjacentIndex = isGridPoint ? nearest - 1 : Foundation.ceil(index) - 1
-        }
-        let candidate = min(upperBound, max(lowerBound, lowerBound + adjacentIndex * step))
-        if increasing {
-            // Very small steps may be below the representable spacing at this magnitude.
-            return candidate > value ? candidate : min(upperBound, value.nextUp)
-        }
-        return candidate < value ? candidate : max(lowerBound, value.nextDown)
+        return result
     }
 
     private enum CodingKeys: String, CodingKey { case lowerBound, upperBound, step }
@@ -299,7 +256,7 @@ public struct VariableAdjustmentRange: Codable, Equatable, Sendable {
         let step = try values.decode(Double.self, forKey: .step)
         guard let range = Self(lowerBound: lower, upperBound: upper, step: step) else {
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
-                debugDescription: "The variable adjustment bounds and step must form a finite increasing interval."))
+                debugDescription: "The plot interval and step of a variable must be finite, with a positive step."))
         }
         self = range
     }

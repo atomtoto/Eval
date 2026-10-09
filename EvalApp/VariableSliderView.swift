@@ -1,19 +1,19 @@
 import EvalCore
 import SwiftUI
 
-/// Adjusts the number in its entered unit, so 72 km/h stays in km/h.
-/// Under its line, the formula above is the label and the ruler stands alone;
-/// the value is repeated in text only where the ruler sits apart from its line.
+/// The content of the ruler’s popover: the value as text, the ruler, and the
+/// button for its settings. The ruler adjusts the number in its entered unit, so
+/// 72 km/h stays in km/h, and has no bounds.
 struct VariableSliderView: View {
     let variable: AdjustableVariable
+    /// The settings saved for the line: the interval of its plot, and its manual step.
     let range: VariableAdjustmentRange
+    /// What one graduation adds to, or removes from, the value.
+    let step: Double
     let usesAutomaticStep: Bool
-    var showsLabel = true
     let onChangeValue: (Double, Bool) -> Void
     var onEditingChanged: (Bool) -> Void = { _ in }
     let onChangeRange: (VariableAdjustmentRange, Bool) -> Void
-    /// Closes the ruler; nil where it cannot be closed.
-    var onHide: (() -> Void)?
     @State private var showsRangeEditor = false
 
     private var valueLabel: String {
@@ -27,25 +27,13 @@ struct VariableSliderView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if showsLabel {
-                Text("\(variable.name) = \(valueLabel)")
-                    .font(.callout.monospacedDigit())
-            }
-
+        VStack(spacing: 12) {
             HStack {
-                if let onHide {
-                    Button("Masquer la réglette", systemImage: "chevron.up", action: onHide)
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                }
-                Spacer(minLength: 0)
-                VariableRulerView(value: variable.value, range: range,
-                                  label: "Valeur de \(variable.name)", valueLabel: valueLabel,
-                                  spokenValue: spoken(variable.value), spokenStep: spoken(range.step),
-                                  usesAutomaticStep: usesAutomaticStep,
-                                  onChangeValue: onChangeValue, onEditingChanged: onEditingChanged)
-                Spacer(minLength: 0)
+                Text("\(variable.name) = \(valueLabel)")
+                    .font(.headline.monospacedDigit())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                Spacer(minLength: 8)
                 Button("Régler le curseur de \(variable.name)", systemImage: "slider.horizontal.3") {
                     showsRangeEditor = true
                 }
@@ -53,12 +41,13 @@ struct VariableSliderView: View {
                 .buttonStyle(.borderless)
             }
 
-            if !(range.lowerBound...range.upperBound).contains(variable.value) {
-                Text("Valeur hors des bornes. Glissez pour la ramener dans l’intervalle, ou modifiez les réglages.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            VariableRulerView(value: variable.value, step: step,
+                              label: "Valeur de \(variable.name)",
+                              spokenValue: spoken(variable.value), spokenStep: spoken(step),
+                              usesAutomaticStep: usesAutomaticStep,
+                              onChangeValue: onChangeValue, onEditingChanged: onEditingChanged)
         }
+        .padding()
         .sheet(isPresented: $showsRangeEditor) {
             VariableRangeEditor(variable: variable, range: range, usesAutomaticStep: usesAutomaticStep, onSave: onChangeRange)
         }
@@ -89,7 +78,7 @@ private struct VariableRangeEditor: View {
 
     private var configuredRange: VariableAdjustmentRange? {
         guard let lower = number(minimum), let upper = number(maximum),
-              let increment = usesAutomaticStep ? Optional(min(upper - lower, variable.automaticStep)) : number(step) else { return nil }
+              let increment = usesAutomaticStep ? Optional(variable.automaticStep) : number(step) else { return nil }
         return VariableAdjustmentRange(lowerBound: lower, upperBound: upper, step: increment)
     }
 
@@ -99,28 +88,28 @@ private struct VariableRangeEditor: View {
                 Section {
                     field("Minimum", text: $minimum, focus: .minimum)
                     field("Maximum", text: $maximum, focus: .maximum)
+                } header: {
+                    Text("Intervalle du graphique")
+                } footer: {
+                    Text("Tracer en fonction de cette variable couvre cet intervalle. La réglette, elle, n’a pas de bornes : elle passe par zéro et va aussi loin que vous la faites glisser.")
+                }
+
+                Section {
                     Toggle("Pas automatique", isOn: $usesAutomaticStep)
                     if usesAutomaticStep {
-                        LabeledContent("Pas", value: QuantityFormatter.number(configuredRange?.step ?? variable.automaticStep, significantDigits: QuantityFormatter.preciseDigits))
+                        LabeledContent("Pas", value: QuantityFormatter.number(variable.automaticStep, significantDigits: QuantityFormatter.preciseDigits))
                     } else {
                         field("Pas", text: $step, focus: .step)
                     }
                 } header: {
-                    Text(variable.unit.isEmpty ? "Valeurs sans unité" : "Valeurs en \(variable.unit)")
+                    Text("Pas de la réglette")
                 } footer: {
                     Text("Le pas automatique suit la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Désactivez-le pour choisir un autre pas.")
                 }
 
-                if let range = configuredRange {
-                    if !(range.lowerBound...range.upperBound).contains(variable.value) {
-                        Section {
-                            Text("La valeur actuelle sera ramenée dans l’intervalle choisi.")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } else {
+                if configuredRange == nil {
                     Section {
-                        Text("Le maximum doit dépasser le minimum. Le pas doit être positif et ne pas dépasser l’intervalle ; les valeurs doivent être finies.")
+                        Text("Le maximum doit dépasser le minimum, le pas doit être positif et les valeurs doivent être finies.")
                             .foregroundStyle(.red)
                     }
                 }

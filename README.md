@@ -65,15 +65,15 @@ Les symboles non déclarés qu’Eval a lus comme des unités (par exemple `T` c
 
 ### Ajuster les valeurs avec un curseur
 
-La valeur des déclarations numériques comme `a = 7,2 m/s²`, `v = 72 km/h` ou `x = -3` est teintée et soulignée. Un **appui long** sur cette valeur fait apparaître sous la ligne une **réglette graduée**, avec un repère central fixe et des graduations mobiles ; un nouvel appui long, le chevron, l’édition d’une ligne ou **Réorganiser** la referment, et une seule réglette est ouverte à la fois. Comme la molette de Photos, les graduations suivent le doigt et glisser vers la **gauche augmente** la valeur ; elles s’arrêtent aux bornes. Le nombre est modifié dans la feuille et les résultats sont recalculés pendant le mouvement. Un simple toucher sur la valeur modifie la ligne.
+La valeur des déclarations numériques comme `a = 7,2 m/s²`, `v = 72 km/h` ou `x = -3` est teintée et soulignée. Un **appui long** sur cette valeur fait apparaître une **réglette graduée**, avec un repère central fixe et des graduations mobiles, dans une **bulle** (`popover`) ancrée à la valeur, comme un menu d’appui long ; la bulle montre aussi la valeur en toutes lettres (`m = 80 kg`) et le bouton de réglage. Toucher en dehors la ferme, l’édition d’une ligne ou **Réorganiser** aussi, et une seule réglette est ouverte à la fois. Comme la molette de Photos, les graduations suivent le doigt et glisser vers la **gauche augmente** la valeur. La réglette est **infinie** : elle n’a pas de bornes, passe par zéro vers les valeurs négatives et peut dépasser n’importe quel multiple de la valeur d’origine. Le nombre est modifié dans la feuille et les résultats sont recalculés pendant le mouvement. Un simple toucher sur la valeur modifie la ligne.
 
-Le **pas automatique** suit la précision du nombre saisi : `6` → `1`, `8,2` → `0,1`, `8,25` → `0,01`, `8,20` → `0,01` et `1,2e3` → `100`. Cette précision est conservée pendant le glissement, y compris lorsque `8,2` atteint `9,0`, et la réglette n’écrit pas de bruit binaire du type `0,9199999999999999`. Le bouton de réglage permet de définir **minimum et maximum** (clavier numérique), ou de désactiver le pas automatique pour choisir un **pas manuel**, sauvegardé avec l’identité de la ligne. Les unités, espaces et commentaires sont conservés. Les variables définies par des expressions se modifient en touchant leur ligne et se recalculent à partir des variables ajustées.
+Le **pas automatique** suit la précision du nombre saisi : `6` → `1`, `8,2` → `0,1`, `8,25` → `0,01`, `8,20` → `0,01` et `1,2e3` → `100`. Cette précision est conservée pendant le glissement, y compris lorsque `8,2` atteint `9,0`, et la réglette n’écrit pas de bruit binaire du type `0,9199999999999999`. Le bouton de réglage permet de désactiver le pas automatique pour choisir un **pas manuel**, et de définir l’**intervalle du graphique** (minimum et maximum, clavier numérique) ; les deux sont sauvegardés avec l’identité de la ligne. Les bornes de l’intervalle ne limitent pas la réglette. Les unités, espaces et commentaires sont conservés. Les variables définies par des expressions se modifient en touchant leur ligne et se recalculent à partir des variables ajustées.
 
-La réglette utilise une petite composition SwiftUI (Canvas et DragGesture), nécessaire au repère fixe et au réglage relatif, avec le matériau système ou Liquid Glass sur iOS 26 et plus. Le défilement vertical de la feuille reste disponible ; le glissement pour supprimer est désactivé sur la ligne tant que sa réglette est ouverte. Avec VoiceOver, la valeur elle-même est ajustable, au même pas, et l’action **Afficher la réglette** l’ouvre.
+La réglette utilise une petite composition SwiftUI (Canvas et DragGesture), nécessaire au repère fixe et au réglage relatif, avec le matériau système ou Liquid Glass sur iOS 26 et plus. Le défilement vertical de la feuille reste disponible. Avec VoiceOver, la valeur elle-même est ajustable, au même pas et sans bornes, et l’action **Afficher la réglette** ouvre la bulle.
 
 ### Tracer un résultat
 
-Pour une ligne calculée (expression ou définition), le menu de la ligne propose **Tracer en fonction de** puis le nom d’une variable à réglette dont le résultat dépend. La courbe couvre l’intervalle de la réglette, modifiable par ses réglages ; une ligne pointillée marque la valeur actuelle et toucher le graphique lit une valeur. Les points où le calcul échoue (racine d’un nombre négatif, division par zéro) laissent un trou dans la courbe. Si le résultat est affiché avec `→`, le tracé suit cette unité.
+Pour une ligne calculée (expression ou définition), le menu de la ligne propose **Tracer en fonction de** puis le nom d’une variable à réglette dont le résultat dépend. La courbe couvre l’**intervalle du graphique** de la variable (par défaut de 0 à deux fois sa valeur, ou de −10 à 10 pour zéro), modifiable par ses réglages ; une ligne pointillée marque la valeur actuelle et toucher le graphique lit une valeur. Les points où le calcul échoue (racine d’un nombre négatif, division par zéro) laissent un trou dans la courbe. Si le résultat est affiché avec `→`, le tracé suit cette unité.
 
 ### Écriture mathématique
 
@@ -93,7 +93,7 @@ Au-dessus du clavier, une barre insère à l’emplacement du curseur `+`, `−`
 
 **Annuler** et **Rétablir** (menu **Actions de la feuille**), le geste de secousse et ⌘Z défont l’ajout, la suppression, la modification, le déplacement d’une ligne ou le choix d’une unité d’affichage. La saisie d’une ligne, du toucher à sa sortie, et un geste de réglette, quelle que soit sa durée, comptent chacun pour une seule étape ; pendant la saisie, ⌘Z ne concerne que le texte de la ligne. Si la même feuille a été modifiée dans une autre fenêtre, l’annulation est refusée plutôt que d’effacer cette modification.
 
-**Réorganiser** (menu **Actions de la feuille**, puis **Terminé**) réordonne les lignes (poignée) et les supprime ; glisser une ligne vers la gauche la supprime aussi, sauf pendant que sa réglette est ouverte. L’ordre des lignes n’influe pas sur le calcul.
+**Réorganiser** (menu **Actions de la feuille**, puis **Terminé**) réordonne les lignes (poignée) et les supprime ; glisser une ligne vers la gauche la supprime aussi. L’ordre des lignes n’influe pas sur le calcul.
 
 ### Copier et partager
 
@@ -232,7 +232,7 @@ Les erreurs de syntaxe, variables inconnues (avec un renvoi vers **Références 
   - Édition : `MathFormula` (fractions, puissances, racines), `MathEditing` (modèle de l’éditeur en écriture mathématique), `FormulaInsertion` (insertion au curseur), `AdjustableVariable` (réglettes et pas).
   - Tracé et accessibilité : `VariableSweep` (échantillonnage d’un résultat en fonction d’une variable), `MathSpeech` (lecture parlée des formules).
 - `Tests/EvalCoreTests/` : tests du moteur et des catalogues (calcul, conversions, fonctions, résolution, diagnostics, formats, exemples, feuilles, réglettes, lecture parlée, tracé).
-- `Scripts/generate-app-icon.swift` : dessin de l’icône (parabole au-dessus d’une réglette) en tracés vectoriels, sans SF Symbol, avec ses variantes claire, sombre et teintée.
+- `Scripts/generate-app-icon.swift` : génère le document Icon Composer `EvalApp/AppIcon.icon` (parabole au-dessus d’une réglette, en tracés vectoriels sans SF Symbol). Le point de la courbe est un calque Liquid Glass ; le système en dérive les apparences sombre, teintée et transparente, et Xcode les icônes des versions antérieures d’iOS.
 
 ```sh
 swift test

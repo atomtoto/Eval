@@ -4,7 +4,7 @@ import UIKit
 
 /// A line of the sheet. At rest it shows the formula, followed by its value when
 /// the line asks for it (`E =`); a tap edits it in place. A long press on the
-/// value of a declared number opens its ruler under the line.
+/// value of a declared number opens its ruler in a popover anchored to the value.
 struct FormulaRowView: View {
     let notebook: NotebookStore
     let item: IndexedFormulaLine
@@ -49,7 +49,6 @@ struct FormulaRowView: View {
         // The last result of this line, even while its new text is evaluated.
         let line = notebook.result(for: id)
         let variable = notebook.variablesByLineID[id]
-        let showsRuler = variable != nil && notebook.activeRulerLineID == id && !isReordering && !isEditing
         VStack(alignment: .leading, spacing: 12) {
             if isEditing {
                 editingContent(line: line)
@@ -58,7 +57,10 @@ struct FormulaRowView: View {
             } else {
                 content(line: line, variable: variable)
                     .environment(\.formulaValueInteraction, variable.map { _ in
-                        FormulaValueInteraction(isHighlighted: showsRuler, longPress: toggleRuler)
+                        FormulaValueInteraction(isPresented: rulerBinding,
+                                                longPress: showRuler,
+                                                popover: AnyView(NotebookVariableControl(notebook: notebook, id: id,
+                                                                                         undoManager: undoManager)))
                     })
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
@@ -70,25 +72,18 @@ struct FormulaRowView: View {
                     .accessibilityAddTraits(.isButton)
                     .accessibilityHint("Modifie la ligne.")
                     .accessibilityAction { edit(id) }
-                    .accessibilityActions { accessibilityActions(line: line, variable: variable, showsRuler: showsRuler) }
+                    .accessibilityActions { accessibilityActions(line: line, variable: variable) }
                     .modifier(AdjustableValue(variable: variable) { increasing in
                         if let variable { adjust(variable, increasing: increasing) }
                     })
-            }
-            if showsRuler, let variable {
-                NotebookVariableControl(notebook: notebook, id: id, variable: variable, showsLabel: false,
-                                        undoManager: undoManager) {
-                    withAnimation(.snappy) { notebook.activeRulerLineID = nil }
-                }
-                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .padding(.vertical, 4)
         // The separator starts with the line, not with the text of a note under it.
         .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         .sensoryFeedback(.success, trigger: copies)
-        // A row keeps horizontal drags for its open ruler, and for the text it edits.
-        .deleteDisabled(showsRuler || isEditing)
+        // A row keeps horizontal drags for the text it edits.
+        .deleteDisabled(isEditing)
     }
 
     // MARK: Content
@@ -222,16 +217,29 @@ struct FormulaRowView: View {
 
     // MARK: Ruler
 
-    private func toggleRuler() {
-        withAnimation(.snappy) { notebook.toggleRuler(lineID: id) }
+    /// Whether the popover of the ruler is shown; it closes with a tap outside.
+    private var rulerBinding: Binding<Bool> {
+        Binding {
+            notebook.activeRulerLineID == id && !isReordering && !isEditing
+        } set: { isPresented in
+            if isPresented {
+                notebook.showRuler(lineID: id)
+            } else if notebook.activeRulerLineID == id {
+                notebook.activeRulerLineID = nil
+            }
+        }
+    }
+
+    private func showRuler() {
+        notebook.showRuler(lineID: id)
     }
 
     /// One step of the ruler, for VoiceOver’s adjustable action: one undo step.
     private func adjust(_ variable: AdjustableVariable, increasing: Bool) {
-        guard let range = notebook.adjustmentRange(for: id, variable: variable) else { return }
+        let step = notebook.rulerStep(for: id, variable: variable)
         notebook.rulerEditingChanged(true, name: variable.name, undoManager: undoManager)
-        notebook.adjustVariable(range.adjustedValue(from: variable.value, steps: increasing ? 1 : -1),
-                                lineID: id, range: range, announcesResults: true)
+        notebook.adjustVariable(VariableAdjustmentRange.stepped(from: variable.value, steps: increasing ? 1 : -1, step: step),
+                                lineID: id, announcesResults: true)
         notebook.rulerEditingChanged(false, name: variable.name, undoManager: undoManager)
     }
 
@@ -276,8 +284,7 @@ struct FormulaRowView: View {
             }
             PlotMenu(notebook: notebook, lineID: id, source: source, plot: plot)
             if variable != nil {
-                let isOpen = notebook.activeRulerLineID == id
-                Button(isOpen ? "Masquer la réglette" : "Afficher la réglette", systemImage: "ruler", action: toggleRuler)
+                Button("Afficher la réglette", systemImage: "ruler", action: showRuler)
             }
         }
         Button("Copier la formule", systemImage: "doc.on.doc", action: copyFormula)
@@ -289,10 +296,10 @@ struct FormulaRowView: View {
     /// The menu’s actions for VoiceOver, Switch Control and Voice Control, which
     /// cannot press and hold.
     @ViewBuilder
-    private func accessibilityActions(line: EvaluatedLine?, variable: AdjustableVariable?, showsRuler: Bool) -> some View {
+    private func accessibilityActions(line: EvaluatedLine?, variable: AdjustableVariable?) -> some View {
         if !isComment {
             if variable != nil {
-                Button(showsRuler ? "Masquer la réglette" : "Afficher la réglette", action: toggleRuler)
+                Button("Afficher la réglette", action: showRuler)
             }
             if line?.source == source, LineSyntax(source).requestsValue {
                 ResultCopyButtons(source: source, line: line, copies: $copies)
@@ -413,33 +420,31 @@ struct LineEditorSlot: View {
     }
 }
 
-/// The ruler of a declared number, with the range saved for its line.
+/// The ruler of a declared number, as the popover of its value. It reads the line
+/// from the store, so that its value and label follow the drag.
 struct NotebookVariableControl: View {
     let notebook: NotebookStore
     let id: UUID
-    let variable: AdjustableVariable
-    var showsLabel = true
     /// Nil where the sheet’s changes are not undoable.
     var undoManager: UndoManager?
-    /// Closes the ruler; nil where it cannot be closed.
-    var hide: (() -> Void)?
 
     var body: some View {
-        if let range = notebook.adjustmentRange(for: id, variable: variable) {
+        if let variable = notebook.variablesByLineID[id],
+           let range = notebook.adjustmentRange(for: id, variable: variable)
+            ?? VariableAdjustmentRange.suggested(for: variable.value) {
             VariableSliderView(variable: variable, range: range,
-                               usesAutomaticStep: !notebook.manualStepIDs.contains(id), showsLabel: showsLabel,
+                               step: notebook.rulerStep(for: id, variable: variable),
+                               usesAutomaticStep: !notebook.manualStepIDs.contains(id),
                                onChangeValue: { value, announcesResults in
-                                   notebook.adjustVariable(value, lineID: id, range: range, announcesResults: announcesResults)
+                                   notebook.adjustVariable(value, lineID: id, announcesResults: announcesResults)
                                }, onEditingChanged: { isEditing in
                                    notebook.rulerEditingChanged(isEditing, name: variable.name, undoManager: undoManager)
                                }, onChangeRange: { configured, automatic in
                                    notebook.recording(String(localized: "Régler le curseur de \(variable.name)"),
                                                       undoManager: undoManager) {
                                        notebook.setAdjustmentRange(configured, for: id, automaticStep: automatic)
-                                       let bounded = min(configured.upperBound, max(configured.lowerBound, variable.value))
-                                       notebook.adjustVariable(bounded, lineID: id, range: configured)
                                    }
-                               }, onHide: hide)
+                               })
         }
     }
 }

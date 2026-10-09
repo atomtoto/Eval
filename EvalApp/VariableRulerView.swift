@@ -2,13 +2,15 @@ import EvalCore
 import SwiftUI
 
 /// A relative ruler keeps its indicator fixed while the graduations move.
+/// It has no bounds: each graduation moves the value by one step, in either
+/// direction, through zero into negative numbers and without an upper limit.
 /// Public Slider styles move their thumb; this interaction needs a small
 /// SwiftUI drawing and gesture, with system materials and accessibility.
 struct VariableRulerView: View {
     let value: Double
-    let range: VariableAdjustmentRange
+    /// What one graduation adds to, or removes from, the value.
+    let step: Double
     let label: String
-    let valueLabel: String
     /// The value and the step as words, with their unit named.
     let spokenValue: String
     let spokenStep: String
@@ -21,13 +23,13 @@ struct VariableRulerView: View {
     @ScaledMetric(relativeTo: .body) private var scaledTickSpacing = 16.0
     @ScaledMetric(relativeTo: .body) private var height = 52.0
     /// The ruler widens with the text so that it keeps about as many graduations in view.
-    @ScaledMetric(relativeTo: .body) private var maxWidth = 300.0
+    @ScaledMetric(relativeTo: .body) private var idealWidth = 260.0
     @Environment(\.colorSchemeContrast) private var contrast
     /// The horizontal translation of the drag, locked to the direction of its
     /// first movement. Released, it returns to the nearest graduation with an animation.
     @GestureState(resetTransaction: Transaction(animation: .snappy)) private var drag = RulerDrag()
     @State private var origin: Double?
-    @State private var gestureRange: VariableAdjustmentRange?
+    @State private var gestureStep = 1.0
     @State private var isHorizontal = false
     @State private var lastSentValue: Double?
     @State private var feedback = 0
@@ -36,17 +38,9 @@ struct VariableRulerView: View {
     /// stays comfortable at large text sizes instead of doubling the drag per step.
     private var tickSpacing: Double { min(scaledTickSpacing, 24) }
 
-    /// The drag as the graduations show it: they follow the finger, and stop
-    /// where the value reaches a bound. Dragging left increases the value, as on
-    /// the dial of Photos.
-    private var visibleTranslation: Double {
-        let start = origin ?? value
-        let activeRange = gestureRange ?? range
-        let bounded = min(activeRange.upperBound, max(activeRange.lowerBound, start))
-        let towardUpper = (activeRange.upperBound - bounded) / activeRange.step * tickSpacing
-        let towardLower = (bounded - activeRange.lowerBound) / activeRange.step * tickSpacing
-        return min(towardLower, max(-towardUpper, drag.translation))
-    }
+    /// The drag as the graduations show it: they follow the finger, with no end.
+    /// Dragging left increases the value, as on the dial of Photos.
+    private var visibleTranslation: Double { drag.translation }
 
     var body: some View {
         let increased = contrast == .increased
@@ -55,7 +49,7 @@ struct VariableRulerView: View {
         let translation = visibleTranslation
         RulerGraduations(phase: translation - (translation / tickSpacing).rounded() * tickSpacing,
                          tickSpacing: tickSpacing, increasedContrast: increased)
-            .frame(maxWidth: maxWidth)
+            .frame(minWidth: 200, idealWidth: idealWidth, maxWidth: idealWidth * 1.4)
             .frame(height: max(44, height))
             .clipShape(Capsule())
             .rulerMaterial()
@@ -71,14 +65,14 @@ struct VariableRulerView: View {
                 .onChanged { gesture in
                     if origin == nil {
                         origin = value
-                        gestureRange = range
+                        gestureStep = step
                         lastSentValue = value
                         isHorizontal = abs(gesture.translation.width) > abs(gesture.translation.height)
                         onEditingChanged(true)
                     }
-                    guard isHorizontal, let origin, let activeRange = gestureRange else { return }
+                    guard isHorizontal, let origin else { return }
                     let steps = Int((-gesture.translation.width / tickSpacing).rounded())
-                    send(activeRange.adjustedValue(from: origin, steps: steps))
+                    send(VariableAdjustmentRange.stepped(from: origin, steps: steps, step: gestureStep))
                 }
                 .onEnded { _ in resetGesture() })
             .onChange(of: drag.isActive) { _, active in
@@ -93,8 +87,8 @@ struct VariableRulerView: View {
                                                  : "Chaque cran modifie la valeur de \(spokenStep).")
             .accessibilityAdjustableAction { direction in
                 switch direction {
-                case .increment: adjustOnce(range.adjustedValue(from: value, steps: 1))
-                case .decrement: adjustOnce(range.adjustedValue(from: value, steps: -1))
+                case .increment: adjustOnce(VariableAdjustmentRange.stepped(from: value, steps: 1, step: step))
+                case .decrement: adjustOnce(VariableAdjustmentRange.stepped(from: value, steps: -1, step: step))
                 @unknown default: break
                 }
             }
@@ -117,7 +111,6 @@ struct VariableRulerView: View {
     private func resetGesture() {
         if origin != nil { onEditingChanged(false) }
         origin = nil
-        gestureRange = nil
         lastSentValue = nil
         isHorizontal = false
     }

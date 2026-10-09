@@ -2,7 +2,7 @@ import Charts
 import EvalCore
 import SwiftUI
 
-/// A result plotted against one ruler variable, over the interval of its ruler.
+/// A result plotted against one ruler variable, over its plot interval.
 /// The sheet is evaluated again for each sample, away from the main thread.
 struct PlotView: View {
     let notebook: NotebookStore
@@ -44,7 +44,7 @@ struct PlotView: View {
         return QuantityFormatter.unitSymbol(for: quantity.dimension, in: result?.displayUnit)
     }
 
-    /// What a new sampling depends on: the variable, the sheet and the ruler’s interval.
+    /// What a new sampling depends on: the variable, the sheet and the plot interval.
     private struct SamplingKey: Equatable {
         let variableID: UUID
         let source: String
@@ -71,7 +71,7 @@ struct PlotView: View {
                 Section {
                     chartContent
                 } footer: {
-                    Text("L’intervalle tracé est celui du curseur de la variable : modifiez-le avec ses réglages pour tracer une autre plage. La ligne pointillée marque la valeur actuelle. Touchez le graphique pour lire une valeur.")
+                    Text("L’intervalle tracé est l’intervalle du graphique de la variable : modifiez-le avec ses réglages pour tracer une autre plage. La ligne pointillée marque la valeur actuelle. Touchez le graphique pour lire une valeur.")
                 }
 
                 if let variable, let value = result?.formattedValue {
@@ -118,10 +118,10 @@ struct PlotView: View {
                                        description: Text("La ligne du résultat ou celle de la variable n’existe plus, ou la variable n’est plus un nombre réglable."))
             case .noRange:
                 ContentUnavailableView("Tracé impossible", systemImage: "chart.xyaxis.line",
-                                       description: Text("La réglette de la variable n’a pas d’intervalle valide. Modifiez ses réglages."))
+                                       description: Text("La variable n’a pas d’intervalle de graphique valide. Modifiez ses réglages."))
             case .undefined:
                 ContentUnavailableView("Aucune valeur calculable", systemImage: "chart.xyaxis.line",
-                                       description: Text("Le résultat n’est défini pour aucune valeur de l’intervalle de la réglette."))
+                                       description: Text("Le résultat n’est défini pour aucune valeur de l’intervalle du graphique."))
             }
         } else if let variable, let plot, plot.variableID == variableID {
             chart(plot, variable: variable)
@@ -227,7 +227,7 @@ private struct SweepPlot {
     }
 
     let variableID: UUID
-    /// The interval of the ruler, which the horizontal axis covers.
+    /// The plot interval, which the horizontal axis covers.
     let range: VariableAdjustmentRange
     let points: [SweepPoint]
     let segments: [[SweepPoint]]

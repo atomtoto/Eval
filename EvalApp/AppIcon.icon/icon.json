@@ -1,0 +1,57 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "extended-srgb:0.20000,0.58000,1.00000,1.00000",
+      "extended-srgb:0.00000,0.40000,0.92000,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : true,
+          "image-name" : "Point.svg",
+          "name" : "Point"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.4
+      }
+    },
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "Guide.svg",
+          "name" : "Guide"
+        },
+        {
+          "glass" : false,
+          "image-name" : "Curve.svg",
+          "name" : "Curve"
+        },
+        {
+          "glass" : false,
+          "image-name" : "Ruler.svg",
+          "name" : "Ruler"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.3
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

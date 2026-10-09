@@ -103,7 +103,7 @@ struct NotebookView: View {
             if mode.isEditing {
                 focusedLineID = nil
                 finishEditing()
-                withAnimation(.snappy) { notebook.activeRulerLineID = nil }
+                notebook.activeRulerLineID = nil
             }
         }
         .onDisappear { finishEditing() }

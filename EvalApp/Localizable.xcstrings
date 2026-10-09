@@ -1,6 +1,15 @@
 {
   "sourceLanguage" : "fr",
   "strings" : {
+    "" : {
+
+    },
+    " égale %@" : {
+
+    },
+    "%@" : {
+
+    },
     "%@ = %@" : {
       "localizations" : {
         "fr" : {
@@ -40,6 +49,12 @@
           }
         }
       }
+    },
+    "%@, à la fin" : {
+
+    },
+    "%@, vide" : {
+
     },
     "%lld" : {
 
@@ -84,6 +99,12 @@
     "Afficher en unités SI" : {
 
     },
+    "Afficher la réglette" : {
+
+    },
+    "Afficher un résultat" : {
+
+    },
     "Aide" : {
 
     },
@@ -99,6 +120,9 @@
           }
         }
       }
+    },
+    "Ajoute une ligne à la fin de la feuille." : {
+
     },
     "Ajouter %@ à la feuille" : {
 
@@ -121,7 +145,13 @@
     "Annuler" : {
 
     },
+    "Annuler et Rétablir, dans le menu Actions de la feuille, défont une suppression, un ajout, une modification, un déplacement ou un réglage de réglette (un geste entier est une seule étape). Si la même feuille a été modifiée dans une autre fenêtre, l’annulation est refusée plutôt que d’effacer cette modification. Toute la saisie d’une ligne, du toucher à la sortie de la ligne, est une seule étape. Pendant la saisie, ⌘Z et le geste d’annulation ne concernent que le texte de la ligne." : {
+
+    },
     "Annuler, réorganiser, copier" : {
+
+    },
+    "Après « %@ »" : {
 
     },
     "Arithmétique" : {
@@ -133,6 +163,15 @@
     "Au cube ³" : {
 
     },
+    "Au dénominateur" : {
+
+    },
+    "Au numérateur" : {
+
+    },
+    "Au-dessus du clavier, la barre de symboles insère + − × et des parenthèses à l’endroit du curseur. Son menu Insérer propose les modèles Fraction, Puissance et Racine, qui entourent la sélection, ainsi que =, ÷, ^, ², ³, ⁻¹, π, deg, les variables de la feuille, ou ouvre Constantes et unités… (le curseur est suivi à partir d’iOS 18 ; avant, l’insertion se fait en fin de ligne). Terminé ferme le clavier." : {
+
+    },
     "Aucune feuille" : {
 
     },
@@ -142,7 +181,7 @@
     "Autres" : {
 
     },
-    "Base" : {
+    "Avec le réglage Écriture mathématique, la ligne se modifie telle qu’elle s’affiche. / fait du terme qui précède le numérateur d’une fraction, ^ ouvre un exposant. La barre propose xⁿ (exposant), √ (racine carrée), ◀ et ▶ pour déplacer le curseur, et son menu Insérer ajoute Fraction, Racine n-ième, ², ⁻¹, Monter, Descendre, =, ×, π, deg, les variables de la feuille et Constantes et unités…. Touchez la formule pour placer le curseur ; un cadre pointillé marque une case vide. L’effacement entre dans une fraction ou une racine, puis la défait quand elle est vide. Retour valide la ligne et en crée une nouvelle, comme en texte." : {
 
     },
     "Calcul" : {
@@ -170,6 +209,12 @@
 
     },
     "Chaque feuille est sauvegardée sur cet appareil. La liste Feuilles présente la plus récente en premier ; cherchez-y un titre ou une formule. Sans titre choisi, une feuille porte le nom de sa première note." : {
+
+    },
+    "Chiffres significatifs" : {
+
+    },
+    "Choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer ; les réglettes sont alors masquées. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer, sauf pendant que sa réglette est ouverte. L’ordre des lignes n’influe pas sur le calcul." : {
 
     },
     "Constantes" : {
@@ -208,16 +253,31 @@
     "Curseur de %@" : {
 
     },
+    "Dans l’indice de la racine" : {
+
+    },
+    "Dans la ligne" : {
+
+    },
+    "Dans la ligne (texte)" : {
+
+    },
+    "Début de ligne" : {
+
+    },
     "Degrés (deg)" : {
 
     },
-    "Diviser" : {
+    "Descendre" : {
 
     },
     "Diviser ÷" : {
 
     },
     "Domaine" : {
+
+    },
+    "Droite" : {
 
     },
     "Dupliquer" : {
@@ -227,6 +287,9 @@
 
     },
     "Écriture" : {
+
+    },
+    "Écriture mathématique" : {
 
     },
     "Écrivez une formule ou partez d’un exemple." : {
@@ -250,6 +313,9 @@
     "Égal =" : {
 
     },
+    "En exposant" : {
+
+    },
     "Enregistrement impossible" : {
 
     },
@@ -268,10 +334,13 @@
     "Eval ne peut pas enregistrer vos feuilles sur cet appareil. Elles seront perdues à la fermeture de l’app. Libérez de l’espace de stockage, puis relancez Eval." : {
 
     },
+    "Eval suit la taille de texte choisie dans les réglages de l’appareil. VoiceOver lit les formules comme des expressions mathématiques en français (« E égale 0,5 fois m fois v au carré ») et annonce les résultats avec leurs unités (« 1000 joules »). Sur une déclaration numérique, le geste d’ajustement de VoiceOver change la valeur au pas de la réglette, et l’action Afficher la réglette l’ouvre sous la ligne." : {
+
+    },
     "Exacte indique une valeur définie ou dérivée d’une définition ; Mesurée indique une valeur expérimentale ; Conventionnelle indique une valeur de référence adoptée, qui peut différer d’une valeur locale ou observée. Les valeurs sont disponibles hors ligne." : {
 
     },
-    "Exposant" : {
+    "Exposant ^" : {
 
     },
     "Faites glisser les lignes pour les réorganiser, puis touchez Terminé. L’ordre n’influe pas sur le calcul." : {
@@ -292,16 +361,19 @@
     "Feuilles" : {
 
     },
-    "Fonctions et opérations" : {
+    "Fin de ligne" : {
 
     },
-    "Formules" : {
+    "Fonctions et opérations" : {
 
     },
     "Fraction" : {
 
     },
     "Gardez exactement une relation (==) qui contient l’inconnue, directement ou par vos déclarations. Eval affiche la plus petite solution positive entre 10⁻¹² et 10¹². Ce n’est pas un calcul symbolique : il ne transforme pas l’équation et ne résout qu’une inconnue par relation." : {
+
+    },
+    "Gauche" : {
 
     },
     "Homogénéité physique" : {
@@ -325,7 +397,19 @@
     "L’onglet Références contient les constantes de physique, de chimie, d’astronomie et de mathématiques, ainsi que les unités. Basculez entre Constantes et Unités, filtrez par Domaine ou cherchez un nom, un symbole ou un identifiant de saisie." : {
 
     },
+    "La ligne du résultat ou celle de la variable n’existe plus, ou la variable n’est plus un nombre réglable." : {
+
+    },
+    "La réglette de la variable n’a pas d’intervalle valide. Modifiez ses réglages." : {
+
+    },
+    "La touche Retour valide la ligne et en crée une nouvelle en dessous." : {
+
+    },
     "La valeur actuelle sera ramenée dans l’intervalle choisi." : {
+
+    },
+    "La valeur d’une déclaration numérique, comme 7,2 m/s² dans a = 7,2 m/s², est teintée. Maintenez-la pour faire apparaître sa réglette sous la ligne ; maintenez-la de nouveau, ou touchez le chevron, pour la masquer. Comme la molette de Photos, les graduations suivent le doigt : glissez vers la gauche pour augmenter la valeur, vers la droite pour la diminuer. Le bouton de réglage se trouve à côté de la réglette." : {
 
     },
     "La virgule et le point sont acceptés pour les décimales. La notation scientifique s’écrit 1,5e-3. Les nombres s’affichent sans séparateur de milliers : 1000 J. Les noms et symboles respectent les majuscules." : {
@@ -346,6 +430,9 @@
     "Le pas suit automatiquement la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Cette précision est conservée en glissant, même lorsque la valeur atteint un entier." : {
 
     },
+    "Le résultat n’est défini pour aucune valeur de l’intervalle de la réglette." : {
+
+    },
     "Le signe = déclare une variable lorsque le membre de gauche est un nom. Utilisez == pour vérifier une égalité (≠ n’existe pas)." : {
 
     },
@@ -361,13 +448,44 @@
     "Les valeurs de référence sont incluses dans l’application et disponibles hors ligne. Chaque constante précise sa nature et sa source." : {
 
     },
+    "Les variables calculées, comme E = 0,5 * m * v², se modifient en touchant leur ligne. Leurs valeurs suivent automatiquement celles des variables ajustées." : {
+
+    },
     "Les variables peuvent dépendre d’autres variables. Chaque nom doit être défini une seule fois ; les dépendances circulaires sont signalées. Une note commence par # (titre) ou // (texte secondaire)." : {
 
     },
     "Ligne %lld" : {
 
     },
+    "Ligne %lld, note : %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Ligne %1$lld, note : %2$@"
+          }
+        }
+      }
+    },
+    "Ligne en cours de modification" : {
+
+    },
+    "Ligne vide" : {
+
+    },
     "Maintenez une feuille dans la liste pour la renommer, la dupliquer, la partager ou la supprimer. La suppression demande toujours une confirmation." : {
+
+    },
+    "Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle de la réglette ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou." : {
+
+    },
+    "Maintenez une ligne pour Copier la valeur (1000 J), Copier la ligne (E = 1000 J), Copier la formule, Partager le résultat, Dupliquer, Modifier ou Supprimer. La valeur copiée suit l’unité affichée. La copie d’une ligne s’ouvre en modification : une déclaration copiée doit recevoir un autre nom." : {
+
+    },
+    "Maintenez une ligne, ou touchez sa valeur, et choisissez Afficher en : Eval écrit la flèche pour vous. Unités SI la retire. Le résultat et la valeur copiée suivent l’unité choisie." : {
+
+    },
+    "Masquer la réglette" : {
 
     },
     "Maximum" : {
@@ -379,22 +497,40 @@
     "Minimum" : {
 
     },
+    "Modifie la ligne." : {
+
+    },
     "Modifier" : {
 
     },
-    "Modifier la ligne" : {
+    "Modifier en texte" : {
+
+    },
+    "Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu, choisissent la saisie des formules et le nombre de chiffres significatifs." : {
+
+    },
+    "Modifier en texte…" : {
 
     },
     "Moins" : {
 
     },
+    "Monter" : {
+
+    },
     "Multiplier" : {
+
+    },
+    "Multiplier ×" : {
 
     },
     "Nature" : {
 
     },
     "Nom, symbole ou domaine" : {
+
+    },
+    "Nombre de chiffres significatifs des résultats affichés. Les calculs gardent toujours toute leur précision." : {
 
     },
     "Nouvelle à partir d’un exemple" : {
@@ -419,6 +555,9 @@
 
     },
     "Partager la feuille" : {
+
+    },
+    "Partager la feuille ajoute les valeurs affichées en notes # valeur ; Partager sans les résultats envoie la source seule." : {
 
     },
     "Partager le résultat" : {
@@ -448,6 +587,18 @@
     "Puissance" : {
 
     },
+    "Racine" : {
+
+    },
+    "Racine carrée" : {
+
+    },
+    "Racine n-ième" : {
+
+    },
+    "Racine n-ième ⁿ√" : {
+
+    },
     "Racines, exponentielles" : {
 
     },
@@ -461,6 +612,12 @@
 
     },
     "Références" : {
+
+    },
+    "Réglages" : {
+
+    },
+    "Réglages…" : {
 
     },
     "Régler le curseur de %@" : {
@@ -478,6 +635,9 @@
     "Résoudre une inconnue" : {
 
     },
+    "Résultat : %@" : {
+
+    },
     "Résultat Eval" : {
 
     },
@@ -488,6 +648,9 @@
 
     },
     "Saisie" : {
+
+    },
+    "Saisie des formules" : {
 
     },
     "Segment" : {
@@ -505,10 +668,16 @@
     "Source : %@" : {
 
     },
+    "Sous la racine" : {
+
+    },
     "Supprimer" : {
 
     },
     "Supprimer « %@ » ?" : {
+
+    },
+    "Sur iPad, chaque fenêtre affiche sa propre feuille. Ajouter à la feuille, dans Références, complète la feuille de la fenêtre avec une ligne qui affiche la valeur, comme c =. Raccourcis : ⌘N nouvelle feuille, ⇧⌘N nouvelle ligne, ⌘F rechercher, ⌘1 et ⌘2 pour changer d’onglet, ⌘, pour les Réglages, ⌘Z pour annuler. Maintenez ⌘ pour afficher la liste." : {
 
     },
     "Symboles lus comme des unités" : {
@@ -523,7 +692,22 @@
     "Touchez une constante pour consulter sa valeur, sa nature et sa source. Glissez une ligne vers la droite, ou maintenez-la, pour Ajouter à la feuille ou copier sa valeur. Le champ Saisie indique le nom à utiliser dans une formule, par exemple N_A pour la constante d’Avogadro." : {
 
     },
+    "Touchez une ligne pour la modifier là où elle se trouve, ou Nouvelle ligne (ou +) pour en ajouter une. Retour valide la ligne et en crée une nouvelle en dessous. La valeur se met à jour pendant la saisie." : {
+
+    },
+    "Touchez une ligne pour la modifier là où elle se trouve. Dans la ligne (texte), la formule s’écrit comme E = m * c^2 et s’affiche en notation mathématique dès que vous la quittez. En écriture mathématique, elle se modifie telle qu’elle s’affiche : / crée une fraction, ^ un exposant, et toucher la formule place le curseur." : {
+
+    },
+    "Touchez une ligne pour la modifier. Terminez-la par = pour afficher sa valeur, comme E =. Maintenez une valeur teintée pour la régler avec la réglette." : {
+
+    },
+    "Touchez une valeur affichée pour la copier, la partager, changer son unité ou la tracer." : {
+
+    },
     "Tous les domaines" : {
+
+    },
+    "Tracé impossible" : {
 
     },
     "Tracer en fonction de" : {
@@ -542,6 +726,12 @@
 
     },
     "Une fréquence en s⁻¹ s’affiche s⁻¹ ; choisissez → Hz, → rad/s ou → tr/min selon l’usage. Les cibles sont des unités ou des constantes, jamais des variables de la feuille : m, h et g désignent donc le mètre, l’heure et le gramme." : {
+
+    },
+    "Une ligne avec une conversion (→ km/h) ou une inconnue (v = ? m/s) affiche toujours sa valeur. Une égalité (==) affiche son verdict. Les autres lignes sont calculées sans afficher de valeur ; leurs erreurs restent signalées sous la ligne." : {
+
+    },
+    "Une ligne par formule ou variable. Terminez une ligne par = pour afficher sa valeur. Les unités suivent les valeurs, séparées par un espace." : {
 
     },
     "Une valeur sans unité est sans dimension. Pour vérifier une formule physique, attribuez les unités aux grandeurs concernées. Utilisez le kelvin : °C et °F ne sont pas pris en charge." : {
@@ -563,6 +753,9 @@
 
     },
     "Valeur actuelle" : {
+
+    },
+    "Valeur de %@" : {
 
     },
     "Valeur hors des bornes. Glissez pour la ramener dans l’intervalle, ou modifiez les réglages." : {

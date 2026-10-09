@@ -49,7 +49,7 @@ final class NotebookStore {
     private(set) var formulaLines: [IndexedFormulaLine] = []
     private(set) var adjustableVariables: [NotebookVariable] = []
     private(set) var variablesByLineID: [UUID: AdjustableVariable] = [:]
-    /// The line whose ruler is open, at most one. A long press on its value toggles it.
+    /// The line whose ruler is open in a popover, at most one. A long press on its value opens it.
     var activeRulerLineID: UUID?
     /// Lines being edited in place, shown even while blank.
     private(set) var editingLineIDs: Set<UUID> = []
@@ -111,14 +111,23 @@ final class NotebookStore {
 
     // MARK: Rulers
 
+    /// The interval a plot covers, and the step of the ruler: the settings saved for
+    /// the line, else an interval around the current value. The ruler itself has no bounds.
     func adjustmentRange(for id: UUID, variable: AdjustableVariable) -> VariableAdjustmentRange? {
         if let range = adjustmentRanges[id] {
             if manualStepIDs.contains(id) { return range }
             return VariableAdjustmentRange(lowerBound: range.lowerBound, upperBound: range.upperBound,
-                                           step: min(range.upperBound - range.lowerBound, variable.automaticStep))
+                                           step: variable.automaticStep)
                 ?? VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep)
         }
         return VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep)
+    }
+
+    /// How far one graduation of the ruler moves the value: the entered precision,
+    /// or the step chosen in the line’s settings.
+    func rulerStep(for id: UUID, variable: AdjustableVariable) -> Double {
+        if manualStepIDs.contains(id), let step = adjustmentRanges[id]?.step { return step }
+        return variable.automaticStep
     }
 
     func setAdjustmentRange(_ range: VariableAdjustmentRange, for id: UUID, automaticStep: Bool = true) {
@@ -129,12 +138,11 @@ final class NotebookStore {
 
     /// Results follow the ruler: the evaluation starts without the typing delay.
     /// With `announcesResults`, the recalculated results are read aloud once they arrive.
-    func adjustVariable(_ value: Double, lineID: UUID, range: VariableAdjustmentRange, announcesResults: Bool = false) {
+    func adjustVariable(_ value: Double, lineID: UUID, announcesResults: Bool = false) {
         guard let index = lineIndexByID[lineID],
               let variable = variablesByLineID[lineID],
               value != variable.value,
               let updated = variable.source(replacingValue: value) else { return }
-        adjustmentRanges[lineID] = range
         resultSelection.updateSource(updated, at: index)
         if announcesResults { announcesNextEvaluation = true }
         setSource(joinedSource, evaluatesImmediately: true)
@@ -322,9 +330,10 @@ final class NotebookStore {
         return adjustableVariables.filter { $0.id != lineID && dependencies.contains($0.variable.name) }
     }
 
-    /// Opens the ruler of a line, or closes it when it is already open.
-    func toggleRuler(lineID: UUID) {
-        activeRulerLineID = activeRulerLineID == lineID ? nil : lineID
+    /// Opens the ruler of a line, closing any other.
+    func showRuler(lineID: UUID) {
+        guard variablesByLineID[lineID] != nil else { return }
+        activeRulerLineID = lineID
     }
 
     func clear(undoManager: UndoManager? = nil) {

@@ -70,14 +70,14 @@ struct HelpView: View {
                 }
 
                 Section("Ajuster une variable en glissant") {
-                    Text("La valeur d’une déclaration numérique, comme 7,2 m/s² dans a = 7,2 m/s², est teintée. Maintenez-la pour faire apparaître sa réglette sous la ligne ; maintenez-la de nouveau, ou touchez le chevron, pour la masquer. Comme la molette de Photos, les graduations suivent le doigt : glissez vers la gauche pour augmenter la valeur, vers la droite pour la diminuer. Le bouton de réglage se trouve à côté de la réglette.")
+                    Text("La valeur d’une déclaration numérique, comme 7,2 m/s² dans a = 7,2 m/s², est teintée. Maintenez-la : sa réglette apparaît dans une bulle ancrée à la valeur, comme un menu d’appui long, avec la valeur en toutes lettres ; touchez en dehors de la bulle pour la fermer. Comme la molette de Photos, les graduations suivent le doigt : glissez vers la gauche pour augmenter la valeur, vers la droite pour la diminuer. La réglette n’a pas de bornes : elle passe par zéro, dans les valeurs négatives, et va aussi loin que vous glissez. Le bouton de réglage de la bulle règle le pas et l’intervalle du graphique.")
                     Text("Le pas suit automatiquement la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Cette précision est conservée en glissant, même lorsque la valeur atteint un entier.")
                     Text("Le bouton de réglage permet de choisir un minimum, un maximum ou un pas manuel en désactivant Pas automatique. Les réglages sont sauvegardés avec la feuille. Les unités et les commentaires sont conservés ; une valeur en km/h reste saisie en km/h.")
                     Text("Les variables calculées, comme E = 0,5 * m * v², se modifient en touchant leur ligne. Leurs valeurs suivent automatiquement celles des variables ajustées.")
                 }
 
                 Section("Tracer un résultat") {
-                    Text("Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle de la réglette ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou.")
+                    Text("Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle du graphique de la variable (autour de sa valeur, par défaut) ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou.")
                 }
 
                 Section("Constantes reconnues") {
@@ -96,14 +96,14 @@ struct HelpView: View {
 
                 Section("Annuler, réorganiser, copier") {
                     Text("Annuler et Rétablir, dans le menu Actions de la feuille, défont une suppression, un ajout, une modification, un déplacement ou un réglage de réglette (un geste entier est une seule étape). Si la même feuille a été modifiée dans une autre fenêtre, l’annulation est refusée plutôt que d’effacer cette modification. Toute la saisie d’une ligne, du toucher à la sortie de la ligne, est une seule étape. Pendant la saisie, ⌘Z et le geste d’annulation ne concernent que le texte de la ligne.")
-                    Text("Choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer ; les réglettes sont alors masquées. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer, sauf pendant que sa réglette est ouverte. L’ordre des lignes n’influe pas sur le calcul.")
+                    Text("Choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer ; les réglettes sont alors indisponibles. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer. L’ordre des lignes n’influe pas sur le calcul.")
                     Text("Maintenez une ligne pour Copier la valeur (1000 J), Copier la ligne (E = 1000 J), Copier la formule, Partager le résultat, Dupliquer, Modifier ou Supprimer. La valeur copiée suit l’unité affichée. La copie d’une ligne s’ouvre en modification : une déclaration copiée doit recevoir un autre nom.")
                     Text("Partager la feuille ajoute les valeurs affichées en notes # valeur ; Partager sans les résultats envoie la source seule.")
                 }
 
                 Section("iPad et accessibilité") {
                     Text("Sur iPad, chaque fenêtre affiche sa propre feuille. Ajouter à la feuille, dans Références, complète la feuille de la fenêtre avec une ligne qui affiche la valeur, comme c =. Raccourcis : ⌘N nouvelle feuille, ⇧⌘N nouvelle ligne, ⌘F rechercher, ⌘1 et ⌘2 pour changer d’onglet, ⌘, pour les Réglages, ⌘Z pour annuler. Maintenez ⌘ pour afficher la liste.")
-                    Text("Eval suit la taille de texte choisie dans les réglages de l’appareil. VoiceOver lit les formules comme des expressions mathématiques en français (« E égale 0,5 fois m fois v au carré ») et annonce les résultats avec leurs unités (« 1000 joules »). Sur une déclaration numérique, le geste d’ajustement de VoiceOver change la valeur au pas de la réglette, et l’action Afficher la réglette l’ouvre sous la ligne.")
+                    Text("Eval suit la taille de texte choisie dans les réglages de l’appareil. VoiceOver lit les formules comme des expressions mathématiques en français (« E égale 0,5 fois m fois v au carré ») et annonce les résultats avec leurs unités (« 1000 joules »). Sur une déclaration numérique, le geste d’ajustement de VoiceOver change la valeur au pas de la réglette, et l’action Afficher la réglette ouvre la bulle de la réglette.")
                 }
             }
             .navigationTitle("Utiliser Eval")

@@ -44,10 +44,10 @@ final class AdjustableVariableTests: XCTestCase {
 
     func testRelativeRulerUsesDecimalStepsAndKeepsPrecisionAtIntegers() throws {
         let variable = try XCTUnwrap(AdjustableVariable(source: "a = 8,2 m/s² # conservé"))
-        let range = try XCTUnwrap(VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep))
-        XCTAssertEqual(range.adjustedValue(from: variable.value, steps: 1), 8.3)
-        XCTAssertEqual(range.adjustedValue(from: variable.value, steps: -1), 8.1)
-        let integer = range.adjustedValue(from: variable.value, steps: 8)
+        let step = variable.automaticStep
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: variable.value, steps: 1, step: step), 8.3)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: variable.value, steps: -1, step: step), 8.1)
+        let integer = VariableAdjustmentRange.stepped(from: variable.value, steps: 8, step: step)
         XCTAssertEqual(integer, 9)
         let changed = try XCTUnwrap(variable.source(replacingValue: integer))
         XCTAssertEqual(changed, "a = 9,0 m/s² # conservé")
@@ -59,17 +59,15 @@ final class AdjustableVariableTests: XCTestCase {
 
     func testRulerWritesDecimalValuesWithoutBinaryNoise() throws {
         let variable = try XCTUnwrap(AdjustableVariable(source: "x = 1,00"))
-        let range = try XCTUnwrap(VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep))
-        let value = range.adjustedValue(from: 1, steps: -8)
+        let value = VariableAdjustmentRange.stepped(from: 1, steps: -8, step: variable.automaticStep)
         XCTAssertEqual(value, 0.92)
         XCTAssertEqual(variable.source(replacingValue: value), "x = 0,92")
         // A value one ulp away from the decimal still keeps the entered precision.
         XCTAssertEqual(variable.source(replacingValue: 0.9199999999999999), "x = 0,92")
         let quarter = try XCTUnwrap(AdjustableVariable(source: "x = 2,25"))
-        let quarterRange = try XCTUnwrap(VariableAdjustmentRange.suggested(for: 2.25, step: quarter.automaticStep))
-        XCTAssertEqual(quarter.source(replacingValue: quarterRange.adjustedValue(from: 2.25, steps: -1)), "x = 2,24")
-        let symmetric = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -10, upperBound: 10, step: 0.1))
-        XCTAssertEqual(symmetric.adjustedValue(from: 0.3, steps: -3), 0)
+        XCTAssertEqual(quarter.source(replacingValue: VariableAdjustmentRange.stepped(from: 2.25, steps: -1, step: quarter.automaticStep)),
+                       "x = 2,24")
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 0.3, steps: -3, step: 0.1), 0)
     }
 
     func testScrubbingKeepsTheEnteredPrecisionAcrossTheWholeRange() throws {
@@ -77,30 +75,58 @@ final class AdjustableVariableTests: XCTestCase {
                        "x = 12,5", "x = 3,14", "x = 5e-3 s", "x = 1,25e-3", "x = -7,2", "x = 2,5e3"]
         for source in sources {
             let variable = try XCTUnwrap(AdjustableVariable(source: source))
-            let range = try XCTUnwrap(VariableAdjustmentRange.suggested(for: variable.value, step: variable.automaticStep))
             for steps in -250...250 {
-                let written = try XCTUnwrap(variable.source(replacingValue: range.adjustedValue(from: variable.value, steps: steps)))
+                let value = VariableAdjustmentRange.stepped(from: variable.value, steps: steps, step: variable.automaticStep)
+                let written = try XCTUnwrap(variable.source(replacingValue: value))
                 let reparsed = try XCTUnwrap(AdjustableVariable(source: written), written)
                 XCTAssertEqual(reparsed.automaticStep, variable.automaticStep, written)
             }
         }
     }
 
-    func testRelativeRulerFreezesItsOriginAndHonorsCustomBounds() throws {
-        let range = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -10, upperBound: 10, step: 0.1))
+    func testRelativeRulerFreezesItsOriginAndHasNoBounds() {
         // Each drag update uses total displacement, not the previous result.
-        XCTAssertEqual(range.adjustedValue(from: 8.2, steps: 3), 8.5)
-        XCTAssertEqual(range.adjustedValue(from: 8.2, steps: 1), 8.3)
-        XCTAssertEqual(range.adjustedValue(from: 8.2, steps: 0), 8.2)
-        XCTAssertEqual(range.adjustedValue(from: 8.2, steps: 100), 10)
-        XCTAssertEqual(range.adjustedValue(from: -8.2, steps: -100), -10)
-        XCTAssertEqual(range.adjustedValue(from: -0.1, steps: 1), 0)
-        XCTAssertEqual(range.adjustedValue(from: 0, steps: -1), -0.1)
-        let huge = try XCTUnwrap(VariableAdjustmentRange.suggested(for: 1e250, step: 1e249))
-        XCTAssertTrue(huge.adjustedValue(from: 1e250, steps: 1).isFinite)
-        XCTAssertGreaterThan(huge.adjustedValue(from: 1e250, steps: 1), 1e250)
-        let tiny = try XCTUnwrap(VariableAdjustmentRange.suggested(for: .leastNonzeroMagnitude, step: .leastNonzeroMagnitude))
-        XCTAssertGreaterThan(tiny.adjustedValue(from: .leastNonzeroMagnitude, steps: 1), .leastNonzeroMagnitude)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 8.2, steps: 3, step: 0.1), 8.5)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 8.2, steps: 1, step: 0.1), 8.3)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 8.2, steps: 0, step: 0.1), 8.2)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: -0.1, steps: 1, step: 0.1), 0)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 0, steps: -1, step: 0.1), -0.1)
+        // Past twice the entered value, and below zero: nothing stops the ruler.
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 80, steps: 100, step: 1), 180)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 80, steps: 1_000_000, step: 1), 1_000_080)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 80, steps: -100, step: 1), -20)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 8.2, steps: 100, step: 0.1), 18.2)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: 8.2, steps: -100, step: 0.1), -1.8)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: -8.2, steps: -100, step: 0.1), -18.2)
+        let huge = VariableAdjustmentRange.stepped(from: 1e250, steps: 1, step: 1e249)
+        XCTAssertTrue(huge.isFinite)
+        XCTAssertGreaterThan(huge, 1e250)
+        XCTAssertGreaterThan(VariableAdjustmentRange.stepped(from: .leastNonzeroMagnitude, steps: 1, step: .leastNonzeroMagnitude),
+                             .leastNonzeroMagnitude)
+        // Double runs out: the value stops at its largest finite number instead of becoming infinite.
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: Double.greatestFiniteMagnitude, steps: 5, step: 1e300),
+                       Double.greatestFiniteMagnitude)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: -Double.greatestFiniteMagnitude, steps: -5, step: 1e300),
+                       -Double.greatestFiniteMagnitude)
+    }
+
+    func testSteppingAcrossZeroWritesDecimalSourcesWithoutBinaryNoise() throws {
+        let variable = try XCTUnwrap(AdjustableVariable(source: "m = 0,3 kg # masse"))
+        var written: [String] = []
+        for steps in [-2, -3, -4, -13] {
+            let value = VariableAdjustmentRange.stepped(from: variable.value, steps: steps, step: variable.automaticStep)
+            written.append(try XCTUnwrap(variable.source(replacingValue: value)))
+        }
+        XCTAssertEqual(written, ["m = 0,1 kg # masse", "m = 0,0 kg # masse", "m = -0,1 kg # masse", "m = -1,0 kg # masse"])
+        let negative = try XCTUnwrap(AdjustableVariable(source: "m = -0,1 kg"))
+        XCTAssertEqual(negative.value, -0.1)
+        XCTAssertEqual(VariableAdjustmentRange.stepped(from: negative.value, steps: 2, step: negative.automaticStep), 0.1)
+        // The whole-number step also runs far past twice the entered number, and below zero.
+        let mass = try XCTUnwrap(AdjustableVariable(source: "m = 80 kg"))
+        XCTAssertEqual(mass.source(replacingValue: VariableAdjustmentRange.stepped(from: 80, steps: 500, step: mass.automaticStep)),
+                       "m = 580 kg")
+        XCTAssertEqual(mass.source(replacingValue: VariableAdjustmentRange.stepped(from: 80, steps: -500, step: mass.automaticStep)),
+                       "m = -420 kg")
     }
 
     func testScientificNotationKeepsItsStepAfterScrubbing() throws {
@@ -206,92 +232,28 @@ final class AdjustableVariableTests: XCTestCase {
         XCTAssertEqual(zero.step, 0.1)
     }
 
-    func testNormalizedSliderValuesAreQuantizedAndClamped() throws {
-        let range = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -1, upperBound: 1, step: 0.3))
-        XCTAssertEqual(range.value(at: 0), -1)
-        XCTAssertEqual(range.value(at: 1), 1)
-        XCTAssertEqual(range.value(at: 0.5), -0.1, accuracy: 1e-14)
-        XCTAssertEqual(range.value(at: 0.999), 1)
-        XCTAssertEqual(range.value(at: -1), -1)
-        XCTAssertEqual(range.value(at: 2), 1)
-        XCTAssertEqual(range.position(for: 0), 0.5)
-        XCTAssertEqual(range.position(for: -2), 0)
-        XCTAssertEqual(range.position(for: 2), 1)
-        XCTAssertEqual(range.value(at: .nan), -1)
-        XCTAssertEqual(range.position(for: .nan), 0)
-    }
-
-    func testExtremelySmallAndLargeValuesHaveFiniteSliderRanges() throws {
+    func testExtremelySmallAndLargeValuesHaveFinitePlotIntervals() throws {
         for number in [Double.leastNonzeroMagnitude, -Double.leastNonzeroMagnitude,
                        1e-250, -1e-250, 1e250, -1e250,
                        Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude] {
             let range = try XCTUnwrap(VariableAdjustmentRange.suggested(for: number), String(number))
             XCTAssertGreaterThan(range.step, 0)
             XCTAssertTrue(range.step.isFinite)
-            XCTAssertTrue(range.value(at: 0.5).isFinite)
-            XCTAssertEqual(range.value(at: 0), range.lowerBound)
-            XCTAssertEqual(range.value(at: 1), range.upperBound)
-            XCTAssertGreaterThanOrEqual(range.position(for: number), 0)
-            XCTAssertLessThanOrEqual(range.position(for: number), 1)
+            XCTAssertLessThan(range.lowerBound, range.upperBound)
+            let next = VariableAdjustmentRange.stepped(from: number, steps: 1, step: range.step)
+            let previous = VariableAdjustmentRange.stepped(from: number, steps: -1, step: range.step)
+            XCTAssertTrue(next.isFinite)
+            XCTAssertTrue(previous.isFinite)
+            XCTAssertGreaterThanOrEqual(next, number)
+            XCTAssertLessThanOrEqual(previous, number)
         }
         XCTAssertNil(VariableAdjustmentRange.suggested(for: .nan))
         XCTAssertNil(VariableAdjustmentRange.suggested(for: .infinity))
     }
 
-    func testAdjacentValuesFollowTheGridAndExactEndpoints() throws {
-        let range = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -1, upperBound: 1, step: 0.3))
-        XCTAssertEqual(range.adjacentValue(to: 1, increasing: false), 0.8, accuracy: 1e-14)
-        XCTAssertEqual(range.adjacentValue(to: 0.8, increasing: true), 1)
-        XCTAssertEqual(range.adjacentValue(to: -1, increasing: true), -0.7, accuracy: 1e-14)
-        XCTAssertEqual(range.adjacentValue(to: -1, increasing: false), -1)
-        XCTAssertEqual(range.adjacentValue(to: 1, increasing: true), 1)
-        XCTAssertEqual(range.adjacentValue(to: -0.1, increasing: true), 0.2, accuracy: 1e-14)
-        XCTAssertEqual(range.adjacentValue(to: -0.1, increasing: false), -0.4, accuracy: 1e-14)
-        let endpoint = try XCTUnwrap(VariableAdjustmentRange(lowerBound: 0, upperBound: 1.nextUp, step: 1))
-        XCTAssertEqual(endpoint.adjacentValue(to: endpoint.upperBound, increasing: false), 1)
-    }
-
-    func testAdjacentOffGridValuesUseTheNeighborsInEachDirection() throws {
-        let range = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -1, upperBound: 1, step: 0.3))
-        XCTAssertEqual(range.adjacentValue(to: 0.7, increasing: true), 0.8, accuracy: 1e-14)
-        XCTAssertEqual(range.adjacentValue(to: 0.7, increasing: false), 0.5, accuracy: 1e-14)
-        XCTAssertEqual(range.adjacentValue(to: -0.8, increasing: true), -0.7, accuracy: 1e-14)
-        XCTAssertEqual(range.adjacentValue(to: -0.8, increasing: false), -1)
-        XCTAssertEqual(range.adjacentValue(to: .nan, increasing: false), -1)
-        XCTAssertEqual(range.adjacentValue(to: .infinity, increasing: false), 0.8, accuracy: 1e-14)
-    }
-
-    func testRepeatedAdjacentAdjustmentsProgressToBothBounds() throws {
-        let range = try XCTUnwrap(VariableAdjustmentRange(lowerBound: -1, upperBound: 1, step: 0.3))
-        var value = range.lowerBound
-        for _ in 0..<7 {
-            let next = range.adjacentValue(to: value, increasing: true)
-            XCTAssertGreaterThan(next, value)
-            value = next
-        }
-        XCTAssertEqual(value, range.upperBound)
-        for _ in 0..<7 {
-            let previous = range.adjacentValue(to: value, increasing: false)
-            XCTAssertLessThan(previous, value)
-            value = previous
-        }
-        XCTAssertEqual(value, range.lowerBound)
-
-        for number in [Double.leastNonzeroMagnitude, -Double.leastNonzeroMagnitude,
-                       Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude] {
-            let extreme = try XCTUnwrap(VariableAdjustmentRange.suggested(for: number))
-            let next = extreme.adjacentValue(to: extreme.lowerBound, increasing: true)
-            let previous = extreme.adjacentValue(to: extreme.upperBound, increasing: false)
-            XCTAssertTrue(next.isFinite)
-            XCTAssertTrue(previous.isFinite)
-            XCTAssertGreaterThan(next, extreme.lowerBound)
-            XCTAssertLessThan(previous, extreme.upperBound)
-        }
-    }
-
     func testInvalidRangesAreRejected() {
         let invalid: [(Double, Double, Double)] = [
-            (0, 0, 1), (1, 0, 1), (0, 1, 0), (0, 1, -0.1), (0, 1, 2),
+            (0, 0, 1), (1, 0, 1), (0, 1, 0), (0, 1, -0.1),
             (0, .infinity, 1), (.nan, 1, 1), (0, 1, .nan),
             (-Double.greatestFiniteMagnitude, Double.greatestFiniteMagnitude, 1),
             (0, Double.greatestFiniteMagnitude, Double.leastNonzeroMagnitude)

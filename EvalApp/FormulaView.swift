@@ -90,11 +90,14 @@ extension FormulaView where Accessory == EmptyView {
 }
 
 /// What the value of an adjustable declaration (`80 kg` in `m = 80 kg`) does in
-/// a formula: a long press shows its ruler; a tap edits the line, like anywhere on the row.
+/// a formula: a long press shows its ruler in a popover anchored to the value; a
+/// tap edits the line, like anywhere on the row.
 struct FormulaValueInteraction {
-    /// True while the ruler of the value is open.
-    var isHighlighted: Bool
+    /// True while the ruler of the value is open; the value is then highlighted.
+    var isPresented: Binding<Bool>
     var longPress: @MainActor () -> Void
+    /// The content of the popover: the ruler.
+    var popover: AnyView
 }
 
 extension EnvironmentValues {
@@ -204,7 +207,7 @@ extension FormulaContent {
                 }
                 .padding(.horizontal, 3)
                 .background {
-                    if interaction.isHighlighted {
+                    if interaction.isPresented.wrappedValue {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(.tint.opacity(0.15))
                     }
@@ -219,6 +222,11 @@ extension FormulaContent {
                         interaction.longPress()
                     })
                 .sensoryFeedback(.impact, trigger: longPresses)
+                // A bubble on iPhone too, like the menu of a long press.
+                .popover(isPresented: interaction.isPresented) {
+                    interaction.popover
+                        .presentationCompactAdaptation(.popover)
+                }
         } else {
             formula
         }
