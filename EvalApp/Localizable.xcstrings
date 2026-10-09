@@ -214,7 +214,7 @@
     "Chiffres significatifs" : {
 
     },
-    "Choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer ; les réglettes sont alors masquées. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer, sauf pendant que sa réglette est ouverte. L’ordre des lignes n’influe pas sur le calcul." : {
+    "Choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer ; les réglettes sont alors indisponibles. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer. L’ordre des lignes n’influe pas sur le calcul." : {
 
     },
     "Constantes" : {
@@ -334,7 +334,7 @@
     "Eval ne peut pas enregistrer vos feuilles sur cet appareil. Elles seront perdues à la fermeture de l’app. Libérez de l’espace de stockage, puis relancez Eval." : {
 
     },
-    "Eval suit la taille de texte choisie dans les réglages de l’appareil. VoiceOver lit les formules comme des expressions mathématiques en français (« E égale 0,5 fois m fois v au carré ») et annonce les résultats avec leurs unités (« 1000 joules »). Sur une déclaration numérique, le geste d’ajustement de VoiceOver change la valeur au pas de la réglette, et l’action Afficher la réglette l’ouvre sous la ligne." : {
+    "Eval suit la taille de texte choisie dans les réglages de l’appareil. VoiceOver lit les formules comme des expressions mathématiques en français (« E égale 0,5 fois m fois v au carré ») et annonce les résultats avec leurs unités (« 1000 joules »). Sur une déclaration numérique, le geste d’ajustement de VoiceOver change la valeur au pas de la réglette, et l’action Afficher la réglette ouvre la bulle de la réglette." : {
 
     },
     "Exacte indique une valeur définie ou dérivée d’une définition ; Mesurée indique une valeur expérimentale ; Conventionnelle indique une valeur de référence adoptée, qui peut différer d’une valeur locale ou observée. Les valeurs sont disponibles hors ligne." : {
@@ -385,13 +385,16 @@
     "Insérer" : {
 
     },
+    "Intervalle du graphique" : {
+
+    },
     "Inverse ⁻¹" : {
 
     },
     "iPad et accessibilité" : {
 
     },
-    "L’intervalle tracé est celui du curseur de la variable : modifiez-le avec ses réglages pour tracer une autre plage. La ligne pointillée marque la valeur actuelle. Touchez le graphique pour lire une valeur." : {
+    "L’intervalle tracé est l’intervalle du graphique de la variable : modifiez-le avec ses réglages pour tracer une autre plage. La ligne pointillée marque la valeur actuelle. Touchez le graphique pour lire une valeur." : {
 
     },
     "L’onglet Références contient les constantes de physique, de chimie, d’astronomie et de mathématiques, ainsi que les unités. Basculez entre Constantes et Unités, filtrez par Domaine ou cherchez un nom, un symbole ou un identifiant de saisie." : {
@@ -400,16 +403,13 @@
     "La ligne du résultat ou celle de la variable n’existe plus, ou la variable n’est plus un nombre réglable." : {
 
     },
-    "La réglette de la variable n’a pas d’intervalle valide. Modifiez ses réglages." : {
-
-    },
     "La touche Retour valide la ligne et en crée une nouvelle en dessous." : {
 
     },
-    "La valeur actuelle sera ramenée dans l’intervalle choisi." : {
+    "La valeur d’une déclaration numérique, comme 7,2 m/s² dans a = 7,2 m/s², est teintée. Maintenez-la : sa réglette apparaît dans une bulle ancrée à la valeur, comme un menu d’appui long, avec la valeur en toutes lettres ; touchez en dehors de la bulle pour la fermer. Comme la molette de Photos, les graduations suivent le doigt : glissez vers la gauche pour augmenter la valeur, vers la droite pour la diminuer. La réglette n’a pas de bornes : elle passe par zéro, dans les valeurs négatives, et va aussi loin que vous glissez. Le bouton de réglage de la bulle règle le pas et l’intervalle du graphique." : {
 
     },
-    "La valeur d’une déclaration numérique, comme 7,2 m/s² dans a = 7,2 m/s², est teintée. Maintenez-la pour faire apparaître sa réglette sous la ligne ; maintenez-la de nouveau, ou touchez le chevron, pour la masquer. Comme la molette de Photos, les graduations suivent le doigt : glissez vers la gauche pour augmenter la valeur, vers la droite pour la diminuer. Le bouton de réglage se trouve à côté de la réglette." : {
+    "La variable n’a pas d’intervalle de graphique valide. Modifiez ses réglages." : {
 
     },
     "La virgule et le point sont acceptés pour les décimales. La notation scientifique s’écrit 1,5e-3. Les nombres s’affichent sans séparateur de milliers : 1000 J. Les noms et symboles respectent les majuscules." : {
@@ -421,7 +421,7 @@
     "Le bouton de réglage permet de choisir un minimum, un maximum ou un pas manuel en désactivant Pas automatique. Les réglages sont sauvegardés avec la feuille. Les unités et les commentaires sont conservés ; une valeur en km/h reste saisie en km/h." : {
 
     },
-    "Le maximum doit dépasser le minimum. Le pas doit être positif et ne pas dépasser l’intervalle ; les valeurs doivent être finies." : {
+    "Le maximum doit dépasser le minimum, le pas doit être positif et les valeurs doivent être finies." : {
 
     },
     "Le pas automatique suit la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Désactivez-le pour choisir un autre pas." : {
@@ -430,7 +430,7 @@
     "Le pas suit automatiquement la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Cette précision est conservée en glissant, même lorsque la valeur atteint un entier." : {
 
     },
-    "Le résultat n’est défini pour aucune valeur de l’intervalle de la réglette." : {
+    "Le résultat n’est défini pour aucune valeur de l’intervalle du graphique." : {
 
     },
     "Le signe = déclare une variable lorsque le membre de gauche est un nom. Utilisez == pour vérifier une égalité (≠ n’existe pas)." : {
@@ -476,16 +476,13 @@
     "Maintenez une feuille dans la liste pour la renommer, la dupliquer, la partager ou la supprimer. La suppression demande toujours une confirmation." : {
 
     },
-    "Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle de la réglette ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou." : {
+    "Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle du graphique de la variable (autour de sa valeur, par défaut) ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou." : {
 
     },
     "Maintenez une ligne pour Copier la valeur (1000 J), Copier la ligne (E = 1000 J), Copier la formule, Partager le résultat, Dupliquer, Modifier ou Supprimer. La valeur copiée suit l’unité affichée. La copie d’une ligne s’ouvre en modification : une déclaration copiée doit recevoir un autre nom." : {
 
     },
     "Maintenez une ligne, ou touchez sa valeur, et choisissez Afficher en : Eval écrit la flèche pour vous. Unités SI la retire. Le résultat et la valeur copiée suivent l’unité choisie." : {
-
-    },
-    "Masquer la réglette" : {
 
     },
     "Maximum" : {
@@ -573,6 +570,9 @@
 
     },
     "Pas automatique" : {
+
+    },
+    "Pas de la réglette" : {
 
     },
     "Plus" : {
@@ -713,6 +713,9 @@
     "Tracer en fonction de" : {
 
     },
+    "Tracer en fonction de cette variable couvre cet intervalle. La réglette, elle, n’a pas de bornes : elle passe par zéro et va aussi loin que vous la faites glisser." : {
+
+    },
     "Tracer un résultat" : {
 
     },
@@ -758,16 +761,7 @@
     "Valeur de %@" : {
 
     },
-    "Valeur hors des bornes. Glissez pour la ramener dans l’intervalle, ou modifiez les réglages." : {
-
-    },
-    "Valeurs en %@" : {
-
-    },
     "Valeurs et unités" : {
-
-    },
-    "Valeurs sans unité" : {
 
     },
     "Variable" : {

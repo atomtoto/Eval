@@ -1,4 +1,5 @@
-// Regenerate the Icon Composer document EvalApp/AppIcon.icon: swift Scripts/generate-app-icon.swift
+// Regenerate the Icon Composer documents EvalApp/AppIcon.icon and AppIconPoint.icon,
+// and their previews for Réglages: swift Scripts/generate-app-icon.swift
 // The artwork is drawn from plain paths: a parabola (E = ½mv²) above the graduated
 // ruler of the variable sliders, joined by a guide at the fixed indicator. It uses no
 // SF Symbol. The point on the curve is a Liquid Glass layer; the system derives the
@@ -49,80 +50,144 @@ let ticks = (-6...6).map { index -> String in
 }.joined()
 let ruler = svg(ticks)
 
-let guide = svg("""
-<line x1="\(center)" y1="652" x2="\(center)" y2="\(marker.y + 92)" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="14" stroke-linecap="round" stroke-dasharray="6 38"/>
-""")
-
-let lens = svg("""
-<circle cx="\(marker.x)" cy="\(marker.y)" r="72" fill="#FFFFFF"/>
-""")
-
-let manifest = """
-{
-  "fill" : {
-    "linear-gradient" : [
-      "extended-srgb:0.20000,0.58000,1.00000,1.00000",
-      "extended-srgb:0.00000,0.40000,0.92000,1.00000"
-    ]
-  },
-  "groups" : [
-    {
-      "layers" : [
-        {
-          "glass" : true,
-          "image-name" : "Point.svg",
-          "name" : "Point"
-        }
-      ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
-      },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.4
-      }
-    },
-    {
-      "layers" : [
-        {
-          "glass" : false,
-          "image-name" : "Guide.svg",
-          "name" : "Guide"
-        },
-        {
-          "glass" : false,
-          "image-name" : "Curve.svg",
-          "name" : "Curve"
-        },
-        {
-          "glass" : false,
-          "image-name" : "Ruler.svg",
-          "name" : "Ruler"
-        }
-      ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.3
-      },
-      "translucency" : {
-        "enabled" : false,
-        "value" : 0.5
-      }
-    }
-  ],
-  "supported-platforms" : {
-    "squares" : "shared"
-  }
+/// The dashed guide from the indicator up to just below the point.
+func guide(clearance: Double) -> String {
+    svg("""
+    <line x1="\(center)" y1="652" x2="\(center)" y2="\(marker.y + clearance)" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="14" stroke-linecap="round" stroke-dasharray="6 38"/>
+    """)
 }
 
-"""
+func disk(radius: Double, color: String = "#FFFFFF") -> String {
+    svg("""
+    <circle cx="\(marker.x)" cy="\(marker.y)" r="\(radius)" fill="\(color)"/>
+    """)
+}
 
-let document = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    .appendingPathComponent("EvalApp/AppIcon.icon")
-let assets = document.appendingPathComponent("Assets")
-try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
-try manifest.write(to: document.appendingPathComponent("icon.json"), atomically: true, encoding: .utf8)
-for (name, contents) in [("Curve", curve), ("Ruler", ruler), ("Guide", guide), ("Point", lens)] {
-    try contents.write(to: assets.appendingPathComponent(name + ".svg"), atomically: true, encoding: .utf8)
+struct Layer {
+    let name: String
+    let glass: Bool
+    let svg: String
+    /// A fill that replaces the drawing's own color, such as a faint white for a clear lens.
+    var fill: String? = nil
+}
+
+/// One Icon Composer document: the point layers above the curve, the guide and the ruler.
+struct IconDocument {
+    let name: String
+    let pointLayers: [Layer]
+    /// Drawn under the glass, above the curve.
+    var underLayers: [Layer] = []
+    let guide: String
+
+    var drawingLayers: [Layer] {
+        underLayers + [Layer(name: "Guide", glass: false, svg: guide),
+         Layer(name: "Curve", glass: false, svg: curve),
+         Layer(name: "Ruler", glass: false, svg: ruler)]
+    }
+
+    func group(_ layers: [Layer], shadow: Double, translucent: Bool) -> String {
+        let entries = layers.map { layer in
+            let fill = layer.fill.map { """
+                      "fill-specializations" : [ { "value" : { "solid" : "\($0)" } } ],
+            """ } ?? ""
+            return """
+                    {
+            \(fill)
+                      "glass" : \(layer.glass),
+                      "image-name" : "\(layer.name).svg",
+                      "name" : "\(layer.name)"
+                    }
+            """
+        }.joined(separator: ",\n")
+        return """
+            {
+              "layers" : [
+        \(entries)
+              ],
+              "shadow" : {
+                "kind" : "neutral",
+                "opacity" : \(shadow)
+              },
+              "translucency" : {
+                "enabled" : \(translucent),
+                "value" : 0.4
+              }
+            }
+        """
+    }
+
+    var manifest: String {
+        """
+        {
+          "fill" : {
+            "linear-gradient" : [
+              "extended-srgb:0.20000,0.58000,1.00000,1.00000",
+              "extended-srgb:0.00000,0.40000,0.92000,1.00000"
+            ]
+          },
+          "groups" : [
+        \(group(pointLayers, shadow: 0.5, translucent: true)),
+        \(group(drawingLayers, shadow: 0.3, translucent: false))
+          ],
+          "supported-platforms" : {
+            "squares" : "shared"
+          }
+        }
+
+        """
+    }
+
+    func write(to folder: URL) throws {
+        let document = folder.appendingPathComponent(name + ".icon")
+        let assets = document.appendingPathComponent("Assets")
+        try? FileManager.default.removeItem(at: document)
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        try manifest.write(to: document.appendingPathComponent("icon.json"), atomically: true, encoding: .utf8)
+        for layer in pointLayers + drawingLayers {
+            try layer.svg.write(to: assets.appendingPathComponent(layer.name + ".svg"), atomically: true, encoding: .utf8)
+        }
+    }
+}
+
+let documents = [
+    // The alternate icon: one glass point on the curve.
+    IconDocument(name: "AppIconPoint",
+                 pointLayers: [Layer(name: "Point", glass: true, svg: disk(radius: 72))],
+                 guide: guide(clearance: 92)),
+    // The default icon: a larger point in two parts, a tinted dot seen through a glass lens.
+    IconDocument(name: "AppIcon",
+                 pointLayers: [Layer(name: "Lens", glass: true, svg: disk(radius: 104),
+                                     fill: "extended-srgb:1.00000,1.00000,1.00000,0.18000")],
+                 underLayers: [Layer(name: "Dot", glass: false, svg: disk(radius: 40, color: "#002E8A"))],
+                 guide: guide(clearance: 124))
+]
+
+let folder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("EvalApp")
+for document in documents {
+    try document.write(to: folder)
+}
+
+// Previews for the icon picker in Réglages, rendered by Icon Composer's tool.
+let ictool = "/Applications/Xcode.app/Contents/Applications/Icon Composer.app/Contents/Executables/ictool"
+for document in documents {
+    let set = folder.appendingPathComponent("Assets.xcassets/\(document.name)Preview.imageset")
+    try FileManager.default.createDirectory(at: set, withIntermediateDirectories: true)
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: ictool)
+    process.arguments = [folder.appendingPathComponent(document.name + ".icon").path, "--export-image",
+                         "--output-file", set.appendingPathComponent("\(document.name)Preview.png").path,
+                         "--platform", "iOS", "--rendition", "Default",
+                         "--width", "120", "--height", "120", "--scale", "3"]
+    try process.run()
+    process.waitUntilExit()
+    let contents = """
+    {
+      "images" : [
+        { "filename" : "\(document.name)Preview.png", "idiom" : "universal" }
+      ],
+      "info" : { "author" : "xcode", "version" : 1 }
+    }
+
+    """
+    try contents.write(to: set.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
 }

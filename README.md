@@ -232,7 +232,7 @@ Les erreurs de syntaxe, variables inconnues (avec un renvoi vers **Références 
   - Édition : `MathFormula` (fractions, puissances, racines), `MathEditing` (modèle de l’éditeur en écriture mathématique), `FormulaInsertion` (insertion au curseur), `AdjustableVariable` (réglettes et pas).
   - Tracé et accessibilité : `VariableSweep` (échantillonnage d’un résultat en fonction d’une variable), `MathSpeech` (lecture parlée des formules).
 - `Tests/EvalCoreTests/` : tests du moteur et des catalogues (calcul, conversions, fonctions, résolution, diagnostics, formats, exemples, feuilles, réglettes, lecture parlée, tracé).
-- `Scripts/generate-app-icon.swift` : génère le document Icon Composer `EvalApp/AppIcon.icon` (parabole au-dessus d’une réglette, en tracés vectoriels sans SF Symbol). Le point de la courbe est un calque Liquid Glass ; le système en dérive les apparences sombre, teintée et transparente, et Xcode les icônes des versions antérieures d’iOS.
+- `Scripts/generate-app-icon.swift` : génère les documents Icon Composer `EvalApp/AppIcon.icon` (par défaut : un point teinté sous une grande lentille Liquid Glass) et `EvalApp/AppIconPoint.icon` (un seul point en Liquid Glass), ainsi que leurs aperçus pour les Réglages. Le dessin (parabole au-dessus d’une réglette) est fait de tracés vectoriels, sans SF Symbol ; le système en dérive les apparences sombre, teintée et transparente, et Xcode les icônes des versions antérieures d’iOS. L’icône se choisit dans **Réglages › Icône de l’app**.
 
 ```sh
 swift test
