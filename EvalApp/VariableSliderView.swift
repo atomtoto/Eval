@@ -131,6 +131,7 @@ private struct VariableRangeEditor: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annuler") { dismiss() }
                         .keyboardShortcut(.cancelAction)
+                        .tint(.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Enregistrer") {
@@ -140,6 +141,7 @@ private struct VariableRangeEditor: View {
                     }
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(configuredRange == nil)
+                    .tint(.primary)
                 }
             }
         }

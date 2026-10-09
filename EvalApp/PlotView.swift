@@ -93,6 +93,7 @@ struct PlotView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Terminé") { dismiss() }
                         .keyboardShortcut(.cancelAction)
+                        .tint(.primary)
                 }
             }
             .task(id: samplingKey) {

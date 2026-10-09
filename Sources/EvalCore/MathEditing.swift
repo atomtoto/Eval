@@ -43,6 +43,14 @@ public struct MathRow: Sendable, Hashable {
 
     public var isEmpty: Bool { items.isEmpty }
 
+    /// Whether the exponent at `index` has nothing to raise: no operand before it, and no
+    /// other exponent, which the exponent is stacked on. It then stands over an empty base.
+    public func lacksBase(at index: Int) -> Bool {
+        guard items.indices.contains(index), case .superscript = items[index] else { return false }
+        if index > 0, case .superscript = items[index - 1] { return false }
+        return MathEditorState.operandStart(in: items, before: index) == index
+    }
+
     /// The row reached by `path`, or nil when the path does not exist.
     public func row(at path: [MathPathStep]) -> MathRow? {
         var row = self
@@ -566,7 +574,7 @@ private struct MathTreeBuilder {
 ///   is `^x` for one operand followed by an operator, else `^(…)`;
 /// - a square root is `√(x)`, a call, so `√(2) m` is (√2)·m;
 /// - an n-th root, including a cube root read from `cbrt`, is `root(x; n)`;
-/// - an empty row reads as `()`, so that an unfinished structure reports an error.
+/// - an empty row, and the missing base of an exponent, read as `()`, so that an unfinished structure reports an error.
 enum MathSerialization {
     static let superscriptCharacters: [Character: Character] = [
         "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
@@ -609,6 +617,8 @@ enum MathSerialization {
                     for later in (start + 1)..<starts.count { starts[later] += 1 }
                 }
             }
+            // An exponent over nothing reads as an empty base, never as a leading `^`.
+            if row.lacksBase(at: index) { output += "()" }
             switch item {
             case .symbol(let character):
                 output.append(character)

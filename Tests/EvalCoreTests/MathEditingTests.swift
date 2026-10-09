@@ -290,6 +290,28 @@ final class MathEditingTests: XCTestCase {
         XCTAssertEqual(lastLine(general.source).value, pow(27.0, 2))
     }
 
+    /// An exponent with nothing to raise stands over an empty base: the line never starts with `^`.
+    func testExponentWithoutBaseReadsAsAnEmptyBase() {
+        var state = MathEditorState(source: "")
+        state.insertPower()
+        XCTAssertEqual(state.source, "()^()")
+        state.insertPower()
+        XCTAssertFalse(state.source.hasPrefix("^"))
+        XCTAssertEqual(state.source, "()^()^()")
+        XCTAssertTrue(state.root.lacksBase(at: 0))
+        XCTAssertTrue(MathEditorState(source: "").root.lacksBase(at: 0) == false)
+
+        var raised = MathEditorState(source: "x")
+        raised.insertPower()
+        XCTAssertFalse(raised.root.lacksBase(at: 1))
+        XCTAssertEqual(raised.source, "x^()")
+
+        var afterOperator = MathEditorState(source: "2+")
+        afterOperator.insertPower()
+        XCTAssertTrue(afterOperator.root.lacksBase(at: 2))
+        XCTAssertEqual(afterOperator.source, "2+()^()")
+    }
+
     // MARK: - Deleting
 
     func testDeleteBackward() {

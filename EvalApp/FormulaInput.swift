@@ -181,11 +181,13 @@ struct FormulaKeyboardToolbar: ToolbarContent {
         if insertsSymbols {
             ToolbarItemGroup(placement: .keyboard) {
                 FormulaKeys(variableNames: variableNames, insert: insert, showReferences: showReferences)
+                    .tint(.primary)
             }
         }
         // Apart from the symbols, so that « Terminé » never goes into the overflow of the bar.
         ToolbarItem(placement: .keyboard) {
             Button("Terminé", action: done)
+                .tint(.primary)
         }
     }
 }
@@ -220,6 +222,8 @@ struct LineKeyboardBar: View {
                 .padding(.leading, 12)
         }
         .buttonStyle(.borderless)
+        // The keys of the bar are system controls, not accented content.
+        .tint(.primary)
         .padding(.horizontal, 16)
         .frame(minHeight: 48)
         .keyboardBarMaterial()

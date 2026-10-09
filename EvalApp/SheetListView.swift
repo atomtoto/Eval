@@ -11,6 +11,7 @@ struct SheetListView: View {
     @State private var search = ""
     @State private var renaming: SheetRecord?
     @State private var pendingDeletion: SheetRecord?
+    @State private var showsSettings = false
 
     private var visibleSheets: [SheetRecord] {
         guard !search.isEmpty else { return library.sheets }
@@ -50,6 +51,11 @@ struct SheetListView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 EditButton()
+                    .tint(.primary)
+            }
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Réglages", systemImage: "gear") { showsSettings = true }
+                    .tint(.primary)
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Menu {
@@ -59,12 +65,15 @@ struct SheetListView: View {
                 } label: {
                     Label("Nouvelle à partir d’un exemple", systemImage: "text.book.closed")
                 }
+                .tint(.primary)
                 // ⌘N is a command of the app, so it works while this list is hidden.
                 Button("Nouvelle feuille", systemImage: "square.and.pencil") {
                     open(library.createSheet())
                 }
+                .tint(.primary)
             }
         }
+        .sheet(isPresented: $showsSettings) { SettingsView() }
         .sheetRenameAlert($renaming)
         .sheetDeletionConfirmation($pendingDeletion) { id in
             if selection == id { selection = nil }

@@ -9,6 +9,9 @@ struct EvalApp: App {
 
     init() {
         SignificantDigitsSetting.apply()
+        // The bars keep the system look, black or white: the accent stays on the content.
+        UINavigationBar.appearance().tintColor = .label
+        UIToolbar.appearance().tintColor = .label
     }
 
     var body: some Scene {

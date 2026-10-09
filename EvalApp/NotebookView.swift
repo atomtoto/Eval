@@ -355,10 +355,12 @@ struct NotebookView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Terminé") { editMode = .inactive }
                     .fontWeight(.semibold)
+                    .tint(.primary)
             }
         }
         ToolbarItem(placement: .primaryAction) {
             Button("Nouvelle ligne", systemImage: "plus", action: newLine)
+                .tint(.primary)
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
@@ -399,6 +401,7 @@ struct NotebookView: View {
             } label: {
                 Label("Actions de la feuille", systemImage: "ellipsis.circle")
             }
+            .tint(.primary)
         }
     }
 }

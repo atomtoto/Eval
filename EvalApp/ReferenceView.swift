@@ -29,6 +29,7 @@ struct ReferencePickerView: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Annuler") { dismiss() }
                             .keyboardShortcut(.cancelAction)
+                            .tint(.primary)
                     }
                 }
         }
@@ -170,6 +171,7 @@ struct ReferenceCatalogView: View {
                     } label: {
                         Label("Domaine", systemImage: "line.3.horizontal.decrease.circle")
                     }
+                    .tint(.primary)
                 }
             }
         }
@@ -303,6 +305,7 @@ struct ConstantDetailView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Ajouter à la feuille", systemImage: "plus.circle") { addToSheet(constant.id, constant.name) }
                         .accessibilityLabel("Ajouter \(constant.name) à la feuille")
+                        .tint(.primary)
                 }
             }
         }

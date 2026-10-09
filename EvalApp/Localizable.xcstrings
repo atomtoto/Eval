@@ -184,6 +184,9 @@
     "Avec le réglage Écriture mathématique, la ligne se modifie telle qu’elle s’affiche. / fait du terme qui précède le numérateur d’une fraction, ^ ouvre un exposant. La barre propose xⁿ (exposant), √ (racine carrée), ◀ et ▶ pour déplacer le curseur, et son menu Insérer ajoute Fraction, Racine n-ième, ², ⁻¹, Monter, Descendre, =, ×, π, deg, les variables de la feuille et Constantes et unités…. Touchez la formule pour placer le curseur ; un cadre pointillé marque une case vide. L’effacement entre dans une fraction ou une racine, puis la défait quand elle est vide. Retour valide la ligne et en crée une nouvelle, comme en texte." : {
 
     },
+    "Bleu" : {
+
+    },
     "Calcul" : {
 
     },
@@ -242,6 +245,9 @@
 
     },
     "Copier le symbole" : {
+
+    },
+    "Couleur d’accent" : {
 
     },
     "Créez une feuille ou choisissez-en une." : {
@@ -316,6 +322,9 @@
     "En exposant" : {
 
     },
+    "En mode clair, les feuilles prennent un fond crème chaud. Le mode sombre ne change pas." : {
+
+    },
     "Enregistrement impossible" : {
 
     },
@@ -367,6 +376,9 @@
     "Fonctions et opérations" : {
 
     },
+    "Fond chaud" : {
+
+    },
     "Fraction" : {
 
     },
@@ -377,6 +389,9 @@
 
     },
     "Homogénéité physique" : {
+
+    },
+    "Icône de l’app" : {
 
     },
     "Insère %@ dans la formule." : {
@@ -392,6 +407,12 @@
 
     },
     "iPad et accessibilité" : {
+
+    },
+    "L’icône de l’app suit la couleur d’accent." : {
+
+    },
+    "L’icône n’a pas pu être changée." : {
 
     },
     "L’intervalle tracé est l’intervalle du graphique de la variable : modifiez-le avec ses réglages pour tracer une autre plage. La ligne pointillée marque la valeur actuelle. Touchez le graphique pour lire une valeur." : {
@@ -434,6 +455,9 @@
 
     },
     "Le signe = déclare une variable lorsque le membre de gauche est un nom. Utilisez == pour vérifier une égalité (≠ n’existe pas)." : {
+
+    },
+    "Lentille" : {
 
     },
     "Les lettres t, d, a et u ne sont pas des unités : elles restent libres comme noms de variables. Pour une durée, écrivez s, min, h, jour ou an." : {
@@ -503,7 +527,7 @@
     "Modifier en texte" : {
 
     },
-    "Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu, choisissent la saisie des formules et le nombre de chiffres significatifs." : {
+    "Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu ou avec le bouton engrenage de la liste des feuilles, choisissent la saisie des formules, le nombre de chiffres significatifs, la couleur d’accent (orange industriel par défaut, ou bleu), le fond chaud des feuilles en mode clair et le style de l’icône de l’app (Lentille ou Point), qui suit la couleur d’accent. Pendant la saisie, une barre flotte juste au-dessus du clavier avec le menu Insérer, les touches courantes et Terminé." : {
 
     },
     "Modifier en texte…" : {
@@ -545,6 +569,9 @@
     "OK" : {
 
     },
+    "Orange industriel" : {
+
+    },
     "Parenthèses" : {
 
     },
@@ -576,6 +603,9 @@
 
     },
     "Plus" : {
+
+    },
+    "Point" : {
 
     },
     "Pour afficher un résultat dans une autre unité, ajoutez → et l’unité en fin de ligne : E → kWh. Les préfixes SI (k, m, µ…) s’ajoutent aux unités qui les acceptent." : {

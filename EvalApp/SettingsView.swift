@@ -264,6 +264,7 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Terminé") { dismiss() }
                         .keyboardShortcut(.cancelAction)
+                        .tint(.primary)
                 }
             }
         }

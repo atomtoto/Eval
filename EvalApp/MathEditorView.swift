@@ -363,6 +363,8 @@ private struct MathRowView: View {
                 emptyRow
             } else {
                 ForEach(row.items.indices, id: \.self) { index in
+                    // An exponent over nothing shows the empty base it stands for.
+                    if row.lacksBase(at: index) { emptyBox }
                     if caretOffset == index { MathCaret(pointSize: pointSize) }
                     item(at: index)
                 }
@@ -383,15 +385,20 @@ private struct MathRowView: View {
                 .foregroundStyle(.tertiary)
                 .alignmentGuide(.mathAxis) { $0[.firstTextBaseline] - pointSize * 0.25 }
         } else {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .strokeBorder(.secondary, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
-                .frame(width: pointSize * 0.55, height: pointSize * 0.75)
+            emptyBox
                 .overlay(alignment: .leading) {
                     if caretOffset != nil { MathCaret(pointSize: pointSize).padding(.leading, 2) }
                 }
-                .padding(.horizontal, 1)
-                .alignmentGuide(.mathAxis) { $0.height / 2 + pointSize * 0.1 }
         }
+    }
+
+    /// The dotted box of an empty part of a structure.
+    private var emptyBox: some View {
+        RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .strokeBorder(.secondary, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+            .frame(width: pointSize * 0.55, height: pointSize * 0.75)
+            .padding(.horizontal, 1)
+            .alignmentGuide(.mathAxis) { $0.height / 2 + pointSize * 0.1 }
     }
 
     // Type erasure breaks the recursive view type, as in `FormulaContent`.

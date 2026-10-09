@@ -41,10 +41,12 @@ struct TextSheetEditor: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annuler") { dismiss() }
                         .keyboardShortcut(.cancelAction)
+                        .tint(.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Terminé", action: apply)
                         .keyboardShortcut(.return, modifiers: .command)
+                        .tint(.primary)
                 }
                 FormulaKeyboardToolbar(insertsSymbols: FormulaSelectionState.tracksCaret,
                                        variableNames: notebook.declaredNames, insert: insert,

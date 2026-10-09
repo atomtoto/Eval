@@ -21,7 +21,8 @@ private struct WarmPage: ViewModifier {
         content
             .scrollContentBackground(isWarm ? .hidden : .automatic)
             .listRowBackground(isWarm ? Color.warmRow : nil)
-            .background(isWarm ? Color.warmBackground : Color.clear)
+            // The page runs under the keyboard and every safe area, so that no white shows around them.
+            .background { (isWarm ? Color.warmBackground : Color.clear).ignoresSafeArea(.all) }
     }
 }
 
