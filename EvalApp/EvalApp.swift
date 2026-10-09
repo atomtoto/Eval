@@ -60,7 +60,7 @@ private struct EvalRootView: View {
             ReferenceView(searchRequest: referenceSearchRequest) { symbol, name in
                 insert(symbol, named: name)
             }
-            .tabItem { Label("Références", systemImage: "books.vertical") }
+            .tabItem { Label("Références", systemImage: "book.pages") }
             .tag(EvalTab.references)
         }
         .environment(\.significantDigits, significantDigits)
