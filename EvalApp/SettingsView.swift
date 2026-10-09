@@ -39,6 +39,11 @@ enum SignificantDigitsSetting {
     }
 }
 
+/// Whether the lines of a sheet show their number. A preference shared by every sheet.
+enum LineNumbersSetting {
+    static let storageKey = "eval.lineNumbers.v1"
+}
+
 /// The accent color of the whole app. The raw values are stored and must not change.
 enum AccentSetting: String, CaseIterable, Identifiable {
     /// A safety orange, the AccentColor of the asset catalog and the default.
@@ -140,6 +145,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(FormulaInputMode.storageKey) private var inputMode = FormulaInputMode.text
     @AppStorage(SignificantDigitsSetting.storageKey) private var digits = QuantityFormatter.defaultDigits
+    @AppStorage(LineNumbersSetting.storageKey) private var lineNumbers = false
     @AppStorage(AccentSetting.storageKey) private var accent = AccentSetting.orange
     @AppStorage(WarmBackgroundSetting.storageKey) private var warmBackground = true
     @AppStorage(AutomaticTitleSetting.storageKey) private var automaticTitles = true
@@ -221,6 +227,12 @@ struct SettingsView: View {
                     }
                 } footer: {
                     Text("Nombre de chiffres significatifs des résultats affichés. Les calculs gardent toujours toute leur précision.")
+                }
+
+                Section {
+                    Toggle("Numéros de ligne", isOn: $lineNumbers)
+                } footer: {
+                    Text("Affiche le numéro de chaque ligne à gauche de la feuille.")
                 }
 
                 if let titleAvailability {

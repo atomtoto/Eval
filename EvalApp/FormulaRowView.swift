@@ -21,12 +21,18 @@ struct FormulaRowView: View {
     let plot: (PlotRequest) -> Void
     @Environment(\.editMode) private var editMode
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @AppStorage(LineNumbersSetting.storageKey) private var showsLineNumbers = false
     /// Read so that values are formatted again when the setting changes.
     @Environment(\.significantDigits) private var significantDigits
     @State private var copies = 0
 
     private var id: UUID { item.entry.id }
     private var source: String { item.entry.source }
+
+    /// At accessibility sizes the line number sits above the formula, so the
+    /// rows below it no longer line up with a number column.
+    private var stacksNumber: Bool { dynamicTypeSize.isAccessibilitySize }
 
     private var trimmedSource: String {
         source.trimmingCharacters(in: .whitespaces)
@@ -86,9 +92,11 @@ struct FormulaRowView: View {
     @ViewBuilder
     private func content(line: EvaluatedLine?, variable: AdjustableVariable?) -> some View {
         if isComment {
-            note
+            numbered(notes: []) {
+                note
+            }
         } else {
-            withNotes(notes(for: line)) {
+            numbered(notes: notes(for: line)) {
                 FormulaView(source: source) {
                     inlineResult(line: line)
                 }
@@ -106,7 +114,7 @@ struct FormulaRowView: View {
         } else if let line, line.kind == .equation, line.source == source, line.status == .success {
             notes += self.notes(for: line).prefix(1)
         }
-        return withNotes(notes) {
+        return numbered(notes: notes) {
             LineEditorSlot(mode: inputMode, lineID: id, text: text, selection: selection, focus: focus,
                            keyboard: keyboard)
         }
@@ -125,15 +133,29 @@ struct FormulaRowView: View {
         }
     }
 
-    /// The line, and its notes under it.
-    private func withNotes<Line: View>(_ notes: [LineNote], @ViewBuilder _ line: () -> Line) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    /// The line and its notes under it in the line’s column, with the line’s number beside it when shown.
+    @ViewBuilder
+    private func numbered<Line: View>(notes: [LineNote], @ViewBuilder _ line: () -> Line) -> some View {
+        let column = VStack(alignment: .leading, spacing: 8) {
             line()
                 .frame(maxWidth: .infinity, alignment: .leading)
             if !notes.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(notes) { $0 }
                 }
+            }
+        }
+        if !showsLineNumbers {
+            column
+        } else if stacksNumber {
+            VStack(alignment: .leading, spacing: 4) {
+                LineNumberLabel(number: item.index + 1)
+                column
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                LineNumberLabel(number: item.index + 1)
+                column
             }
         }
     }
