@@ -20,6 +20,10 @@ struct HandwritingView: View {
     @State private var photo: PhotosPickerItem?
     @State private var failure: String?
     @State private var reading: Task<Void, Never>?
+    /// The reading the warning is shown for, then the one it allowed.
+    @State private var warning: ReadingSource?
+    @State private var confirmed: ReadingSource?
+    @AppStorage(ReadingWarningSetting.storageKey) private var hidesReadingWarning = false
 
     private enum Phase {
         case writing, reading, checking
@@ -49,6 +53,17 @@ struct HandwritingView: View {
             .toolbar { toolbar }
         }
         .interactiveDismissDisabled(!drawing.strokes.isEmpty || phase != .writing)
+        // The camera and the picker open once the warning has gone.
+        .sheet(item: $warning, onDismiss: {
+            if let source = confirmed {
+                confirmed = nil
+                perform(source)
+            }
+        }) { source in
+            ReadingWarningView(source: source, reason: HandwritingRecognizer.unavailabilityReason) {
+                confirmed = source
+            }
+        }
         .fullScreenCover(isPresented: $showsScanner) {
             DocumentScanner { pages in
                 showsScanner = false
@@ -81,7 +96,8 @@ struct HandwritingView: View {
     // MARK: Writing
 
     private var writing: some View {
-        HandwritingCanvas(drawing: $drawing, isActive: phase == .writing && !showsScanner && !showsPhotoPicker)
+        HandwritingCanvas(drawing: $drawing,
+                          isActive: phase == .writing && !showsScanner && !showsPhotoPicker && warning == nil)
             .background(Color(.systemBackground))
             .overlay {
                 if drawing.strokes.isEmpty {
@@ -152,16 +168,16 @@ struct HandwritingView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu("Importer", systemImage: "camera") {
                     if DocumentScanner.isSupported {
-                        Button("Scanner une page", systemImage: "doc.viewfinder") { showsScanner = true }
+                        Button("Scanner une page", systemImage: "doc.viewfinder") { start(.scan) }
                     }
                     // The picker is presented from the view: a picker inside a menu goes away with it.
-                    Button("Choisir une photo", systemImage: "photo") { showsPhotoPicker = true }
+                    Button("Choisir une photo", systemImage: "photo") { start(.photo) }
                 }
                 Button("Effacer", systemImage: "trash") { drawing = PKDrawing() }
                     .disabled(drawing.strokes.isEmpty)
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Lire", action: readDrawing)
+                Button("Lire") { start(.drawing) }
                     .disabled(drawing.strokes.isEmpty)
             }
         case .reading:
@@ -186,6 +202,24 @@ struct HandwritingView: View {
     }
 
     // MARK: Reading
+
+    /// Without Apple Intelligence, a reading first warns that it is less reliable,
+    /// unless the person asked not to be warned again.
+    private func start(_ source: ReadingSource) {
+        if HandwritingRecognizer.engine == .textRecognition && !hidesReadingWarning {
+            warning = source
+        } else {
+            perform(source)
+        }
+    }
+
+    private func perform(_ source: ReadingSource) {
+        switch source {
+        case .scan: showsScanner = true
+        case .photo: showsPhotoPicker = true
+        case .drawing: readDrawing()
+        }
+    }
 
     private func readDrawing() {
         guard let page = drawing.recognitionImage() else { return }

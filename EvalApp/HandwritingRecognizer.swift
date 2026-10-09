@@ -41,13 +41,30 @@ enum HandwritingRecognizer {
 
     /// The engine a recognition would use now.
     static var engine: Engine {
+        unavailabilityReason == nil ? .appleIntelligence : .textRecognition
+    }
+
+    /// Why Apple Intelligence cannot read images on this device now; nil when it can.
+    static var unavailabilityReason: LocalizedStringResource? {
         #if canImport(FoundationModels)
-        if #available(iOS 27, *), SystemLanguageModel.default.isAvailable,
-           SystemLanguageModel.default.capabilities.contains(.vision) {
-            return .appleIntelligence
+        guard #available(iOS 27, *) else { return "La lecture par Apple Intelligence nécessite iOS 27." }
+        let model = SystemLanguageModel.default
+        switch model.availability {
+        case .available:
+            return model.capabilities.contains(.vision) ? nil
+                : "Le modèle d’Apple Intelligence de cet appareil ne lit pas les images."
+        case .unavailable(.deviceNotEligible):
+            return "Cet appareil ne prend pas en charge Apple Intelligence."
+        case .unavailable(.appleIntelligenceNotEnabled):
+            return "Apple Intelligence est désactivée. Activez-la dans Réglages › Apple Intelligence et Siri pour une lecture fiable."
+        case .unavailable(.modelNotReady):
+            return "Le modèle d’Apple Intelligence est en cours de préparation. Réessayez plus tard pour une lecture fiable."
+        case .unavailable:
+            return "Apple Intelligence n’est pas disponible sur cet appareil."
         }
+        #else
+        return "La lecture par Apple Intelligence nécessite iOS 27."
         #endif
-        return .textRecognition
     }
 
     /// The lines read in `image`, top to bottom. `bars` are fraction bars drawn as a

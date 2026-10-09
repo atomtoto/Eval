@@ -32,11 +32,13 @@ struct HandwritingCanvas: UIViewRepresentable {
     func updateUIView(_ canvas: PKCanvasView, context: Context) {
         if canvas.drawing != drawing { canvas.drawing = drawing }
         context.coordinator.toolPicker.setVisible(isActive, forFirstResponder: canvas)
-        if isActive, !canvas.isFirstResponder {
-            // The picker needs the canvas to be first responder once it is in a window.
-            Task { @MainActor in canvas.becomeFirstResponder() }
-        } else if !isActive, canvas.isFirstResponder {
-            canvas.resignFirstResponder()
+        context.coordinator.isActive = isActive
+        // The responder changes after the update: during it, UIKit would ask SwiftUI
+        // about the responder chain while its graph is updating. The picker also needs
+        // the canvas in a window. Only the latest wish applies.
+        Task { @MainActor [weak canvas, coordinator = context.coordinator] in
+            guard let canvas, coordinator.isActive != canvas.isFirstResponder else { return }
+            if coordinator.isActive { canvas.becomeFirstResponder() } else { canvas.resignFirstResponder() }
         }
     }
 
@@ -47,6 +49,8 @@ struct HandwritingCanvas: UIViewRepresentable {
 
     final class Coordinator: NSObject, PKCanvasViewDelegate {
         let toolPicker: PKToolPicker
+        /// Whether the canvas should hold the focus, as of the last update.
+        var isActive = false
         private let drawing: Binding<PKDrawing>
 
         init(drawing: Binding<PKDrawing>) {
