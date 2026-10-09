@@ -84,7 +84,7 @@ struct NotebookView: View {
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarTitleMenu {
-            RenameButton()
+            Button("Renommer", systemImage: "character.cursor.ibeam") { renaming = notebook.record }
             Button("Dupliquer", systemImage: "plus.square.on.square") {
                 if let copy = library.duplicateSheet(id: notebook.id) { open(copy) }
             }
@@ -402,7 +402,7 @@ struct NotebookView: View {
                         Button("Réorganiser", systemImage: "arrow.up.arrow.down") { editMode = .active }
                     }
                     Button("Modifier en texte", systemImage: "text.alignleft", action: editAsText)
-                    Button("Renommer", systemImage: "pencil") { renaming = notebook.record }
+                    Button("Renommer", systemImage: "character.cursor.ibeam") { renaming = notebook.record }
                     Menu("Nouvelle à partir d’un exemple", systemImage: "text.book.closed") {
                         ExampleMenuContent(choose: createFromExample)
                     }
@@ -432,3 +432,4 @@ struct NotebookView: View {
         }
     }
 }
+

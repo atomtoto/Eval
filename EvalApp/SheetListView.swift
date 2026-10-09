@@ -82,7 +82,7 @@ struct SheetListView: View {
 
     @ViewBuilder
     private func actions(for record: SheetRecord) -> some View {
-        Button("Renommer", systemImage: "pencil") { renaming = record }
+        Button("Renommer", systemImage: "character.cursor.ibeam") { renaming = record }
         Button("Dupliquer", systemImage: "plus.square.on.square") {
             library.duplicateSheet(id: record.id)
         }
