@@ -94,6 +94,8 @@ struct ExpressionParser {
         var hasLeadingWhitespace = false
         /// A number written with a decimal comma, such as 2,3.
         var hasDecimalComma = false
+        /// The character offset just past the token; the `^` implied by a superscript is empty.
+        var end = -1
     }
 
     /// A function's canonical name and the number of arguments it accepts.
@@ -106,6 +108,8 @@ struct ExpressionParser {
     private let tokens: [Token]
     private var position = 0
     private var nesting = 0
+    /// Structural nodes, recorded only by `syntax(of:)`.
+    private var recorded: [RecordedNode]?
 
     init(_ source: String) throws {
         tokens = try Self.tokenize(source)
@@ -154,12 +158,15 @@ struct ExpressionParser {
     }
 
     private mutating func parseMultiplication() throws -> Expression {
+        let start = position
         var expression = try parseUnary()
         while true {
             if current == .multiply || current == .divide {
                 let operation: Expression.BinaryOperator = current == .multiply ? .multiply : .divide
+                let operatorPosition = position
                 advance()
                 expression = .binary(operation, expression, try parseUnary())
+                if operation == .divide { record(.division, from: start, at: operatorPosition) }
             } else if startsPrimary(current) {
                 try rejectConsecutiveNumbers()
                 expression = .binary(.multiply, expression, try parseUnary())
@@ -192,14 +199,17 @@ struct ExpressionParser {
     }
 
     private mutating func parsePower(allowUnitSuffix: Bool) throws -> Expression {
+        let start = position
         var expression = try parsePrimary()
         while current == .factorial {
             advance()
             expression = .factorial(expression)
         }
         if current == .power {
+            let operatorPosition = position
             advance()
             expression = .binary(.power, expression, try parseUnary(allowUnitSuffix: false))
+            record(.power, from: start, at: operatorPosition)
         }
         return try parseUnitSuffix(expression, allowUnitSuffix: allowUnitSuffix)
     }
@@ -217,10 +227,11 @@ struct ExpressionParser {
            isUnitToken(current), position + 2 < tokens.count,
            [.multiply, .divide, .power].contains(tokens[position + 1].kind),
            !tokens[position + 1].hasLeadingWhitespace, !tokens[position + 2].hasLeadingWhitespace {
-            let start = position
+            let start = position, mark = recorded?.count
             let units = try parseUnitProduct()
             if position - start > 1 { return .binary(.multiply, expression, .compactUnits(units)) }
             position = start
+            if let mark { recorded?.removeSubrange(mark...) }
         }
         return expression
     }
@@ -253,7 +264,10 @@ struct ExpressionParser {
         let function = Self.function(named: name)
         if function?.name == "sqrt", name == "√" {
             // A spaced unit stays outside the root: √2 m is (√2)·m.
-            return .function("sqrt", [try parseUnary(allowUnitSuffix: false)])
+            let start = position - 1
+            let argument = try parseUnary(allowUnitSuffix: false)
+            record(.radical, from: start, at: start)
+            return .function("sqrt", [argument])
         }
         // A function name is a call only when followed by `(`. Otherwise it is an
         // ordinary name: a variable called max, or the unit min. When nothing
@@ -289,6 +303,7 @@ struct ExpressionParser {
             arguments.append(try parseAddition())
         }
         try closeCall(name, function, count: arguments.count, start: start)
+        record(.call(function.name), from: start - 2, at: start - 1)
         return .function(function.name, arguments)
     }
 
@@ -347,11 +362,15 @@ struct ExpressionParser {
 
     private mutating func parseUnitPower() throws -> Expression {
         guard case .identifier(let symbol) = current else { throw error("Une unité est attendue.") }
+        let start = position
         advance()
         let unit = Expression.unit(symbol)
         if current == .power {
+            let operatorPosition = position
             advance()
-            return .binary(.power, unit, try parseUnary(allowUnitSuffix: false))
+            let power = Expression.binary(.power, unit, try parseUnary(allowUnitSuffix: false))
+            record(.power, from: start, at: operatorPosition)
+            return power
         }
         return unit
     }
@@ -437,6 +456,8 @@ struct ExpressionParser {
             let character = characters[index]
             let column = index + 1
             if character.isWhitespace { index += 1; continue }
+            let first = result.count
+            defer { for token in first..<result.count where result[token].end < 0 { result[token].end = index } }
             let simple: TokenKind?
             switch character {
             case "+": simple = .plus
@@ -464,7 +485,7 @@ struct ExpressionParser {
                 guard let number = Double(exponent), number.isFinite else {
                     throw CalculationError.invalid("Exposant en indice supérieur invalide (colonne \(column)).")
                 }
-                result.append(Token(kind: .power, column: column))
+                result.append(Token(kind: .power, column: column, end: column - 1))
                 result.append(Token(kind: .number(number), column: column))
             } else if character == "√" {
                 result.append(Token(kind: .identifier("√"), column: column))
@@ -529,5 +550,119 @@ struct ExpressionParser {
         }
         result.append(Token(kind: .end, column: characters.count + 1))
         return result
+    }
+}
+
+/// A structural node of a parsed expression, located by character offsets in
+/// its source. The structured editor turns these nodes into 2D layouts.
+struct ExpressionSyntax: Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
+        /// `a / b`, outside a unit suffix such as `5 m/s`.
+        case division
+        /// `a^b` or `a²`, including unit powers.
+        case power
+        /// A bare `√x`; `√(x)` is a call to sqrt.
+        case radical
+        /// A function call with its canonical name.
+        case call(String)
+    }
+
+    let kind: Kind
+    let range: Range<Int>
+    /// The operands (`division`, `power`), the radicand or the arguments, without the operators.
+    let parts: [Range<Int>]
+}
+
+extension ExpressionParser {
+    fileprivate struct RecordedNode {
+        let kind: ExpressionSyntax.Kind
+        let start: Int, operatorPosition: Int, end: Int
+    }
+
+    /// Records the node from token `start` to the current position.
+    @inline(never)
+    private mutating func record(_ kind: ExpressionSyntax.Kind, from start: Int, at operatorPosition: Int) {
+        guard recorded != nil else { return }
+        recorded?.append(RecordedNode(kind: kind, start: start, operatorPosition: operatorPosition, end: position))
+    }
+
+    /// The structural nodes of a valid expression, or nil when it does not parse.
+    static func syntax(of source: String) -> [ExpressionSyntax]? {
+        guard var parser = try? ExpressionParser(source) else { return nil }
+        parser.recorded = []
+        guard (try? parser.parse()) != nil, let nodes = parser.recorded else { return nil }
+        let tokens = parser.tokens
+        func characters(_ range: Range<Int>) -> Range<Int> {
+            range.isEmpty ? tokens[range.lowerBound].column - 1..<tokens[range.lowerBound].column - 1
+                : tokens[range.lowerBound].column - 1..<tokens[range.upperBound - 1].end
+        }
+        return nodes.map { node in
+            let parts: [Range<Int>]
+            switch node.kind {
+            case .division, .power:
+                parts = [node.start..<node.operatorPosition, node.operatorPosition + 1..<node.end]
+            case .radical:
+                parts = [node.operatorPosition + 1..<node.end]
+            case .call:
+                // Arguments are split at the `;` of the call's own level.
+                var bounds: [Range<Int>] = [], start = node.operatorPosition + 1, depth = 0
+                for index in start..<node.end - 1 {
+                    switch tokens[index].kind {
+                    case .leftParenthesis: depth += 1
+                    case .rightParenthesis: depth -= 1
+                    case .semicolon where depth == 0:
+                        bounds.append(start..<index)
+                        start = index + 1
+                    default: break
+                    }
+                }
+                parts = bounds + [start..<node.end - 1]
+            }
+            return ExpressionSyntax(kind: node.kind, range: characters(node.start..<node.end), parts: parts.map(characters))
+        }
+    }
+
+    /// Whether `source` is one operand that binds tighter than `*` and `/`: a
+    /// number, a name, a call or a parenthesized group, possibly raised to a
+    /// power. `b/x` then divides by the whole of `x`.
+    static func isSingleOperand(_ source: String) -> Bool {
+        guard let tokens = try? tokenize(source) else { return false }
+        var index = 0
+        func closing(_ open: Int) -> Int? {
+            var depth = 0
+            for position in open..<tokens.count {
+                if tokens[position].kind == .leftParenthesis { depth += 1 }
+                if tokens[position].kind == .rightParenthesis {
+                    depth -= 1
+                    if depth == 0 { return position }
+                }
+            }
+            return nil
+        }
+        func operand() -> Bool {
+            switch tokens[index].kind {
+            case .number:
+                index += 1
+            case .identifier(let name):
+                index += 1
+                if tokens[index].kind == .leftParenthesis {
+                    guard function(named: name) != nil, let close = closing(index) else { return false }
+                    index = close + 1
+                } else if name == "√" {
+                    return false
+                }
+            case .leftParenthesis:
+                guard let close = closing(index) else { return false }
+                index = close + 1
+            default:
+                return false
+            }
+            while tokens[index].kind == .factorial { index += 1 }
+            guard tokens[index].kind == .power else { return true }
+            index += 1
+            if tokens[index].kind == .minus || tokens[index].kind == .plus { index += 1 }
+            return operand()
+        }
+        return operand() && tokens[index].kind == .end
     }
 }

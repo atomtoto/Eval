@@ -2,10 +2,18 @@ import EvalCore
 import SwiftUI
 
 /// Mathematical notation is app content, composed from native SwiftUI text and layout.
-struct FormulaView: View {
+/// An accessory, such as the value of the line, follows the formula on its line
+/// and moves under it when the row is too narrow.
+struct FormulaView<Accessory: View>: View {
     let source: String
+    @ViewBuilder let accessory: Accessory
     @ScaledMetric(relativeTo: .title3) private var pointSize = 21.0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    init(source: String, @ViewBuilder accessory: () -> Accessory) {
+        self.source = source
+        self.accessory = accessory()
+    }
 
     var body: some View {
         if let formula = MathNotation.formula(source) {
@@ -14,7 +22,14 @@ struct FormulaView: View {
                 // row’s swipe actions stay available for ordinary formulas. Only
                 // then does its scroll indicator show, and flash once on appearing.
                 ViewThatFits(in: .horizontal) {
-                    content(formula)
+                    HStack(alignment: .mathAxis, spacing: pointSize * 0.3) {
+                        content(formula)
+                        styledAccessory
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        content(formula)
+                        styledAccessory
+                    }
                     VStack(alignment: .leading, spacing: 4) {
                         ScrollView(.horizontal) { content(formula) }
                             .scrollIndicatorsFlash(onAppear: true)
@@ -24,6 +39,7 @@ struct FormulaView: View {
                                 .font(.footnote.monospaced())
                                 .foregroundStyle(.secondary)
                         }
+                        styledAccessory
                     }
                 }
                 if let comment = trailingComment {
@@ -35,16 +51,29 @@ struct FormulaView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(MathSpeech.description(source) ?? source)
         } else {
-            Text(source)
-                .font(.body.monospaced())
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(source)
+                    .font(.body.monospaced())
+                styledAccessory
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private func content(_ formula: MathFormula) -> some View {
         FormulaContent(formula: formula, pointSize: pointSize)
+            .foregroundStyle(.primary)
             .fixedSize(horizontal: true, vertical: true)
             .padding(.vertical, 4)
+    }
+
+    /// The accessory in the size of the formula, its baseline on the formula’s.
+    private var styledAccessory: some View {
+        let size = pointSize
+        return accessory
+            .font(.system(size: size, weight: .semibold).monospacedDigit())
+            .fixedSize(horizontal: false, vertical: true)
+            .alignmentGuide(.mathAxis) { $0[.firstTextBaseline] - size * 0.25 }
     }
 
     private var trailingComment: String? {
@@ -52,6 +81,24 @@ struct FormulaView: View {
         guard let marker = markers.min() else { return nil }
         return String(source[marker...])
     }
+}
+
+extension FormulaView where Accessory == EmptyView {
+    init(source: String) {
+        self.init(source: source) { EmptyView() }
+    }
+}
+
+/// What the value of an adjustable declaration (`80 kg` in `m = 80 kg`) does in
+/// a formula: a long press shows its ruler; a tap edits the line, like anywhere on the row.
+struct FormulaValueInteraction {
+    /// True while the ruler of the value is open.
+    var isHighlighted: Bool
+    var longPress: @MainActor () -> Void
+}
+
+extension EnvironmentValues {
+    @Entry var formulaValueInteraction: FormulaValueInteraction?
 }
 
 extension VerticalAlignment {
@@ -64,16 +111,18 @@ extension VerticalAlignment {
         }
     }
 
-    fileprivate static let mathAxis = VerticalAlignment(MathAxis.self)
+    static let mathAxis = VerticalAlignment(MathAxis.self)
 }
 
 private struct FormulaContent: View {
     let formula: MathFormula
     let pointSize: Double
 
+    @Environment(\.formulaValueInteraction) private var valueInteraction
+    @State private var longPresses = 0
+
     var body: some View {
         content
-            .foregroundStyle(.primary)
     }
 
     /// Text whose math axis lies a quarter of its size above the baseline.
@@ -132,11 +181,49 @@ private struct FormulaContent: View {
                 FormulaContent(formula: expression, pointSize: pointSize)
                 text(")")
             })
+        case .value(let inner):
+            return AnyView(value(inner))
         }
     }
 }
 
 extension FormulaContent {
+    /// The value of an adjustable declaration is tinted and underlined, like the
+    /// variables of Notes. Without an interaction it draws like plain text.
+    @ViewBuilder
+    fileprivate func value(_ inner: MathFormula) -> some View {
+        let formula = FormulaContent(formula: inner, pointSize: pointSize)
+        if let interaction = valueInteraction {
+            formula
+                .foregroundStyle(.tint)
+                .overlay(alignment: .bottom) {
+                    Capsule()
+                        .fill(.tint.opacity(0.5))
+                        .frame(height: 1.5)
+                        .offset(y: 1)
+                }
+                .padding(.horizontal, 3)
+                .background {
+                    if interaction.isHighlighted {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(.tint.opacity(0.15))
+                    }
+                }
+                .contentShape(.rect)
+                // Ahead of the row’s context menu, which a long press elsewhere on the row opens.
+                // On iPad the menu wins over a press of 0.35 s, so this one is shorter. A press
+                // released early is left to the row, whose tap edits the line.
+                .highPriorityGesture(LongPressGesture(minimumDuration: 0.2)
+                    .onEnded { _ in
+                        longPresses += 1
+                        interaction.longPress()
+                    })
+                .sensoryFeedback(.impact, trigger: longPresses)
+        } else {
+            formula
+        }
+    }
+
     /// The sign is drawn behind the radicand, so it stretches with it.
     fileprivate func radical(_ radicand: MathFormula) -> some View {
         FormulaContent(formula: radicand, pointSize: pointSize)
@@ -148,7 +235,7 @@ extension FormulaContent {
 }
 
 /// The radical sign: a short hook, a long downstroke, then the bar over the radicand.
-private struct RadicalSign: Shape {
+struct RadicalSign: Shape {
     let hookWidth: Double
 
     func path(in rect: CGRect) -> Path {

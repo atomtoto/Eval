@@ -67,29 +67,17 @@ final class SheetRecordTests: XCTestCase {
         XCTAssertEqual(record.adjustmentRanges.count, 1)
     }
 
-    // MARK: Default results
+    // MARK: New sheets
 
-    func testLinesThatAskForTheirValueAreShownByDefault() {
-        let record = SheetRecord(source: """
-            d = 120 km
-            t = 1,5 h
-            v = d / t → km/h
-            w = ? m/s
-            w = d / t
-            E = 3 J
-            d / t
-            """.replacingOccurrences(of: "w = d / t", with: "d / t = w"))
-        let shown = record.resultSelection.entries.map(\.isSelected)
-        // d, t, E are plain declarations; the conversion, the unknown and the equality are chosen.
-        XCTAssertEqual(shown, [false, false, true, true, true, false, true])
+    func testNewRecordSelectsNothingAndShowsWhatItsLinesRequest() {
+        let record = SheetRecord(source: "# Note\nx = 2 m\nx * 3 =\nx == 2 m")
+        XCTAssertEqual(record.schemaVersion, 2)
+        XCTAssertEqual(SheetRecord.currentSchemaVersion, 2)
+        XCTAssertEqual(record.resultSelection.entries.map(\.isSelected), [false, false, false, false])
+        XCTAssertEqual(record.source, "# Note\nx = 2 m\nx * 3 =\nx == 2 m")
     }
 
     // MARK: Line metadata
-
-    func testNewRecordShowsFormulaResultsOnly() {
-        let record = SheetRecord(source: "# Note\nx = 2 m\nx * 3\nx == 2 m")
-        XCTAssertEqual(record.resultSelection.entries.map(\.isSelected), [false, false, true, true])
-    }
 
     func testMetadataOfMissingLinesIsDiscarded() throws {
         let selection = ResultSelection(source: "x = 2\ny = 3", initiallySelectedLineIDs: [])
@@ -150,26 +138,33 @@ final class SheetRecordTests: XCTestCase {
         XCTAssertEqual(copy.modifiedAt, now)
     }
 
-    func testResultPreviewShowsTheFirstDisplayedValue() throws {
-        let record = SheetRecord(source: "# Note\nm = 80 kg\nv = 5 m/s # vitesse\nE = 0,5 * m * v²\nE\nm")
+    func testResultPreviewShowsTheFirstRequestedValue() throws {
+        let record = SheetRecord(source: "# Note\nm = 80 kg\nv = 5 m/s # vitesse\nE = 0,5 * m * v²\nE =\nm =")
         let lines = NotebookEngine.evaluate(record.source).lines
         let energy = try XCTUnwrap(lines[4].quantity)
         XCTAssertEqual(record.resultPreview(), "E = \(QuantityFormatter.string(energy))")
 
-        var declarations = record
-        declarations.resultSelection.setAllSelected(false, selectableLineIDs: [])
-        declarations.resultSelection.setSelected(true, at: 2)
-        let speed = try XCTUnwrap(lines[2].quantity)
-        XCTAssertEqual(declarations.resultPreview(), "v = \(QuantityFormatter.string(speed))")
-        XCTAssertNil(SheetRecord(source: "x = 2").resultPreview())
+        // A declaration that requests its value comes first when it is first.
+        let declared = SheetRecord(source: "m = 80 kg =\nm")
+        XCTAssertEqual(declared.resultPreview(), "m = 80 kg")
+        // Lines that request nothing show nothing, and neither do failures or equalities.
+        XCTAssertNil(SheetRecord(source: "x = 2\nx * 3").resultPreview())
+        XCTAssertEqual(SheetRecord(source: "zz =\nx = 2\nx =").resultPreview(), "x = 2")
+        XCTAssertNil(SheetRecord(source: "x = 2\nx == 2 =").resultPreview())
     }
 
     func testResultPreviewIsAlsoSpoken() {
-        let record = SheetRecord(source: "m = 3 kg\nv = 2 m/s\nE = 0,5 * m * v^2\nE")
+        let record = SheetRecord(source: "m = 3 kg\nv = 2 m/s\nE = 0,5 * m * v^2\nE =")
         XCTAssertEqual(record.resultPreviewWithSpeech()?.text, "E = 6 J")
         XCTAssertEqual(record.resultPreviewWithSpeech()?.spoken, "E égale 6 joules")
         XCTAssertEqual(record.resultPreview(), record.resultPreviewWithSpeech()?.text)
         XCTAssertNil(SheetRecord(source: "x = 2").resultPreviewWithSpeech())
+    }
+
+    func testStalePreviewIsIgnored() {
+        let record = SheetRecord(source: "x = 2\nx =")
+        let evaluation = NotebookEngine.evaluate("x = 2\nx = 3 =")
+        XCTAssertNil(SheetRecord.resultPreview(selection: record.resultSelection, evaluation: evaluation))
     }
 
     func testLinePreviewSkipsEqualitiesAndErrors() throws {
@@ -271,8 +266,21 @@ final class SheetRecordTests: XCTestCase {
         defaults.set("x = 2 m\nx * 3", forKey: LegacyNotebookMigration.sourceKey)
         defaults.set(Data("corrompu".utf8), forKey: LegacyNotebookMigration.resultSelectionKey)
         let record = try XCTUnwrap(LegacyNotebookMigration.legacyRecord(in: defaults))
-        XCTAssertEqual(record.resultSelection.entries.map(\.isSelected), [false, true])
+        // The formula was shown by default: it now asks for its value.
+        XCTAssertEqual(record.source, "x = 2 m\nx * 3 =")
+        XCTAssertEqual(record.resultSelection.entries.map(\.source), ["x = 2 m", "x * 3 ="])
+        XCTAssertEqual(record.schemaVersion, 2)
         XCTAssertTrue(record.adjustmentRanges.isEmpty)
+    }
+
+    func testLegacyChosenResultsBecomeRequests() throws {
+        let source = "m = 80 kg\nv = 5 m/s\nE = 0,5 * m * v²\nE → kWh # énergie"
+        defaults.set(source, forKey: LegacyNotebookMigration.sourceKey)
+        let selection = ResultSelection(source: source, initiallySelectedLineIDs: [2, 3])
+        defaults.set(try JSONEncoder().encode(selection), forKey: LegacyNotebookMigration.resultSelectionKey)
+        let record = try XCTUnwrap(LegacyNotebookMigration.legacyRecord(in: defaults))
+        XCTAssertEqual(record.source, "m = 80 kg\nv = 5 m/s\nE = 0,5 * m * v² =\nE → kWh # énergie")
+        XCTAssertEqual(record.resultSelection.entries.map(\.id), selection.entries.map(\.id))
     }
 
     func testMigrationRunsOnlyOnce() throws {

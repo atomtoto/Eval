@@ -70,6 +70,49 @@ struct FormulaTextField: View {
     }
 }
 
+/// What the keyboard bar of a line edited in place does. Each field carries its
+/// own bar, so that the keyboard keeps one when Return moves the focus to a new line.
+struct LineKeyboard {
+    var variableNames: [String] = []
+    var insert: (FormulaInsertion.Snippet) -> Void = { _ in }
+    var showReferences: () -> Void = {}
+    var done: () -> Void = {}
+}
+
+/// A line of the sheet edited in place: a native text field that grows with its
+/// text. A Return reaches the binding as a line break, which the sheet turns
+/// into a new line.
+struct LineTextField: View {
+    let lineID: UUID
+    @Binding var text: String
+    let selection: FormulaSelectionState
+    let focus: FocusState<UUID?>.Binding
+    let keyboard: LineKeyboard
+
+    var body: some View {
+        FormulaTextField(title: "Nouvelle ligne", text: $text, selection: selection, axis: .vertical)
+            .font(.body.monospaced())
+            .lineLimit(1...8)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .submitLabel(.return)
+            .focused(focus, equals: lineID)
+            .accessibilityLabel("Ligne en cours de modification")
+            .accessibilityHint("La touche Retour valide la ligne et en crée une nouvelle en dessous.")
+            .toolbar {
+                FormulaKeyboardToolbar(insertsSymbols: FormulaSelectionState.tracksCaret,
+                                       variableNames: keyboard.variableNames, insert: keyboard.insert,
+                                       showReferences: keyboard.showReferences, done: keyboard.done)
+            }
+            .task {
+                // The field takes the focus once it exists, then the caret goes to the end.
+                if focus.wrappedValue != lineID { focus.wrappedValue = lineID }
+                try? await Task.sleep(for: .milliseconds(150))
+                selection.placeCaretAtEnd(of: text)
+            }
+    }
+}
+
 /// The keyboard bar of every field that takes a formula: operators within
 /// reach, a menu of names, and the way out of the keyboard.
 struct FormulaKeyboardToolbar: ToolbarContent {
@@ -85,15 +128,20 @@ struct FormulaKeyboardToolbar: ToolbarContent {
             ToolbarItemGroup(placement: .keyboard) {
                 Menu("Insérer", systemImage: "plus.circle") {
                     Section {
+                        // Templates wrap the selection: a selected `a + b` becomes the numerator.
+                        Button("Fraction", systemImage: "divide") { insert(.fraction) }
+                        Button("Puissance", systemImage: "textformat.superscript") { insert(.power) }
+                        Button("Racine", systemImage: "x.squareroot") { insert(.function("sqrt")) }
+                    }
+                    Section {
                         Button("Égal =") { insert(.operator("=")) }
                         Button("Diviser ÷") { insert(.operator("/")) }
-                        Button("Puissance ^") { insert(.literal("^")) }
+                        Button("Exposant ^") { insert(.literal("^")) }
                         Button("Au carré ²") { insert(.literal("²")) }
                         Button("Au cube ³") { insert(.literal("³")) }
                         Button("Inverse ⁻¹") { insert(.literal("⁻¹")) }
                     }
                     Section {
-                        Button("Racine carrée √( )") { insert(.function("sqrt")) }
                         Button("π") { insert(.name("π")) }
                         Button("Degrés (deg)") { insert(.unit("deg")) }
                     }

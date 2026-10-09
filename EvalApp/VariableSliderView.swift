@@ -2,8 +2,8 @@ import EvalCore
 import SwiftUI
 
 /// Adjusts the number in its entered unit, so 72 km/h stays in km/h.
-/// In Formules mode the formula above is the label and the ruler stands alone;
-/// the value is repeated in text only where the ruler sits apart, in Texte mode.
+/// Under its line, the formula above is the label and the ruler stands alone;
+/// the value is repeated in text only where the ruler sits apart from its line.
 struct VariableSliderView: View {
     let variable: AdjustableVariable
     let range: VariableAdjustmentRange
@@ -12,6 +12,8 @@ struct VariableSliderView: View {
     let onChangeValue: (Double, Bool) -> Void
     var onEditingChanged: (Bool) -> Void = { _ in }
     let onChangeRange: (VariableAdjustmentRange, Bool) -> Void
+    /// Closes the ruler; nil where it cannot be closed.
+    var onHide: (() -> Void)?
     @State private var showsRangeEditor = false
 
     private var valueLabel: String {
@@ -32,6 +34,11 @@ struct VariableSliderView: View {
             }
 
             HStack {
+                if let onHide {
+                    Button("Masquer la réglette", systemImage: "chevron.up", action: onHide)
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                }
                 Spacer(minLength: 0)
                 VariableRulerView(value: variable.value, range: range,
                                   label: "Valeur de \(variable.name)", valueLabel: valueLabel,

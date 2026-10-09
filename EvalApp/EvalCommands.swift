@@ -11,20 +11,16 @@ struct WindowActions {
     let newSheet: () -> Void
     let showTab: (EvalTab) -> Void
     let showHelp: () -> Void
+    let showSettings: () -> Void
     /// Nil where the search field cannot be focused from the keyboard (before iOS 18).
     let search: (() -> Void)?
 }
 
 /// What the sheet shown in the focused window can do.
 struct NotebookActions {
-    let editorMode: NotebookEditorMode
-    let canChooseResults: Bool
     let canClear: Bool
-    /// Nil in a narrow window, which has no results column.
-    let toggleResultsColumn: (() -> Void)?
     let newLine: () -> Void
-    let chooseResults: () -> Void
-    let setEditorMode: (NotebookEditorMode) -> Void
+    let editAsText: () -> Void
     let clear: () -> Void
 }
 
@@ -68,19 +64,14 @@ struct EvalCommands: Commands {
                 .disabled(window == nil)
         }
 
+        CommandGroup(replacing: .appSettings) {
+            Button("Réglages…") { window?.showSettings() }
+                .keyboardShortcut(",", modifiers: .command)
+                .disabled(window == nil)
+        }
+
         CommandMenu("Feuille") {
-            Button("Choisir les résultats…") { sheet?.chooseResults() }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-                .disabled(sheet?.canChooseResults != true)
-            Button("Afficher ou masquer la colonne Résultats") { sheet?.toggleResultsColumn?() }
-                .keyboardShortcut("r", modifiers: [.command, .option])
-                .disabled(sheet?.toggleResultsColumn == nil)
-            Divider()
-            Toggle("Mode Formules", isOn: mode(.formulas))
-                .keyboardShortcut("1", modifiers: [.command, .option])
-                .disabled(sheet == nil)
-            Toggle("Mode Texte", isOn: mode(.text))
-                .keyboardShortcut("2", modifiers: [.command, .option])
+            Button("Modifier en texte…") { sheet?.editAsText() }
                 .disabled(sheet == nil)
             Divider()
             Button("Effacer la feuille…", role: .destructive) { sheet?.clear() }
@@ -92,9 +83,5 @@ struct EvalCommands: Commands {
                 .keyboardShortcut("?", modifiers: .command)
                 .disabled(window == nil)
         }
-    }
-
-    private func mode(_ mode: NotebookEditorMode) -> Binding<Bool> {
-        Binding(get: { sheet?.editorMode == mode }, set: { if $0 { sheet?.setEditorMode(mode) } })
     }
 }

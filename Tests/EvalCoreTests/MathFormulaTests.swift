@@ -113,10 +113,11 @@ final class MathFormulaTests: XCTestCase {
     }
 
     func testEnteredSpellingKeepsItsTrailingZeros() {
-        XCTAssertEqual(MathNotation.formula("x = 8,0"), .row([.atom("x"), .atom(" = "), .atom("8,0")]))
+        // The value of an adjustable declaration is wrapped in `.value`.
+        XCTAssertEqual(MathNotation.formula("x = 8,0"), .row([.atom("x"), .atom(" = "), .value(.atom("8,0"))]))
         XCTAssertEqual(MathNotation.formula("a = 9,0 m/s²"), .row([
-            .atom("a"), .atom(" = "), .atom("9,0"), .atom(" "),
-            .fraction(.atom("m"), .power(.atom("s"), .atom("2")))
+            .atom("a"), .atom(" = "), .value(.row([.atom("9,0"), .atom(" "),
+            .fraction(.atom("m"), .power(.atom("s"), .atom("2")))]))
         ]))
         XCTAssertEqual(MathNotation.formula("1,0e3"), .row([
             .atom("1,0"), .atom(" × "), .power(.atom("10"), .atom("3"))
@@ -151,7 +152,7 @@ final class MathFormulaTests: XCTestCase {
 
     func testCompactUnitChainsDrawAsUnits() {
         XCTAssertEqual(MathNotation.formula("v = 72km/h"), .row([
-            .atom("v"), .atom(" = "), .atom("72"), .atom(" "), .fraction(.atom("km"), .atom("h"))
+            .atom("v"), .atom(" = "), .value(.row([.atom("72"), .atom(" "), .fraction(.atom("km"), .atom("h"))]))
         ]))
         XCTAssertEqual(MathNotation.formula("3g"), .row([.atom("3"), .atom(" · "), .atom("g")]))
     }
@@ -164,7 +165,7 @@ final class MathFormulaTests: XCTestCase {
             .atom("2"), .atom(" · "), .atom("a"), .atom(" = "),
             .atom("b"), .atom(" + "), .atom("c")
         ]))
-        XCTAssertEqual(MathNotation.formula("sqrt = 2"), .row([.atom("sqrt"), .atom(" = "), .atom("2")]))
+        XCTAssertEqual(MathNotation.formula("sqrt = 2"), .row([.atom("sqrt"), .atom(" = "), .value(.atom("2"))]))
     }
 
     func testGreekAliasesDoNotAlterParserOrEvaluation() throws {
@@ -189,7 +190,7 @@ final class MathFormulaTests: XCTestCase {
 
     func testInvalidOrIncompleteSyntaxHasNoMisleadingPreview() {
         for source in ["", "  ", "# commentaire", "// commentaire", "a+", "(a+b", "sqrt()",
-                       "a=", "=b", "a=b=c", "a===b", "1,2,3", "a@b", "2 3", "a\nb"] {
+                       "=b", "a=b=c", "a===b", "1,2,3", "a@b", "2 3", "a\nb"] {
             XCTAssertNil(MathNotation.formula(source), source)
         }
         // Undefined variables and numerical errors still have a valid layout;

@@ -20,7 +20,9 @@ public enum ExampleDomain: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// A ready-made sheet. Its source follows the convention of the app: a `# Titre`
-/// comment first, then declarations, then the bare lines whose results matter.
+/// comment first, then declarations, then the lines whose results matter. A line
+/// ends with `=` to show its value (`d =`, `v → km/h =`, `E = 0,5 * m * v² =`);
+/// without it, a formula or a declaration shows nothing.
 public struct ExampleSheet: Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
@@ -40,10 +42,10 @@ public enum ExampleLibrary: Sendable {
             v = g * t
             t = 3 s
 
-            d
-            v
-            # → km/h choisit l’unité d’affichage
-            v → km/h
+            d =
+            v =
+            # → km/h choisit l’unité d’affichage ; le = final affiche la valeur
+            v → km/h =
             """),
         ExampleSheet(id: "kinetic-energy", title: "Énergie cinétique", domain: .mechanics,
                      summary: "Énergie d’une masse en mouvement.", source: """
@@ -52,9 +54,9 @@ public enum ExampleLibrary: Sendable {
             m = 80 kg
             v = 5 m/s
 
-            E
+            E =
             # La vitesse de la lumière est reconnue
-            c
+            c =
             """),
         ExampleSheet(id: "projectile", title: "Tir sans frottement", domain: .mechanics,
                      summary: "Portée, hauteur et durée d’un tir incliné.", source: """
@@ -65,9 +67,9 @@ public enum ExampleLibrary: Sendable {
             h_max = (v0 * sin(theta))² / (2 * g)
             duree = 2 * v0 * sin(theta) / g
 
-            portee
-            h_max
-            duree
+            portee =
+            h_max =
+            duree =
             """),
         ExampleSheet(id: "pendulum", title: "Pendule simple", domain: .mechanics,
                      summary: "Période des petites oscillations.", source: """
@@ -75,7 +77,7 @@ public enum ExampleLibrary: Sendable {
             T = 2 * pi * sqrt(l / g)
             l = 1 m
 
-            T
+            T =
             """),
         ExampleSheet(id: "spring", title: "Oscillateur masse-ressort", domain: .mechanics,
                      summary: "Période et fréquence d’une masse au bout d’un ressort.", source: """
@@ -86,8 +88,8 @@ public enum ExampleLibrary: Sendable {
             # k déclaré ici remplace la constante de Boltzmann
             k = 200 N/m
 
-            T
-            f → Hz
+            T =
+            f → Hz =
             """),
         ExampleSheet(id: "relativity", title: "Dilatation du temps", domain: .mechanics,
                      summary: "Facteur de Lorentz à 80 % de la vitesse de la lumière.", source: """
@@ -95,8 +97,8 @@ public enum ExampleLibrary: Sendable {
             v = 0,8 * c
             gamma = 1 / sqrt(1 - v² / c²)
 
-            gamma
-            v → km/s
+            gamma =
+            v → km/s =
             """),
         ExampleSheet(id: "heater", title: "Radiateur électrique", domain: .electricity,
                      summary: "Courant, puissance et énergie consommée en 2 h.", source: """
@@ -107,9 +109,9 @@ public enum ExampleLibrary: Sendable {
             P = U * I
             E = P * 2 h
 
-            I
-            P
-            E → kWh
+            I =
+            P =
+            E → kWh =
             """),
         ExampleSheet(id: "rc-circuit", title: "Circuit RC", domain: .electricity,
                      summary: "Constante de temps et tension d’un condensateur qui se charge.", source: """
@@ -121,8 +123,8 @@ public enum ExampleLibrary: Sendable {
             tau = R * C
             U_C = U0 * (1 - exp(-t / tau))
 
-            tau
-            U_C
+            tau =
+            U_C =
             """),
         ExampleSheet(id: "coulomb", title: "Force électrostatique", domain: .electricity,
                      summary: "Force entre deux charges ponctuelles.", source: """
@@ -133,7 +135,7 @@ public enum ExampleLibrary: Sendable {
             F = k_e * q1 * q2 / r²
 
             # Une valeur négative indique une attraction
-            F
+            F =
             """),
         ExampleSheet(id: "lens", title: "Lentille convergente", domain: .optics,
                      summary: "Position et grandissement de l’image.", source: """
@@ -143,8 +145,8 @@ public enum ExampleLibrary: Sendable {
             d_i = 1 / (1 / f - 1 / d_o)
             gamma = -d_i / d_o
 
-            d_i
-            gamma
+            d_i =
+            gamma =
             """),
         ExampleSheet(id: "young", title: "Fentes d’Young", domain: .optics,
                      summary: "Interfrange d’une figure d’interférences.", source: """
@@ -154,7 +156,7 @@ public enum ExampleLibrary: Sendable {
             a = 0,1 mm
             i = lambda * D / a
 
-            i → mm
+            i → mm =
             """),
         ExampleSheet(id: "ideal-gas", title: "Gaz parfait", domain: .thermodynamics,
                      summary: "Pression d’une mole de gaz dans 24 L.", source: """
@@ -164,7 +166,7 @@ public enum ExampleLibrary: Sendable {
             V = 24 L
             p = n * R * T / V
 
-            p → atm
+            p → atm =
             """),
         ExampleSheet(id: "water-heating", title: "Chauffer de l’eau", domain: .thermodynamics,
                      summary: "Énergie et durée pour chauffer 1,5 kg d’eau de 80 K.", source: """
@@ -176,8 +178,8 @@ public enum ExampleLibrary: Sendable {
             P = 2 kW
             duree = Q / P
 
-            Q → kJ
-            duree → min
+            Q → kJ =
+            duree → min =
             """),
         ExampleSheet(id: "black-body", title: "Le Soleil, corps noir", domain: .thermodynamics,
                      summary: "Longueur d’onde du maximum et exitance du Soleil.", source: """
@@ -186,8 +188,8 @@ public enum ExampleLibrary: Sendable {
             lambda_max = b_Wien / T
             M = sigma_SB * T⁴
 
-            lambda_max → nm
-            M → W/m²
+            lambda_max → nm =
+            M → W/m² =
             """),
         ExampleSheet(id: "electron", title: "Électron accéléré", domain: .quantum,
                      summary: "Vitesse et longueur d’onde de de Broglie sous 100 V.", source: """
@@ -196,8 +198,8 @@ public enum ExampleLibrary: Sendable {
             v = sqrt(2 * e * U / m_e)
             lambda = h / (m_e * v)
 
-            v → km/s
-            lambda → pm
+            v → km/s =
+            lambda → pm =
             """),
         ExampleSheet(id: "photoelectric", title: "Effet photoélectrique", domain: .quantum,
                      summary: "Énergie cinétique des électrons arrachés au sodium.", source: """
@@ -206,7 +208,7 @@ public enum ExampleLibrary: Sendable {
             lambda = 400 nm
             E_c = h * c / lambda - W
 
-            E_c → eV
+            E_c → eV =
             """),
         ExampleSheet(id: "hydrogen", title: "Raie Hα", domain: .quantum,
                      summary: "Longueur d’onde de la transition 3 → 2 de l’hydrogène.", source: """
@@ -215,7 +217,7 @@ public enum ExampleLibrary: Sendable {
             E_2 = -E_h / (2 * 2²)
             lambda = h * c / (E_3 - E_2)
 
-            lambda → nm
+            lambda → nm =
             """),
         ExampleSheet(id: "light-energy", title: "Énergie et lumière", domain: .quantum,
                      summary: "Énergie d’un photon de 550 nm.", source: """
@@ -223,9 +225,9 @@ public enum ExampleLibrary: Sendable {
             E = h * c / lambda
             lambda = 550 nm
 
-            E → eV
+            E → eV =
             # h et c sont des constantes reconnues
-            c / lambda → THz
+            c / lambda → THz =
             """),
         ExampleSheet(id: "kepler", title: "Troisième loi de Kepler", domain: .astronomy,
                      summary: "Période de la Terre autour du Soleil.", source: """
@@ -233,16 +235,16 @@ public enum ExampleLibrary: Sendable {
             a = 1 au
             T = 2 * pi * sqrt(a³ / GM_sun_N)
 
-            T
+            T =
             # En jours
-            T → jour
+            T → jour =
             """),
         ExampleSheet(id: "escape-velocity", title: "Vitesse de libération", domain: .astronomy,
                      summary: "Vitesse pour quitter l’attraction terrestre.", source: """
             # Vitesse de libération terrestre
             v_lib = sqrt(2 * GM_earth_N / R_earth_equatorial_N)
 
-            v_lib → km/s
+            v_lib → km/s =
             """),
         ExampleSheet(id: "geostationary", title: "Orbite géostationnaire", domain: .astronomy,
                      summary: "Rayon et altitude d’une orbite de période 86 164,1 s.", source: """
@@ -251,8 +253,8 @@ public enum ExampleLibrary: Sendable {
             r = (GM_earth_N * T² / (4 * pi²))^(1/3)
             altitude = r - R_earth_equatorial_N
 
-            r
-            altitude → km
+            r =
+            altitude → km =
             """),
         ExampleSheet(id: "dimensions", title: "Vérifier les dimensions", domain: .method,
                      summary: "Une égalité homogène, puis une addition impossible.", source: """
@@ -262,7 +264,7 @@ public enum ExampleLibrary: Sendable {
             a = 7,2 m/s²
             m = 2 kg
 
-            # Cette addition est impossible physiquement
+            # Cette addition est impossible physiquement ; une erreur s’affiche même sans =
             2 m + 3 s
             """),
         ExampleSheet(id: "solve-unknown", title: "Trouver une inconnue", domain: .method,
@@ -275,7 +277,7 @@ public enum ExampleLibrary: Sendable {
             E == 0,5 * m * v²
 
             # L’autre solution (-5 m/s) est indiquée sur la ligne de v
-            v → km/h
+            v → km/h =
             """)
     ]
 

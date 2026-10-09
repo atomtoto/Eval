@@ -1,5 +1,6 @@
 import EvalCore
 import SwiftUI
+import UIKit
 
 /// Example sheets grouped by domain, as nested native menus.
 struct ExampleMenuContent: View {
@@ -103,5 +104,44 @@ struct PlotMenu: View {
                 }
             }
         }
+    }
+}
+
+/// Copy and share actions for the value of a line, for a context menu.
+/// Values are copied as displayed, in SI or in the unit chosen with →, and paste back as valid input.
+struct ResultCopyItems: View {
+    let source: String
+    let line: EvaluatedLine?
+    /// Incremented on every copy, to trigger haptic feedback in the caller.
+    @Binding var copies: Int
+
+    var body: some View {
+        if let value = line?.formattedValue {
+            ResultCopyButtons(source: source, line: line, copies: $copies)
+            ShareLink(item: ResultText.line(source: source, value: value), preview: SharePreview("Résultat Eval")) {
+                Label("Partager le résultat", systemImage: "square.and.arrow.up")
+            }
+        }
+    }
+}
+
+/// « Copier la valeur » and « Copier la ligne », for menus and accessibility actions.
+struct ResultCopyButtons: View {
+    let source: String
+    let line: EvaluatedLine?
+    @Binding var copies: Int
+
+    var body: some View {
+        if let value = line?.formattedValue {
+            Button("Copier la valeur", systemImage: "doc.on.doc") { copy(value) }
+            Button("Copier la ligne", systemImage: "text.alignleft") {
+                copy(ResultText.line(source: source, value: value))
+            }
+        }
+    }
+
+    private func copy(_ text: String) {
+        UIPasteboard.general.string = text
+        copies += 1
     }
 }

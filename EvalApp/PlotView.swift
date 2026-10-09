@@ -11,6 +11,8 @@ struct PlotView: View {
     @State private var variableID: UUID
     @State private var plot: SweepPlot?
     @State private var selectedX: Double?
+    /// The unit of the result’s last value, kept while the current value is an error.
+    @State private var lastResultUnit = ""
     @ScaledMetric(relativeTo: .body) private var chartHeight = 260.0
 
     init(notebook: NotebookStore, request: PlotRequest) {
@@ -38,8 +40,20 @@ struct PlotView: View {
     }
 
     private var resultUnit: String {
-        guard let quantity = result?.quantity else { return "" }
+        guard let quantity = result?.quantity else { return lastResultUnit }
         return QuantityFormatter.unitSymbol(for: quantity.dimension, in: result?.displayUnit)
+    }
+
+    /// What a new sampling depends on: the variable, the sheet and the ruler’s interval.
+    private struct SamplingKey: Equatable {
+        let variableID: UUID
+        let source: String
+        let range: VariableAdjustmentRange?
+    }
+
+    private var samplingKey: SamplingKey {
+        SamplingKey(variableID: variableID, source: notebook.source,
+                    range: variable.flatMap { notebook.adjustmentRange(for: variableID, variable: $0) })
     }
 
     var body: some View {
@@ -80,7 +94,16 @@ struct PlotView: View {
                         .keyboardShortcut(.cancelAction)
                 }
             }
-            .task(id: variableID) { await load() }
+            .task(id: samplingKey) {
+                // A ruler being dragged changes the sheet often: sampling waits for a pause.
+                if plot?.variableID == variableID {
+                    do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
+                }
+                await load()
+            }
+            .onChange(of: resultUnit, initial: true) { _, unit in
+                if !unit.isEmpty || result?.quantity != nil { lastResultUnit = unit }
+            }
         }
     }
 
@@ -88,13 +111,20 @@ struct PlotView: View {
 
     @ViewBuilder
     private var chartContent: some View {
-        if let variable, let plot, plot.variableID == variableID {
-            if plot.segments.isEmpty {
+        if let plot, plot.variableID == variableID, let failure = plot.failure {
+            switch failure {
+            case .missingLine:
+                ContentUnavailableView("Tracé impossible", systemImage: "chart.xyaxis.line",
+                                       description: Text("La ligne du résultat ou celle de la variable n’existe plus, ou la variable n’est plus un nombre réglable."))
+            case .noRange:
+                ContentUnavailableView("Tracé impossible", systemImage: "chart.xyaxis.line",
+                                       description: Text("La réglette de la variable n’a pas d’intervalle valide. Modifiez ses réglages."))
+            case .undefined:
                 ContentUnavailableView("Aucune valeur calculable", systemImage: "chart.xyaxis.line",
-                                       description: Text("Le résultat n’est défini pour aucune valeur de l’intervalle du curseur."))
-            } else {
-                chart(plot, variable: variable)
+                                       description: Text("Le résultat n’est défini pour aucune valeur de l’intervalle de la réglette."))
             }
+        } else if let variable, let plot, plot.variableID == variableID {
+            chart(plot, variable: variable)
         } else {
             ProgressView("Calcul du tracé…")
                 .frame(maxWidth: .infinity, minHeight: chartHeight)
@@ -107,9 +137,15 @@ struct PlotView: View {
         let yLabel = axisLabel(resultName, unit: resultUnit)
         return Chart {
             ForEach(Array(plot.segments.enumerated()), id: \.offset) { index, segment in
-                ForEach(segment, id: \.index) { point in
-                    LineMark(x: .value(xLabel, point.x), y: .value(yLabel, point.y),
-                             series: .value("Segment", index))
+                if segment.count == 1, let point = segment.first {
+                    // An isolated value has no neighbour to join: it is drawn as a point.
+                    PointMark(x: .value(xLabel, point.x), y: .value(yLabel, point.y))
+                        .symbolSize(20)
+                } else {
+                    ForEach(segment, id: \.index) { point in
+                        LineMark(x: .value(xLabel, point.x), y: .value(yLabel, point.y),
+                                 series: .value("Segment", index))
+                    }
                 }
             }
             RuleMark(x: .value("Valeur actuelle", variable.value))
@@ -136,6 +172,7 @@ struct PlotView: View {
             }
         }
         .chartXSelection(value: $selectedX)
+        .chartXScale(domain: plot.range.lowerBound...plot.range.upperBound)
         .chartYScale(domain: .automatic(includesZero: false))
         .chartXAxisLabel(xLabel)
         .chartYAxisLabel(yLabel)
@@ -160,16 +197,19 @@ struct PlotView: View {
     private func load() async {
         selectedX = nil
         guard let variable, let index = notebook.lineIndex(of: request.resultLineID),
-              let variableIndex = notebook.lineIndex(of: variableID),
-              let range = notebook.adjustmentRange(for: variableID, variable: variable) else {
-            plot = SweepPlot(variableID: variableID, points: [])
+              let variableIndex = notebook.lineIndex(of: variableID) else {
+            plot = SweepPlot(variableID: variableID, failure: .missingLine)
+            return
+        }
+        guard let range = notebook.adjustmentRange(for: variableID, variable: variable) else {
+            plot = SweepPlot(variableID: variableID, failure: .noRange)
             return
         }
         let id = variableID
         let points = await Self.sample(source: notebook.source, variableIndex: variableIndex,
                                        resultIndex: index, range: range)
         guard !Task.isCancelled else { return }
-        plot = SweepPlot(variableID: id, points: points)
+        plot = SweepPlot(variableID: id, range: range, points: points)
     }
 
     @concurrent
@@ -180,16 +220,33 @@ struct PlotView: View {
     }
 }
 
-/// The samples of one sweep, with the runs between gaps.
+/// The samples of one sweep, with the runs between gaps, or why there are none.
 private struct SweepPlot {
+    enum Failure {
+        case missingLine, noRange, undefined
+    }
+
     let variableID: UUID
+    /// The interval of the ruler, which the horizontal axis covers.
+    let range: VariableAdjustmentRange
     let points: [SweepPoint]
     let segments: [[SweepPoint]]
+    let failure: Failure?
 
-    init(variableID: UUID, points: [SweepPoint]) {
+    init(variableID: UUID, range: VariableAdjustmentRange, points: [SweepPoint]) {
         self.variableID = variableID
+        self.range = range
         self.points = points
         segments = VariableSweep.segments(points)
+        failure = segments.isEmpty ? .undefined : nil
+    }
+
+    init(variableID: UUID, failure: Failure) {
+        self.variableID = variableID
+        range = VariableAdjustmentRange(lowerBound: 0, upperBound: 1, step: 1)!
+        points = []
+        segments = []
+        self.failure = failure
     }
 
     func nearest(to x: Double) -> SweepPoint? {

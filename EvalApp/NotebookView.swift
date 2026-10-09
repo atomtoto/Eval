@@ -1,48 +1,40 @@
 import EvalCore
 import SwiftUI
 
-/// One sheet. In regular width, its results occupy an inspector column beside
-/// the formulas; in compact width, Formules mode shows each value under its
-/// formula and Texte mode lists the results after the text.
+/// One sheet, on a single page: its lines, each with the value it asks for,
+/// then the constants and unit symbols the sheet relies on. A line is edited
+/// where it is; a last row adds a line, as in Reminders.
 struct NotebookView: View {
     @Bindable var notebook: NotebookStore
     let createFromExample: (ExampleSheet) -> Void
-    @AppStorage("eval.notebook.editorMode.v1") private var editorMode = NotebookEditorMode.formulas
-    @SceneStorage("eval.showsResults") private var showsResultsColumn = true
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @AppStorage(FormulaInputMode.storageKey) private var inputMode = FormulaInputMode.text
     @Environment(\.undoManager) private var undoManager
-    @FocusState private var isTextFocused: Bool
+    /// The line whose field has the keyboard.
+    @FocusState private var focusedLineID: UUID?
+    /// The line edited in place, from the moment it is touched to the loss of its focus.
+    @State private var editing: NotebookStore.LineEditingSession?
+    @State private var textSelection = FormulaSelectionState()
     @State private var editMode = EditMode.inactive
     @State private var showsHelp = false
-    @State private var showsResultSelection = false
+    @State private var showsSettings = false
+    @State private var showsTextEditor = false
     @State private var showsReferences = false
-    @State private var formulaDraft: FormulaDraft?
     @State private var plotRequest: PlotRequest?
     @State private var showsClearConfirmation = false
     @State private var renaming: SheetRecord?
-    @State private var textSelection = FormulaSelectionState()
     @State private var canUndo = false
     @State private var canRedo = false
 
-    private var usesResultsColumn: Bool {
-        horizontalSizeClass == .regular && showsResultsColumn
-    }
-
-    /// A narrow window never turns the column into a sheet: the results return to the list.
-    private var resultsColumnPresentation: Binding<Bool> {
-        Binding(get: { usesResultsColumn }, set: { isPresented in
-            if horizontalSizeClass == .regular { showsResultsColumn = isPresented }
-        })
-    }
-
     private var isEmpty: Bool {
-        notebook.source.allSatisfy(\.isWhitespace)
+        notebook.formulaLines.isEmpty
     }
 
-    /// The text editor keeps its own undo history for typing, so the sheet’s
-    /// undo steps exist only in Formules mode.
-    private var sheetUndoManager: UndoManager? {
-        editorMode == .formulas ? undoManager : nil
+    /// The row « Nouvelle ligne » stands in for a blank last line being edited,
+    /// whose field shows the same placeholder in the same place.
+    private var showsNewLineRow: Bool {
+        guard !editMode.isEditing else { return false }
+        guard let editing, let last = notebook.formulaLines.last, last.id == editing.lineID else { return true }
+        return !last.entry.source.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
@@ -55,43 +47,28 @@ struct NotebookView: View {
                             .foregroundStyle(.red)
                     }
                 }
-                if editorMode == .text || !isEmpty {
+                if !isEmpty {
                     sheetSection
-                }
-                if editorMode == .text && !isEmpty {
-                    if !usesResultsColumn {
-                        resultsSection
-                        correctionsSection
-                    }
-                    variablesSection
-                }
-                if !isEmpty && !usesResultsColumn {
                     constantsSection
                     symbolUnitsSection
                 }
             }
             .environment(\.editMode, $editMode)
             .scrollDismissesKeyboard(.interactively)
+            // Room for the keyboard bar, which floats over the end of the list.
+            .contentMargins(.bottom, editing == nil ? 0 : 64, for: .scrollContent)
             .overlay {
-                if editorMode == .formulas && isEmpty { emptyState }
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if editorMode == .text && isTextFocused { textResultsStrip }
-            }
-            .inspector(isPresented: resultsColumnPresentation) {
-                List {
-                    if !isEmpty {
-                        resultsSection
-                        if editorMode == .text { correctionsSection }
-                        constantsSection
-                        symbolUnitsSection
-                    }
-                }
-                .inspectorColumnWidth(min: 300, ideal: 360, max: 520)
+                if isEmpty { emptyState }
             }
             .onChange(of: notebook.revealRequest) { _, request in
                 guard let request else { return }
                 withAnimation { proxy.scrollTo(request.lineID, anchor: .center) }
+            }
+            .task(id: focusedLineID) {
+                // Once the keyboard is up, the edited line moves into view above it.
+                guard let lineID = focusedLineID else { return }
+                do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+                withAnimation { proxy.scrollTo(lineID, anchor: UnitPoint(x: 0.5, y: 0.6)) }
             }
         }
         .navigationTitle(notebook.displayTitle)
@@ -100,34 +77,36 @@ struct NotebookView: View {
         .environment(\.editMode, $editMode)
         .focusedSceneValue(\.notebookActions, commandActions)
         .sheet(isPresented: $showsHelp) { HelpView() }
-        .sheet(isPresented: $showsResultSelection) { ResultSelectionView(notebook: notebook, undoManager: sheetUndoManager) }
-        .sheet(isPresented: $showsReferences) {
-            ReferencePickerView { snippet in insertIntoText(snippet) }
-        }
-        .sheet(item: $formulaDraft) { draft in
-            FormulaEditorView(source: draft.source, showsResult: draft.showsResult, isNew: draft.lineID == nil,
-                              variableNames: notebook.declaredNames,
-                              evaluate: { await notebook.evaluatedLine(for: $0, replacing: draft.lineID) }) { expression, showsResult in
-                notebook.saveFormula(expression, lineID: draft.lineID, showsResult: showsResult,
-                                     undoManager: sheetUndoManager)
-            }
+        .sheet(isPresented: $showsSettings) { SettingsView() }
+        .sheet(isPresented: $showsTextEditor) { TextSheetEditor(notebook: notebook, undoManager: undoManager) }
+        .sheet(isPresented: $showsReferences, onDismiss: {
+            // The line keeps its session while the catalog is open: it gets the keyboard back.
+            if let editing { focusedLineID = editing.lineID }
+        }) {
+            ReferencePickerView { snippet in insertIntoLine(snippet) }
         }
         .sheet(item: $plotRequest) { request in
             PlotView(notebook: notebook, request: request)
         }
         .confirmationDialog("Effacer la feuille ?", isPresented: $showsClearConfirmation, titleVisibility: .visible) {
-            Button("Effacer", role: .destructive) { notebook.clear(undoManager: sheetUndoManager) }
+            Button("Effacer", role: .destructive) { notebook.clear(undoManager: undoManager) }
         }
         .sheetRenameAlert($renaming)
         .onAppear {
             undoManager?.levelsOfUndo = 50
             refreshUndoState()
         }
-        .onChange(of: editorMode) {
-            editMode = .inactive
-            notebook.removeUndoSteps(from: undoManager)
-            refreshUndoState()
+        .onChange(of: focusedLineID) { old, new in
+            focusDidChange(from: old, to: new)
         }
+        .onChange(of: editMode) { _, mode in
+            if mode.isEditing {
+                focusedLineID = nil
+                finishEditing()
+                withAnimation(.snappy) { notebook.activeRulerLineID = nil }
+            }
+        }
+        .onDisappear { finishEditing() }
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidCloseUndoGroup)) { _ in refreshUndoState() }
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidUndoChange)) { _ in refreshUndoState() }
         .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { _ in refreshUndoState() }
@@ -140,86 +119,150 @@ struct NotebookView: View {
 
     /// The sheet’s commands for the menu bar and the shortcut overlay.
     private var commandActions: NotebookActions {
-        NotebookActions(
-            editorMode: editorMode,
-            canChooseResults: !notebook.selectableLines.isEmpty,
-            canClear: !isEmpty,
-            toggleResultsColumn: horizontalSizeClass == .regular ? { showsResultsColumn.toggle() } : nil,
-            newLine: newLine,
-            chooseResults: { showsResultSelection = true },
-            setEditorMode: { editorMode = $0 },
-            clear: { showsClearConfirmation = true })
+        NotebookActions(canClear: !isEmpty, newLine: newLine, editAsText: editAsText,
+                        clear: { showsClearConfirmation = true })
     }
 
+    // MARK: Editing in place
+
+    /// A line starts its session when touched; the focus follows.
+    private func startEditing(_ lineID: UUID) {
+        guard !editMode.isEditing else { return }
+        if editing?.lineID == lineID {
+            focusedLineID = lineID
+            return
+        }
+        finishEditing()
+        guard let session = notebook.beginEditing(lineID: lineID) else { return }
+        textSelection = FormulaSelectionState()
+        editing = session
+        focusedLineID = lineID
+    }
+
+    /// Ends the session of the edited line: one undo step, and a blank line goes away.
+    private func finishEditing() {
+        guard let session = editing else { return }
+        editing = nil
+        notebook.endEditing(session, undoManager: undoManager)
+    }
+
+    /// The focus leaving the edited line ends its session, unless the catalog
+    /// of constants took it for a moment. A field focused by other means starts one.
+    private func focusDidChange(from old: UUID?, to new: UUID?) {
+        if let old, old != new, editing?.lineID == old, !showsReferences {
+            finishEditing()
+        }
+        if let new, editing?.lineID != new {
+            startEditing(new)
+        }
+    }
+
+    /// A new blank line at the end of the sheet, edited at once.
     private func newLine() {
-        isTextFocused = false
-        formulaDraft = FormulaDraft()
+        if editMode.isEditing { editMode = .inactive }
+        finishEditing()
+        guard let session = notebook.insertLines([""], at: nil) else { return }
+        textSelection = FormulaSelectionState()
+        editing = session
+        focusedLineID = session.lineID
     }
 
-    private func insertIntoText(_ snippet: FormulaInsertion.Snippet) {
-        var text = notebook.source
+    /// A Return, or a paste of several lines, in the edited line: the line keeps
+    /// the text before the break, the rest goes to new lines below, and the last
+    /// of them is edited. A Return on a blank line only closes it.
+    private func breakLine(_ text: String, lineID: UUID) {
+        let parts = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).map(String.init)
+        guard let first = parts.first, let position = notebook.lineIndex(of: lineID) else { return }
+        let rest = Array(parts.dropFirst())
+        let isBlank = { (line: String) in line.trimmingCharacters(in: .whitespaces).isEmpty }
+        notebook.updateLine(first, lineID: lineID)
+        if isBlank(first) && rest.allSatisfy(isBlank) {
+            focusedLineID = nil
+            return
+        }
+        finishEditing()
+        // A blank first part has just been removed, so the new lines take its place.
+        let removed = notebook.lineIndex(of: lineID) == nil
+        guard let session = notebook.insertLines(rest, at: removed ? position : position + 1) else { return }
+        textSelection = FormulaSelectionState()
+        editing = session
+        // The keyboard moves to the new line through a moment without focus: a direct
+        // move between fields leaves the keyboard without its bar.
+        focusedLineID = nil
+        Task {
+            await Task.yield()
+            if editing?.lineID == session.lineID { focusedLineID = session.lineID }
+        }
+    }
+
+    /// The keyboard bar of the edited line.
+    private var lineKeyboard: LineKeyboard {
+        LineKeyboard(variableNames: notebook.declaredNames, insert: insertIntoLine,
+                     showReferences: { showsReferences = true }, done: { focusedLineID = nil })
+    }
+
+    private func insertIntoLine(_ snippet: FormulaInsertion.Snippet) {
+        guard let lineID = editing?.lineID, var text = notebook.lineSource(of: lineID) else { return }
         textSelection.insert(snippet, into: &text)
-        notebook.source = text
+        notebook.updateLine(text, lineID: lineID)
+    }
+
+    private func editAsText() {
+        focusedLineID = nil
+        finishEditing()
+        showsTextEditor = true
+    }
+
+    /// Undo and Redo of the menu apply to whole lines: the line being edited is validated first.
+    private func undo() {
+        focusedLineID = nil
+        finishEditing()
+        undoManager?.undo()
+    }
+
+    private func redo() {
+        focusedLineID = nil
+        finishEditing()
+        undoManager?.redo()
     }
 
     // MARK: Sheet
 
     private var sheetSection: some View {
         Section {
-            if editorMode == .text {
-                // A vertical field grows with its text instead of scrolling inside a fixed box.
-                FormulaTextField(title: "Une formule par ligne", text: $notebook.source,
-                                 selection: textSelection, axis: .vertical)
-                    .font(.body.monospaced())
-                    .lineLimit(6...)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .focused($isTextFocused)
-                    .accessibilityLabel("Feuille de formules")
-                    .accessibilityHint("Une formule ou une déclaration par ligne. Les unités suivent les valeurs, séparées par un espace.")
-            } else {
-                ForEach(notebook.formulaLines) { item in
-                    FormulaRowView(notebook: notebook, item: item, showsInlineResult: !usesResultsColumn,
-                                   edit: { formulaDraft = $0 }, plot: { plotRequest = $0 })
-                }
-                .onMove { offsets, destination in
-                    notebook.moveLines(fromOffsets: offsets, toOffset: destination, undoManager: sheetUndoManager)
-                }
-                .onDelete { offsets in
-                    notebook.removeLines(atOffsets: offsets, undoManager: sheetUndoManager)
-                }
+            ForEach(notebook.formulaLines) { item in
+                FormulaRowView(notebook: notebook, item: item, isEditing: editing?.lineID == item.id,
+                               inputMode: inputMode, focus: $focusedLineID, selection: textSelection,
+                               keyboard: lineKeyboard, edit: startEditing,
+                               breakLine: { breakLine($0, lineID: item.id) },
+                               plot: { plotRequest = $0 })
             }
-        } header: {
-            Text("Feuille de calcul")
+            .onMove { offsets, destination in
+                notebook.moveLines(fromOffsets: offsets, toOffset: destination, undoManager: undoManager)
+            }
+            .onDelete { offsets in
+                notebook.removeLines(atOffsets: offsets, undoManager: undoManager)
+            }
+            if showsNewLineRow {
+                Button(action: newLine) {
+                    Label("Nouvelle ligne", systemImage: "plus")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Ajoute une ligne à la fin de la feuille.")
+            }
         } footer: {
             Text(sheetFooter)
         }
     }
 
     private var sheetFooter: LocalizedStringKey {
-        if editorMode == .text {
-            return "Une ligne par formule ou variable. Les déclarations peuvent précéder ou suivre les formules. Choisissez les lignes à afficher dans Résultats."
-        }
         if editMode.isEditing {
             return "Faites glisser les lignes pour les réorganiser, puis touchez Terminé. L’ordre n’influe pas sur le calcul."
         }
-        return "Touchez une ligne pour la modifier ou composer une fraction. Appuyez longuement pour afficher son résultat, la copier ou la dupliquer. Glissez le curseur d’une variable pour ajuster sa valeur."
-    }
-
-    private var variablesSection: some View {
-        Section {
-            if !notebook.adjustableVariables.isEmpty {
-                ForEach(notebook.adjustableVariables) { item in
-                    NotebookVariableControl(notebook: notebook, id: item.id, variable: item.variable)
-                }
-            }
-        } header: {
-            if !notebook.adjustableVariables.isEmpty { Text("Ajuster les variables") }
-        } footer: {
-            if !notebook.adjustableVariables.isEmpty {
-                Text("Glissez pour modifier les valeurs numériques. Les unités saisies sont conservées et les résultats se mettent à jour pendant le réglage.")
-            }
-        }
+        return "Touchez une ligne pour la modifier. Terminez-la par = pour afficher sa valeur, comme E =. Maintenez une valeur teintée pour la régler avec la réglette."
     }
 
     // MARK: Empty sheet
@@ -238,63 +281,7 @@ struct NotebookView: View {
         }
     }
 
-    // MARK: Results
-
-    @ViewBuilder
-    private var resultsSection: some View {
-        Section {
-            if notebook.displayedResults.isEmpty && !notebook.hasEvaluation {
-                ProgressView("Mise à jour des résultats…")
-            } else if notebook.displayedResults.isEmpty {
-                ContentUnavailableView {
-                    Label("Aucun résultat choisi", systemImage: "checklist")
-                } description: {
-                    Text("Choisissez les formules ou variables dont vous souhaitez voir le résultat.")
-                } actions: {
-                    Button("Choisir les résultats") { showsResultSelection = true }
-                        .disabled(notebook.selectableLines.isEmpty)
-                }
-            } else {
-                ForEach(notebook.displayedResults) { result in
-                    ResultRow(result: result, showsLineNumber: editorMode == .formulas)
-                        .contextMenu {
-                            Button("Masquer ce résultat", systemImage: "eye.slash") {
-                                notebook.setResultDisplayed(false, lineID: result.id, undoManager: sheetUndoManager)
-                            }
-                            DisplayUnitMenu(line: result.line, source: result.entry.source) { symbol in
-                                notebook.setDisplayUnit(symbol, lineID: result.id, undoManager: sheetUndoManager)
-                            }
-                            PlotMenu(notebook: notebook, lineID: result.id, source: result.entry.source) {
-                                plotRequest = $0
-                            }
-                        }
-                        .accessibilityActions {
-                            Button("Masquer ce résultat") {
-                                notebook.setResultDisplayed(false, lineID: result.id, undoManager: sheetUndoManager)
-                            }
-                            DisplayUnitActions(line: result.line, source: result.entry.source) { symbol in
-                                notebook.setDisplayUnit(symbol, lineID: result.id, undoManager: sheetUndoManager)
-                            }
-                        }
-                }
-            }
-        } header: {
-            Text("Résultats")
-        } footer: {
-            Text("Seules les lignes choisies sont affichées ici. Les autres continuent de participer au calcul. Les résultats sont exprimés en unités SI, sauf conversion demandée avec →.")
-        }
-    }
-
-    @ViewBuilder
-    private var correctionsSection: some View {
-        if !notebook.hiddenErrors.isEmpty {
-            Section("À corriger") {
-                ForEach(notebook.hiddenErrors) { result in
-                    ResultRow(result: result, showsLineNumber: editorMode == .formulas)
-                }
-            }
-        }
-    }
+    // MARK: Constants and units
 
     @ViewBuilder
     private var constantsSection: some View {
@@ -345,54 +332,10 @@ struct NotebookView: View {
         }
     }
 
-    /// While typing in Texte mode the keyboard hides the results below the
-    /// editor, so the values stay within sight above it.
-    @ViewBuilder
-    private var textResultsStrip: some View {
-        let failures = notebook.hiddenErrors.count
-            + notebook.displayedResults.filter { $0.line?.status == .error }.count
-        let values = notebook.displayedResults.compactMap { result -> (id: UUID, text: String, spoken: String)? in
-            guard let line = result.line, let value = line.formattedValue else { return nil }
-            return (result.id, ResultText.line(source: result.entry.source, value: value),
-                    ResultText.spokenLine(source: result.entry.source, spokenValue: line.spokenResult ?? value))
-        }
-        if !values.isEmpty || failures > 0 {
-            ScrollView(.horizontal) {
-                HStack(spacing: 16) {
-                    ForEach(values, id: \.id) { value in
-                        Text(value.text)
-                            .font(.callout.monospacedDigit())
-                            .accessibilityLabel(value.spoken)
-                    }
-                    if failures > 0 {
-                        Label("\(failures) à corriger", systemImage: "exclamationmark.triangle")
-                            .font(.callout)
-                            .foregroundStyle(.red)
-                    }
-                }
-                .padding(.horizontal)
-            }
-            .scrollIndicators(.hidden)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.bar)
-            .accessibilityElement(children: .combine)
-        }
-    }
-
     // MARK: Toolbar
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        if horizontalSizeClass == .regular {
-            ToolbarItem(placement: .topBarTrailing) {
-                Toggle(isOn: $showsResultsColumn) {
-                    Label("Résultats", systemImage: "sidebar.trailing")
-                }
-                .toggleStyle(.button)
-                .accessibilityHint("Affiche les résultats dans une colonne à côté de la feuille.")
-            }
-        }
         if notebook.isEvaluating {
             ToolbarItem(placement: .topBarTrailing) {
                 ProgressView()
@@ -411,26 +354,17 @@ struct NotebookView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                if editorMode == .formulas {
-                    Section {
-                        Button("Annuler", systemImage: "arrow.uturn.backward") { undoManager?.undo() }
-                            .disabled(!canUndo)
-                        Button("Rétablir", systemImage: "arrow.uturn.forward") { undoManager?.redo() }
-                            .disabled(!canRedo)
-                    }
-                }
-                Picker("Mode de saisie", selection: $editorMode) {
-                    ForEach(NotebookEditorMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-                .pickerStyle(.inline)
                 Section {
-                    if editorMode == .formulas && !isEmpty {
+                    Button("Annuler", systemImage: "arrow.uturn.backward", action: undo)
+                        .disabled(!canUndo && editing == nil)
+                    Button("Rétablir", systemImage: "arrow.uturn.forward", action: redo)
+                        .disabled(!canRedo)
+                }
+                Section {
+                    if !isEmpty {
                         Button("Réorganiser", systemImage: "arrow.up.arrow.down") { editMode = .active }
                     }
-                    Button("Choisir les résultats", systemImage: "checklist") { showsResultSelection = true }
-                        .disabled(notebook.selectableLines.isEmpty)
+                    Button("Modifier en texte", systemImage: "text.alignleft", action: editAsText)
                     Button("Renommer", systemImage: "pencil") { renaming = notebook.record }
                     Menu("Nouvelle à partir d’un exemple", systemImage: "text.book.closed") {
                         ExampleMenuContent(choose: createFromExample)
@@ -451,15 +385,12 @@ struct NotebookView: View {
                     .disabled(isEmpty)
                 }
                 Section {
+                    Button("Réglages", systemImage: "gearshape") { showsSettings = true }
                     Button("Aide", systemImage: "questionmark.circle") { showsHelp = true }
                 }
             } label: {
                 Label("Actions de la feuille", systemImage: "ellipsis.circle")
             }
         }
-        FormulaKeyboardToolbar(insertsSymbols: FormulaSelectionState.tracksCaret && editorMode == .text,
-                               variableNames: notebook.declaredNames, insert: insertIntoText,
-                               showReferences: { isTextFocused = false; showsReferences = true },
-                               done: { isTextFocused = false })
     }
 }

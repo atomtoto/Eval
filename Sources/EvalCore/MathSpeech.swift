@@ -21,11 +21,24 @@ public enum MathSpeech {
                 guard let target = line.conversion, !target.isEmpty else { return nil }
                 parts.append("affiché en " + (try unitPhrase(target, plural: true)))
             }
+            // « a égale » announces the value that the app reads next, after any conversion:
+            // « v, affiché en kilomètres par heure, égale ». A declared literal already states it.
+            if line.requestsResult, line.separatorRange == nil || line.definitionName != nil, !declaresLiteral(source, line) {
+                if line.arrowRange == nil { parts[0] += " égale" } else { parts.append("égale") }
+            }
             if let note { parts.append(note) }
             return parts.joined(separator: ", ")
         } catch {
             return nil
         }
+    }
+
+    /// `m = 80 kg`: a name set to a number with units, whose sentence already says its value.
+    private static func declaresLiteral(_ source: String, _ line: LineSyntax) -> Bool {
+        guard line.definitionName != nil, line.separatorCount == 1, let separator = line.separatorRange else { return false }
+        let value = source[separator.upperBound..<line.bodyRange.upperBound].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard var parser = try? ExpressionParser(value), let expression = try? parser.parse() else { return false }
+        return AdjustableVariable.isLiteralWithUnits(expression)
     }
 
     private static func sentence(_ source: String, _ line: LineSyntax, _ body: String) throws -> String {

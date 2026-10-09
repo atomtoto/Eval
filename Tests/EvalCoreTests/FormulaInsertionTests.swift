@@ -35,6 +35,23 @@ struct FormulaInsertionTests {
         #expect(insert(.function("sqrt"), "x = ", 4) == "x = sqrt(|)")
     }
 
+    @Test func fractionTemplatesWrapTheSelection() {
+        #expect(insert(.fraction, "E = ", 4) == "E = (|)/()")
+        #expect(insert(.fraction, "x = m", 4, 5) == "x = m/(|)")
+        #expect(insert(.fraction, "x = a + b", 4, 9) == "x = (a + b)/(|)")
+        #expect(insert(.fraction, "(a) + (b)", 0, 9) == "((a) + (b))/(|)")
+        #expect(insert(.fraction, "(a + b)", 0, 7) == "(a + b)/(|)")
+        #expect(insert(.fraction, "2", 1) == "2 * (|)/()")
+        #expect(insert(.fraction, "a b", 0, 1) == "a/(|) b")
+    }
+
+    @Test func powerTemplatesWrapTheSelection() {
+        #expect(insert(.power, "v", 1) == "v^(|)")
+        #expect(insert(.power, "x = a + b", 4, 9) == "x = (a + b)^(|)")
+        #expect(insert(.power, "t", 0, 1) == "t^(|)")
+        #expect(insert(.power, "v m", 1) == "v^(|) m")
+    }
+
     @Test func selectionIsReplaced() {
         #expect(insert(.name("π"), "2 * x", 4, 5) == "2 * π|")
         #expect(insert(.operator("/"), "a b", 1, 2) == "a / |b")

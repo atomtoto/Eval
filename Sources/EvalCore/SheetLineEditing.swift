@@ -53,34 +53,25 @@ public enum ResultText {
         return "\(content) = \(value)"
     }
 
-    /// The name a line declares with `name = …`; nil for expressions and `==` comparisons.
+    /// The name a line declares with `name = …`; nil for expressions, queries such as
+    /// `a =` and `==` comparisons.
     public static func declaredName(in source: String) -> String? {
-        let content = withoutComment(source)
-        guard !content.contains("=="), let separator = content.firstIndex(of: "=") else { return nil }
-        let name = content[..<separator].trimmingCharacters(in: .whitespaces)
-        return ExpressionParser.isIdentifier(name) ? name : nil
+        LineSyntax(source).definitionName
     }
 
-    /// The sheet as text for sharing. Each line with a value gets it as a
-    /// trailing note, `E = 0,5 * m * v²  # = 1000 J`, so the text still opens
-    /// as a sheet. Lines that already have a note keep it.
+    /// The sheet as text for sharing. The caller gives a value to the lines that
+    /// request one (`E =`); each gets it as a trailing note, `E = 0,5 * m * v² =  # 1000 J`,
+    /// so the text still opens as a sheet. Lines that already have a note keep it.
     public static func sharedSheet(_ lines: [(source: String, value: String?)]) -> String {
         lines.map { line in
             guard let value = line.value, !hasComment(line.source),
                   !line.source.trimmingCharacters(in: .whitespaces).isEmpty else { return line.source }
             let trimmed = line.source.replacingOccurrences(of: #"\s+$"#, with: "", options: .regularExpression)
-            return "\(trimmed)  # = \(value)"
+            return "\(trimmed)  # \(value)"
         }.joined(separator: "\n")
     }
 
     private static func hasComment(_ source: String) -> Bool {
         source.contains("#") || source.contains("//")
-    }
-
-    private static func withoutComment(_ source: String) -> String {
-        var end = source.endIndex
-        if let marker = source.firstIndex(of: "#") { end = min(end, marker) }
-        if let marker = source.range(of: "//")?.lowerBound { end = min(end, marker) }
-        return String(source[..<end])
     }
 }

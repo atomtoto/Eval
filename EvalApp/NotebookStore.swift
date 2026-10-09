@@ -4,8 +4,8 @@ import Observation
 
 /// The editing session of one sheet. Windows showing the same sheet share it.
 ///
-/// Derived data is computed once per change of the source, the result choice
-/// or the evaluation, never while a view renders. Results are attached to the
+/// Derived data is computed once per change of the source or the evaluation,
+/// never while a view renders. Results are attached to the
 /// identity of their line, so a line keeps showing its last value while it is
 /// edited, moved or while lines are inserted above it.
 @MainActor
@@ -44,14 +44,15 @@ final class NotebookStore {
     private(set) var displayTitle: String
 
     // Derived data.
+    /// The lines shown in the sheet: every line but blank ones, unless a blank
+    /// line is being edited.
     private(set) var formulaLines: [IndexedFormulaLine] = []
     private(set) var adjustableVariables: [NotebookVariable] = []
     private(set) var variablesByLineID: [UUID: AdjustableVariable] = [:]
-    /// Lines that can show a result: everything except empty lines and notes.
-    private(set) var selectableLines: [LineResult] = []
-    private(set) var displayedResults: [LineResult] = []
-    /// Hidden lines whose last evaluation failed.
-    private(set) var hiddenErrors: [LineResult] = []
+    /// The line whose ruler is open, at most one. A long press on its value toggles it.
+    var activeRulerLineID: UUID?
+    /// Lines being edited in place, shown even while blank.
+    private(set) var editingLineIDs: Set<UUID> = []
     /// A problem with the whole sheet, such as its length.
     private(set) var sheetIssue: String?
     private(set) var resultPreview: String?
@@ -151,29 +152,98 @@ final class NotebookStore {
 
     // MARK: Lines
 
-    /// Adds a line at the end and asks the sheet view to show it.
+    /// Adds a line at the end and asks the sheet view to show it. By default the
+    /// line asks for its value with a final `=`, so an inserted constant shows it.
     @discardableResult
-    func append(_ expression: String, showsResult: Bool = true) -> UUID? {
-        source += source.isEmpty || source.hasSuffix("\n") ? expression : "\n\(expression)"
-        let index = resultSelection.entries.count - 1
-        setResultDisplayed(showsResult, at: index)
-        guard resultSelection.entries.indices.contains(index) else { return nil }
-        let id = resultSelection.entries[index].id
+    func append(_ expression: String, requestsResult: Bool = true) -> UUID? {
+        let line = requestsResult ? LineSyntax(expression).addingResultRequest() : expression
+        source += source.isEmpty || source.hasSuffix("\n") ? line : "\n\(line)"
+        guard let id = resultSelection.entries.last?.id else { return nil }
         revealRequest = RevealRequest(lineID: id)
         return id
     }
 
-    func saveFormula(_ expression: String, lineID: UUID?, showsResult: Bool, undoManager: UndoManager? = nil) {
-        let isNew = lineID.flatMap { lineIndexByID[$0] } == nil
-        recording(isNew ? "Ajouter une formule" : "Modifier la formule", undoManager: undoManager) {
-            guard let lineID, let index = lineIndexByID[lineID] else {
-                append(expression, showsResult: showsResult)
-                return
-            }
-            resultSelection.updateSource(expression, at: index)
-            source = joinedSource
-            setResultDisplayed(showsResult, at: index)
+    // MARK: Editing in place
+
+    /// One editing session of a line, from the focus to its loss: one undo step.
+    struct LineEditingSession: Equatable {
+        let lineID: UUID
+        /// True for a line created for this session, which disappears if left blank.
+        let isNew: Bool
+        fileprivate let before: SheetState
+    }
+
+    /// Starts editing a line: it stays visible while blank, and the ruler closes.
+    func beginEditing(lineID: UUID) -> LineEditingSession? {
+        guard lineIndexByID[lineID] != nil else { return nil }
+        let session = LineEditingSession(lineID: lineID, isNew: false, before: state)
+        activeRulerLineID = nil
+        editingLineIDs.insert(lineID)
+        return session
+    }
+
+    /// Inserts blank lines, or the given ones, after `lineID` (at the end for nil)
+    /// and starts editing the last of them.
+    func insertLines(_ sources: [String] = [""], after lineID: UUID?) -> LineEditingSession? {
+        insertLines(sources, at: lineID.flatMap { lineIndexByID[$0] }.map { $0 + 1 })
+    }
+
+    /// Inserts lines at a position of the sheet (at the end for nil) and starts
+    /// editing the last of them.
+    func insertLines(_ sources: [String], at position: Int?) -> LineEditingSession? {
+        let before = state
+        // A blank last line, hidden in the sheet, takes the new text rather than staying above it.
+        if position == nil, sources.count == 1, let last = resultSelection.entries.last,
+           !editingLineIDs.contains(last.id), last.source.trimmingCharacters(in: .whitespaces).isEmpty {
+            activeRulerLineID = nil
+            editingLineIDs.insert(last.id)
+            refreshLines()
+            updateLine(sources[0], lineID: last.id)
+            revealRequest = RevealRequest(lineID: last.id)
+            return LineEditingSession(lineID: last.id, isNew: true, before: before)
         }
+        var index = min(position ?? resultSelection.entries.count, resultSelection.entries.count)
+        var lastID: UUID?
+        for line in sources {
+            let entry = ResultSelection.Entry(source: line)
+            guard let inserted = resultSelection.inserting(entry, at: index) else { continue }
+            resultSelection = inserted
+            lastID = entry.id
+            index += 1
+        }
+        guard let lastID else { return nil }
+        activeRulerLineID = nil
+        editingLineIDs.insert(lastID)
+        setSource(joinedSource, evaluatesImmediately: false)
+        revealRequest = RevealRequest(lineID: lastID)
+        return LineEditingSession(lineID: lastID, isNew: true, before: before)
+    }
+
+    /// The live text of a line being edited. A single line only: see `splitLine`.
+    func updateLine(_ text: String, lineID: UUID) {
+        guard let index = lineIndexByID[lineID], resultSelection.entries[index].source != text,
+              !text.contains(where: \.isNewline) else { return }
+        resultSelection.updateSource(text, at: index)
+        setSource(joinedSource, evaluatesImmediately: false)
+    }
+
+    /// Ends an editing session: a line left blank is removed, then the whole
+    /// session becomes one undo step.
+    func endEditing(_ session: LineEditingSession, undoManager: UndoManager?) {
+        editingLineIDs.remove(session.lineID)
+        guard let index = lineIndexByID[session.lineID] else {
+            refreshLines()
+            return
+        }
+        var removed = false
+        if resultSelection.entries[index].source.trimmingCharacters(in: .whitespaces).isEmpty {
+            resultSelection.removeEntry(at: index)
+            removed = true
+            setSource(joinedSource, evaluatesImmediately: false)
+        }
+        refreshLines()
+        let name = session.isNew ? "Ajouter une ligne" : removed ? "Supprimer la ligne" : "Modifier la ligne"
+        registerUndo(restoring: session.before, named: name, undoManager: undoManager)
     }
 
     func removeLine(id: UUID, undoManager: UndoManager? = nil) {
@@ -206,17 +276,20 @@ final class NotebookStore {
         }
     }
 
-    /// Copies a formula or expression right below itself. A declaration is not
-    /// duplicated, since a name can be declared only once: the editor handles it.
-    func duplicateLine(id: UUID, undoManager: UndoManager? = nil) {
+    /// Copies a line right below itself and returns the copy, which the sheet
+    /// opens for editing: a declaration's copy needs another name.
+    @discardableResult
+    func duplicateLine(id: UUID, undoManager: UndoManager? = nil) -> UUID? {
         guard let index = lineIndexByID[id],
               let inserted = resultSelection.inserting(ResultSelection.Entry(source: resultSelection.entries[index].source),
-                                                       at: index + 1) else { return }
+                                                       at: index + 1) else { return nil }
+        let copyID = inserted.entries[index + 1].id
         recording("Dupliquer la ligne", undoManager: undoManager) {
             resultSelection = inserted
             source = joinedSource
-            revealRequest = RevealRequest(lineID: inserted.entries[index + 1].id)
+            revealRequest = RevealRequest(lineID: copyID)
         }
+        return copyID
     }
 
     /// Shows the result of a line in another unit with `→`, or in SI (nil), keeping
@@ -242,32 +315,16 @@ final class NotebookStore {
         lineIndexByID[lineID].map { resultSelection.entries[$0].source }
     }
 
-    /// The ruler variables a result can be plotted against: all but the line itself.
+    /// The ruler variables a result can be plotted against: those it depends on,
+    /// according to its last evaluation, except the line itself.
     func plotVariables(for lineID: UUID) -> [NotebookVariable] {
-        adjustableVariables.filter { $0.id != lineID }
+        let dependencies = resultsByLineID[lineID]?.dependencies ?? []
+        return adjustableVariables.filter { $0.id != lineID && dependencies.contains($0.variable.name) }
     }
 
-    /// Evaluates the sheet with a draft in place of a line (or after the last
-    /// one for a new line), away from the main thread, and returns that line.
-    /// The editor uses it to know the dimension of a draft.
-    func evaluatedLine(for draft: String, replacing lineID: UUID?) async -> EvaluatedLine? {
-        var lines = resultSelection.entries.map(\.source)
-        let index: Int
-        if let lineID, let existing = lineIndexByID[lineID] {
-            index = existing
-            lines[index] = draft
-        } else {
-            index = lines.count
-            lines.append(draft)
-        }
-        let evaluation = await Self.evaluate(lines.joined(separator: "\n"))
-        return evaluation.lines.indices.contains(index) ? evaluation.lines[index] : nil
-    }
-
-    /// Whether the line is a declaration, whose copy would redeclare its name.
-    func isDeclaration(lineID: UUID) -> Bool {
-        guard let index = lineIndexByID[lineID] else { return false }
-        return ResultText.declaredName(in: resultSelection.entries[index].source) != nil
+    /// Opens the ruler of a line, or closes it when it is already open.
+    func toggleRuler(lineID: UUID) {
+        activeRulerLineID = activeRulerLineID == lineID ? nil : lineID
     }
 
     func clear(undoManager: UndoManager? = nil) {
@@ -276,42 +333,15 @@ final class NotebookStore {
         }
     }
 
-    /// The sheet as text, with the displayed values as trailing notes.
+    /// The sheet as text, with the requested values as trailing notes.
     func sharedText(includingResults: Bool) -> String {
-        let values: [UUID: String] = includingResults
-            ? Dictionary(uniqueKeysWithValues: displayedResults.compactMap { item in
-                guard item.isCurrent, let value = item.line?.formattedValue else { return nil }
-                return (item.id, value)
-            })
-            : [:]
-        return ResultText.sharedSheet(resultSelection.entries.map { (source: $0.source, value: values[$0.id]) })
-    }
-
-    // MARK: Results
-
-    func setResultDisplayed(_ selected: Bool, lineID: UUID, undoManager: UndoManager? = nil) {
-        guard let index = lineIndexByID[lineID] else { return }
-        recording(selected ? "Afficher le résultat" : "Masquer le résultat", undoManager: undoManager) {
-            setResultDisplayed(selected, at: index)
-        }
-    }
-
-    func setResultDisplayed(_ selected: Bool, at index: Int) {
-        guard resultSelection.entries.indices.contains(index),
-              resultSelection.isSelected(at: index) != selected else { return }
-        resultSelection.setSelected(selected, at: index)
-        refreshResults()
-        recordDidChange()
-    }
-
-    /// Selectable lines are known from the text alone, so no evaluation is needed.
-    func selectAllResults(_ selected: Bool, undoManager: UndoManager? = nil) {
-        recording(selected ? "Afficher tous les résultats" : "Masquer tous les résultats", undoManager: undoManager) {
-            let indices = selectableLines.map(\.index)
-            resultSelection.setAllSelected(selected, selectableLineIDs: Set(indices))
-            refreshResults()
-            recordDidChange()
-        }
+        ResultText.sharedSheet(resultSelection.entries.map { entry in
+            guard includingResults, let line = resultsByLineID[entry.id], line.source == entry.source,
+                  line.requestsValue, line.kind != .equation, line.status == .success else {
+                return (source: entry.source, value: nil)
+            }
+            return (source: entry.source, value: line.formattedValue)
+        })
     }
 
     // MARK: Undo
@@ -422,7 +452,7 @@ final class NotebookStore {
         onChange(record)
     }
 
-    /// Rebuilds what depends on the lines themselves, then the results.
+    /// Rebuilds what depends on the lines themselves, then the preview.
     private func refreshLines() {
         var cache: [String: AdjustableVariable?] = [:]
         var indices: [UUID: Int] = [:]
@@ -431,7 +461,7 @@ final class NotebookStore {
         var variablesByID: [UUID: AdjustableVariable] = [:]
         for (index, entry) in resultSelection.entries.enumerated() {
             indices[entry.id] = index
-            if !entry.source.trimmingCharacters(in: .whitespaces).isEmpty {
+            if editingLineIDs.contains(entry.id) || !entry.source.trimmingCharacters(in: .whitespaces).isEmpty {
                 formulas.append(IndexedFormulaLine(index: index, entry: entry))
             }
             let variable: AdjustableVariable?
@@ -451,40 +481,22 @@ final class NotebookStore {
         if formulaLines != formulas { formulaLines = formulas }
         adjustableVariables = variables
         variablesByLineID = variablesByID
-        refreshResults()
+        if let ruler = activeRulerLineID, variablesByID[ruler] == nil { activeRulerLineID = nil }
+        refreshPreview()
     }
 
-    /// Rebuilds the result lists from the current lines and their last results.
-    private func refreshResults() {
-        var selectable: [LineResult] = []
-        var displayed: [LineResult] = []
-        var errors: [LineResult] = []
+    /// The preview of the sheet list: the first line that asks for its value and has a current one.
+    private func refreshPreview() {
         var preview: SheetRecord.ResultPreview?
-        for (index, entry) in resultSelection.entries.enumerated() where Self.canShowResult(entry.source) {
-            let item = LineResult(entry: entry, index: index, line: resultsByLineID[entry.id])
-            selectable.append(item)
-            if entry.isSelected {
-                displayed.append(item)
-                if preview == nil, item.isCurrent, let line = item.line {
-                    preview = SheetRecord.previewWithSpeech(of: line)
-                }
-            } else if item.line?.status == .error {
-                errors.append(item)
-            }
+        for entry in resultSelection.entries {
+            guard let line = resultsByLineID[entry.id], line.source == entry.source,
+                  line.requestsValue, line.kind != .equation,
+                  let found = SheetRecord.previewWithSpeech(of: line) else { continue }
+            preview = found
+            break
         }
-        selectableLines = selectable
-        displayedResults = displayed
-        hiddenErrors = errors
         if resultPreview != preview?.text { resultPreview = preview?.text }
         if spokenResultPreview != preview?.spoken { spokenResultPreview = preview?.spoken }
-    }
-
-    /// Mirrors the engine: a line without content outside its note has no result.
-    private static func canShowResult(_ source: String) -> Bool {
-        var end = source.endIndex
-        if let marker = source.firstIndex(of: "#") { end = min(end, marker) }
-        if let marker = source.range(of: "//")?.lowerBound { end = min(end, marker) }
-        return source[..<end].contains { !$0.isWhitespace }
     }
 
     // MARK: Evaluation
@@ -561,7 +573,7 @@ final class NotebookStore {
         let names = evaluation.variables.map(\.name).sorted()
         if declaredNames != names { declaredNames = names }
         hasEvaluation = true
-        refreshResults()
+        refreshPreview()
         // An evaluation that a newer edit already supersedes stays silent.
         if announcesNextEvaluation && pendingSnapshot == nil {
             announcesNextEvaluation = false
@@ -569,14 +581,15 @@ final class NotebookStore {
         }
     }
 
-    /// What a VoiceOver user cannot see change: the first chosen results, at most three.
-    /// A ruler’s own line is left out, since its new value was just read.
+    /// What a VoiceOver user cannot see change: the first requested results and
+    /// errors, at most three. A ruler’s own line is left out, since its new value was just read.
     private func announceResults() {
-        let phrases = displayedResults.compactMap { item -> String? in
-            guard item.isCurrent, let line = item.line, variablesByLineID[item.id] == nil else { return nil }
-            if line.status == .error { return String(localized: "Erreur à la ligne \(item.index + 1)") }
-            guard let spoken = line.spokenResult else { return nil }
-            return ResultText.spokenLine(source: item.entry.source, spokenValue: spoken)
+        let phrases = resultSelection.entries.enumerated().compactMap { index, entry -> String? in
+            guard let line = resultsByLineID[entry.id], line.source == entry.source,
+                  variablesByLineID[entry.id] == nil else { return nil }
+            if line.status == .error { return String(localized: "Erreur à la ligne \(index + 1)") }
+            guard line.requestsValue, line.kind != .equation, let spoken = line.spokenResult else { return nil }
+            return ResultText.spokenLine(source: entry.source, spokenValue: spoken)
         }
         guard !phrases.isEmpty else { return }
         VoiceOverAnnouncement.post(phrases.prefix(3).joined(separator: ". "))
@@ -609,20 +622,6 @@ final class NotebookStore {
 struct RevealRequest: Equatable {
     let id = UUID()
     let lineID: UUID
-}
-
-/// A line that can show a result, with its last evaluation.
-struct LineResult: Identifiable {
-    let entry: ResultSelection.Entry
-    /// The current position of the line in the sheet.
-    let index: Int
-    /// The last evaluation of this line; nil until the line is first evaluated.
-    let line: EvaluatedLine?
-
-    var id: UUID { entry.id }
-
-    /// False while the shown value belongs to an earlier text of the line.
-    var isCurrent: Bool { line?.source == entry.source }
 }
 
 struct NotebookVariable: Identifiable {

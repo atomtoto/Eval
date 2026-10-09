@@ -68,8 +68,28 @@ final class LineSyntaxTests: XCTestCase {
         XCTAssertEqual(LineSyntax("a === b").separatorCount, 2)
         XCTAssertTrue(LineSyntax("a === b").isComparison)
         XCTAssertNil(LineSyntax("a -> b = 3").separatorRange)
-        XCTAssertEqual(LineSyntax("x = # y = 2").separatorCount, 1)
-        XCTAssertEqual(LineSyntax("x =").definitionName, "x")
+        // `x =` before a comment is a request: it leaves no separator.
+        XCTAssertEqual(LineSyntax("x = # y = 2").separatorCount, 0)
+        XCTAssertEqual(LineSyntax("x = 1 # y = 2").separatorCount, 1)
+        // `x =` is a query of x, not a declaration with a missing value.
+        XCTAssertNil(LineSyntax("x =").definitionName)
+        XCTAssertTrue(LineSyntax("x =").requestsResult)
+    }
+
+    func testComparisonOperatorsAreNotResultRequests() {
+        for source in ["a !=", "a <=", "a >=", "a != # c", "a<=", "a >= b <="] {
+            let line = LineSyntax(source)
+            XCTAssertFalse(line.requestsResult, source)
+            XCTAssertNil(line.resultRequestRange, source)
+        }
+        for source in ["a <= b =", "a >= b = # c", "a ="] {
+            XCTAssertTrue(LineSyntax(source).requestsResult, source)
+        }
+        for source in ["a = 1\na !=", "a = 1\na <=", "a = 1\na >="] {
+            let line = NotebookEngine.evaluate(source).lines[1]
+            XCTAssertEqual(line.status, .error, source)
+            XCTAssertFalse(line.requestsValue, source)
+        }
     }
 
     func testEmptyConversionKeepsItsPosition() throws {

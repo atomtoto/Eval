@@ -12,6 +12,9 @@ public indirect enum MathFormula: Sendable, Equatable {
     /// A radical with its index tucked at the upper left, as in ∛x.
     case root(index: MathFormula, radicand: MathFormula)
     case parentheses(MathFormula)
+    /// The value of a declaration that can be adjusted (`80 kg` in `m = 80 kg`), so
+    /// that a view can make it touchable. It draws like its content.
+    case value(MathFormula)
 }
 
 public enum MathNotation {
@@ -41,7 +44,11 @@ public enum MathNotation {
                     // The unknown is drawn as a question mark, followed by its unit.
                     result = row([left, .atom(" = "), .atom("?")] + (unit.isEmpty ? [] : [.atom(" "), try parse(unit)]))
                 } else {
-                    result = row([left, .atom(" = "), try parse(rightSource)])
+                    var right = try parse(rightSource)
+                    if line.definitionName != nil, !line.isComparison, AdjustableVariable(source: source) != nil {
+                        right = .value(right)
+                    }
+                    result = row([left, .atom(" = "), right])
                 }
             } else {
                 result = try parse(body)
@@ -49,6 +56,10 @@ public enum MathNotation {
             if line.arrowRange != nil {
                 guard let target = line.conversion, !target.isEmpty else { return nil }
                 result = row([result, .atom(" → "), try parse(target)])
+            }
+            // The request ends the line; an equality has no value to show, so it drops it.
+            if line.requestsResult, line.separatorRange == nil || line.definitionName != nil {
+                result = row([result, .atom(" =")])
             }
             return result
         } catch {

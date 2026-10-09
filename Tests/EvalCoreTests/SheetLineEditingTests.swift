@@ -67,6 +67,17 @@ struct SheetLineEditingTests {
         #expect(ResultText.line(source: "v = ? m/s", value: "5 m/s") == "v = 5 m/s")
     }
 
+    @Test func resultLinesOfRequests() {
+        #expect(ResultText.line(source: "a =", value: "1000 J") == "a = 1000 J")
+        #expect(ResultText.line(source: "E = 0,5 * m * v² =", value: "1000 J") == "E = 1000 J")
+        #expect(ResultText.line(source: "v → km/h = # note", value: "18 km/h") == "v = 18 km/h")
+        #expect(ResultText.line(source: "m * v =", value: "400 kg·m·s⁻¹") == "m * v = 400 kg·m·s⁻¹")
+        #expect(ResultText.line(source: "F == m * a =", value: "14,4 N") == "F == m * a → 14,4 N")
+        #expect(ResultText.declaredName(in: "a =") == nil)
+        #expect(ResultText.declaredName(in: "E = 2 * m =") == "E")
+        #expect(ResultText.spokenLine(source: "a =", spokenValue: "1000 joules") == "a égale 1000 joules")
+    }
+
     @Test func declaredNames() {
         #expect(ResultText.declaredName(in: "E = 0,5 * m * v²  # énergie") == "E")
         #expect(ResultText.declaredName(in: "m = 80 kg") == "m")
@@ -79,8 +90,8 @@ struct SheetLineEditingTests {
         let text = ResultText.sharedSheet([
             ("# Énergie", nil), ("E = 0,5 * m * v²  ", "1000 J"), ("m = 80 kg", nil), ("c # lumière", "299792458 m·s⁻¹"), ("", "1")
         ])
-        #expect(text == "# Énergie\nE = 0,5 * m * v²  # = 1000 J\nm = 80 kg\nc # lumière\n")
-        let reopened = NotebookEngine.evaluate("E = 2 * 3  # = 6\nE")
+        #expect(text == "# Énergie\nE = 0,5 * m * v²  # 1000 J\nm = 80 kg\nc # lumière\n")
+        let reopened = NotebookEngine.evaluate("E = 2 * 3 =  # 6\nE")
         #expect(reopened.lines.last?.quantity?.value == 6)
     }
 }

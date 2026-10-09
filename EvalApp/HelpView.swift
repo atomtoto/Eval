@@ -8,7 +8,7 @@ struct HelpView: View {
             List {
                 Section("Une feuille, toutes vos formules") {
                     Text("Écrivez une formule ou une déclaration par ligne. Les résultats se mettent à jour pendant la saisie.")
-                    example("d = 0,5 * a * t²\na = 7,2 m/s²\nt = 3 s\nd", explanation: "La formule peut précéder ses variables. Ici, d vaut 32,4 m.")
+                    example("d = 0,5 * a * t²\na = 7,2 m/s²\nt = 3 s\nd =", explanation: "La formule peut précéder ses variables. Terminez une ligne par = pour afficher sa valeur, comme dans Notes : ici, d = affiche 32,4 m.")
                     Text("Les variables peuvent dépendre d’autres variables. Chaque nom doit être défini une seule fois ; les dépendances circulaires sont signalées. Une note commence par # (titre) ou // (texte secondaire).")
                 }
 
@@ -19,20 +19,20 @@ struct HelpView: View {
                 }
 
                 Section("Écrire une formule") {
-                    Text("Touchez + pour ajouter une ligne, ou une ligne existante pour l’éditer. Retour enregistre la ligne. L’aperçu se met à jour pendant la saisie.")
-                    Text("Les boutons Fraction, Puissance et Racine carrée ouvrent des champs dédiés : saisissez le numérateur et le dénominateur, puis insérez. La construction peut remplacer l’expression ou se combiner avec elle ; le nom déclaré, comme E =, est conservé.")
-                    Text("Au-dessus du clavier, la barre de symboles insère + − × ÷ et des parenthèses à l’endroit du curseur. Son menu Insérer ajoute =, ^, ², ³, ⁻¹, √, π, deg, les variables de la feuille, ou ouvre Constantes et unités… (le curseur est suivi à partir d’iOS 18 ; avant, l’insertion se fait en fin de ligne). Terminé ferme le clavier.")
-                    Text("Le mode Texte permet de modifier toute la feuille d’un seul tenant. Choisissez le mode dans le menu Actions de la feuille.")
+                    Text("Touchez une ligne pour la modifier là où elle se trouve, ou Nouvelle ligne (ou +) pour en ajouter une. Retour valide la ligne et en crée une nouvelle en dessous. La valeur se met à jour pendant la saisie.")
+                    Text("Au-dessus du clavier, la barre de symboles insère + − × et des parenthèses à l’endroit du curseur. Son menu Insérer propose les modèles Fraction, Puissance et Racine, qui entourent la sélection, ainsi que =, ÷, ^, ², ³, ⁻¹, π, deg, les variables de la feuille, ou ouvre Constantes et unités… (le curseur est suivi à partir d’iOS 18 ; avant, l’insertion se fait en fin de ligne). Terminé ferme le clavier.")
+                    Text("Avec le réglage Écriture mathématique, la ligne se modifie telle qu’elle s’affiche. / fait du terme qui précède le numérateur d’une fraction, ^ ouvre un exposant. La barre propose xⁿ (exposant), √ (racine carrée), ◀ et ▶ pour déplacer le curseur, et son menu Insérer ajoute Fraction, Racine n-ième, ², ⁻¹, Monter, Descendre, =, ×, π, deg, les variables de la feuille et Constantes et unités…. Touchez la formule pour placer le curseur ; un cadre pointillé marque une case vide. L’effacement entre dans une fraction ou une racine, puis la défait quand elle est vide. Retour valide la ligne et en crée une nouvelle, comme en texte.")
+                    Text("Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu, choisissent la saisie des formules et le nombre de chiffres significatifs.")
                 }
 
-                Section("Choisir les résultats") {
-                    Text("En mode Formules, la valeur d’une ligne choisie apparaît sous sa formule. Maintenez une ligne et choisissez Afficher le résultat, ou activez Afficher dans Résultats dans son éditeur. Les nouvelles lignes affichent leur valeur, sauf les déclarations de nombres, que la réglette montre déjà. Une ligne avec une conversion (→ km/h) ou une inconnue (v = ? m/s) affiche toujours sa valeur par défaut.")
-                    Text("Choisir les résultats, dans le menu Actions de la feuille, permet de choisir plusieurs lignes à la fois. En mode Texte et dans la colonne Résultats de l’iPad, les valeurs sont regroupées dans la section Résultats ; en mode Texte, elles restent aussi visibles au-dessus du clavier.")
-                    Text("Les lignes masquées sont toujours calculées pour les autres formules. Les erreurs restent signalées sur les lignes en mode Formules, et dans À corriger en mode Texte, même si leur résultat est masqué.")
+                Section("Afficher un résultat") {
+                    example("m = 80 kg\nv = 5 m/s\nE = 0,5 * m * v²\nE =\nm * v =", explanation: "Une ligne terminée par = affiche sa valeur sur la même ligne : E = 1000 J, et m * v = 400 kg·m·s⁻¹. Écrire E = 0,5 * m * v² = définit E et affiche sa valeur d’un seul coup.")
+                    Text("Une ligne avec une conversion (→ km/h) ou une inconnue (v = ? m/s) affiche toujours sa valeur. Une égalité (==) affiche son verdict. Les autres lignes sont calculées sans afficher de valeur ; leurs erreurs restent signalées sous la ligne.")
+                    Text("Touchez une valeur affichée pour la copier, la partager, changer son unité ou la tracer.")
                 }
 
                 Section("Valeurs et unités") {
-                    example("v = 72 km/h\nt = 2 s\nv * t", explanation: "Les unités sont converties en SI : le résultat est 40 m.")
+                    example("v = 72 km/h\nt = 2 s\nv * t =", explanation: "Les unités sont converties en SI : le résultat est 40 m.")
                     Text("La virgule et le point sont acceptés pour les décimales. La notation scientifique s’écrit 1,5e-3. Les nombres s’affichent sans séparateur de milliers : 1000 J. Les noms et symboles respectent les majuscules.")
                     Text("Séparez la valeur et son unité par un espace : 5 m désigne le mètre même si m est aussi une variable. Pour les unités composées, gardez les opérateurs sans espaces : 2 kg*m/s². Dans une formule, utilisez * entre les variables et espacez les opérateurs autour d’une quantité : 2 m/s² * m.")
                     Text("Une valeur sans unité est sans dimension. Pour vérifier une formule physique, attribuez les unités aux grandeurs concernées. Utilisez le kelvin : °C et °F ne sont pas pris en charge.")
@@ -43,7 +43,7 @@ struct HelpView: View {
                 Section("Convertir l’affichage") {
                     example("v = 20 m/s → km/h", explanation: "Écrit à la fin de la ligne, → (ou ->) convertit le résultat : 72 km/h. Les variables restent en SI.")
                     example("m_e*c^2 -> MeV", explanation: "Le résultat s’affiche en 0,510999 MeV.")
-                    Text("Maintenez une ligne et choisissez Afficher en, ou utilisez le même sélecteur dans l’éditeur : Eval écrit la flèche pour vous. Unités SI la retire. Le résultat et la valeur copiée suivent l’unité choisie.")
+                    Text("Maintenez une ligne, ou touchez sa valeur, et choisissez Afficher en : Eval écrit la flèche pour vous. Unités SI la retire. Le résultat et la valeur copiée suivent l’unité choisie.")
                     Text("Une fréquence en s⁻¹ s’affiche s⁻¹ ; choisissez → Hz, → rad/s ou → tr/min selon l’usage. Les cibles sont des unités ou des constantes, jamais des variables de la feuille : m, h et g désignent donc le mètre, l’heure et le gramme.")
                 }
 
@@ -53,35 +53,35 @@ struct HelpView: View {
                     LabeledContent("Racines, exponentielles", value: "sqrt, cbrt, root, exp, ln, log")
                     LabeledContent("Trigonométrie", value: "sin, cos, tan, asin, acos, atan, atan2")
                     LabeledContent("Autres", value: "sinh, cosh, tanh, abs, min, max, floor, ceil, round")
-                    example("sqrt(9 m²)\nsin(30 deg)\n2 * pi", explanation: "Les angles sont en radians par défaut ; deg ou ° permet de saisir des degrés. Les fonctions trigonométriques et logarithmiques exigent un argument sans dimension.")
-                    example("max(2,5; 3)", explanation: "Une fonction à plusieurs arguments les sépare par un point-virgule, car la virgule est décimale : le résultat est 3. min, max, root(x; n), log(x; base) et atan2(y; x) fonctionnent ainsi.")
+                    example("sqrt(9 m²) =\nsin(30 deg) =\n2 * pi =", explanation: "Les résultats sont 3 m, 0,5 et 6,28319. Les angles sont en radians par défaut ; deg ou ° permet de saisir des degrés. Les fonctions trigonométriques et logarithmiques exigent un argument sans dimension.")
+                    example("max(2,5; 3) =", explanation: "Une fonction à plusieurs arguments les sépare par un point-virgule, car la virgule est décimale : le résultat est 3. min, max, root(x; n), log(x; base) et atan2(y; x) fonctionnent ainsi.")
                     example("asin(0,5) → °", explanation: "Les fonctions trigonométriques inverses renvoient des radians ; → ° affiche 30°.")
                     Text("min seul reste la minute : 5 min vaut 300 s. Un nom de fonction peut être une variable (max = 10 m) : c’est un appel seulement suivi de ( comme dans max(a; b).")
                 }
 
                 Section("Pourcentage et factorielle") {
-                    example("P = 200 W\nP * 15 %", explanation: "35 % vaut 0,35 : le résultat est 30 W. 0,35 -> % affiche 35 %.")
-                    example("n = 6\nn!", explanation: "La factorielle d’un entier de 0 à 170 : le résultat est 720.")
+                    example("P = 200 W\nP * 15 % =", explanation: "35 % vaut 0,35 : le résultat est 30 W. 0,35 -> % affiche 35 %.")
+                    example("n = 6\nn! =", explanation: "La factorielle d’un entier de 0 à 170 : le résultat est 720.")
                 }
 
                 Section("Résoudre une inconnue") {
-                    example("E = 1000 J\nm = 80 kg\nv = ? m/s\nE == 0,5 * m * v²", explanation: "v = ? m/s déclare une inconnue : Eval la cherche numériquement. Ici v vaut 5 m/s, avec la note « Autre solution : -5 m/s. », et la relation est vérifiée.")
+                    example("E = 1000 J\nm = 80 kg\nv = ? m/s\nE == 0,5 * m * v²", explanation: "v = ? m/s déclare une inconnue : Eval la cherche numériquement. Ici v vaut 5 m/s, avec la note « Autre solution : −5 m/s. », et la relation est vérifiée.")
                     Text("Gardez exactement une relation (==) qui contient l’inconnue, directement ou par vos déclarations. Eval affiche la plus petite solution positive entre 10⁻¹² et 10¹². Ce n’est pas un calcul symbolique : il ne transforme pas l’équation et ne résout qu’une inconnue par relation.")
                 }
 
                 Section("Ajuster une variable en glissant") {
-                    Text("Une réglette graduée à repère fixe apparaît sous les déclarations numériques, comme a = 7,2 m/s². Glissez vers la gauche ou la droite pour changer la valeur et recalculer les résultats. Le bouton de réglage se trouve à côté de la réglette. En mode Texte, les réglettes se trouvent dans Ajuster les variables.")
+                    Text("La valeur d’une déclaration numérique, comme 7,2 m/s² dans a = 7,2 m/s², est teintée. Maintenez-la pour faire apparaître sa réglette sous la ligne ; maintenez-la de nouveau, ou touchez le chevron, pour la masquer. Comme la molette de Photos, les graduations suivent le doigt : glissez vers la gauche pour augmenter la valeur, vers la droite pour la diminuer. Le bouton de réglage se trouve à côté de la réglette.")
                     Text("Le pas suit automatiquement la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Cette précision est conservée en glissant, même lorsque la valeur atteint un entier.")
                     Text("Le bouton de réglage permet de choisir un minimum, un maximum ou un pas manuel en désactivant Pas automatique. Les réglages sont sauvegardés avec la feuille. Les unités et les commentaires sont conservés ; une valeur en km/h reste saisie en km/h.")
-                    Text("Les variables calculées, comme E = 0,5 * m * v², se modifient dans l’éditeur de formules. Leurs valeurs suivent automatiquement celles des variables ajustées.")
+                    Text("Les variables calculées, comme E = 0,5 * m * v², se modifient en touchant leur ligne. Leurs valeurs suivent automatiquement celles des variables ajustées.")
                 }
 
                 Section("Tracer un résultat") {
-                    Text("Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une variable à réglette. Le graphique couvre l’intervalle de la réglette ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou.")
+                    Text("Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle de la réglette ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou.")
                 }
 
                 Section("Constantes reconnues") {
-                    example("h * c / lambda\nlambda = 550 nm", explanation: "h et c sont reconnus et leurs valeurs apparaissent dans « Constantes reconnues ». Le résultat est 3,61172 × 10⁻¹⁹ J.")
+                    example("h * c / lambda =\nlambda = 550 nm", explanation: "h et c sont reconnus et leurs valeurs apparaissent dans « Constantes reconnues ». Le résultat est 3,61172 × 10⁻¹⁹ J.")
                     Text("L’onglet Références contient les constantes de physique, de chimie, d’astronomie et de mathématiques, ainsi que les unités. Basculez entre Constantes et Unités, filtrez par Domaine ou cherchez un nom, un symbole ou un identifiant de saisie.")
                     Text("Touchez une constante pour consulter sa valeur, sa nature et sa source. Glissez une ligne vers la droite, ou maintenez-la, pour Ajouter à la feuille ou copier sa valeur. Le champ Saisie indique le nom à utiliser dans une formule, par exemple N_A pour la constante d’Avogadro.")
                     Text("Exacte indique une valeur définie ou dérivée d’une définition ; Mesurée indique une valeur expérimentale ; Conventionnelle indique une valeur de référence adoptée, qui peut différer d’une valeur locale ou observée. Les valeurs sont disponibles hors ligne.")
@@ -95,15 +95,15 @@ struct HelpView: View {
                 }
 
                 Section("Annuler, réorganiser, copier") {
-                    Text("Annuler et Rétablir, dans le menu Actions de la feuille, défont une suppression, un ajout, une modification, un déplacement ou un réglage de réglette (un geste entier est une seule étape). Si la même feuille a été modifiée dans une autre fenêtre, l’annulation est refusée plutôt que d’effacer cette modification. Secouez l’appareil ou utilisez ⌘Z pour annuler. En mode Texte, l’annulation du clavier ne concerne que la saisie.")
-                    Text("En mode Formules, choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer, variables comprises ; les réglettes sont alors masquées. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer ; une variable à réglette se supprime par son menu. L’ordre des lignes n’influe pas sur le calcul.")
-                    Text("Maintenez une ligne pour Copier la valeur (1000 J), Copier la ligne (E = 1000 J), Copier la formule, Partager le résultat, Dupliquer, Modifier ou Supprimer. La valeur copiée suit l’unité affichée. Dupliquer une déclaration ouvre l’éditeur pour lui donner un autre nom.")
-                    Text("Partager la feuille ajoute les résultats affichés en notes # = valeur ; Partager sans les résultats envoie la source seule.")
+                    Text("Annuler et Rétablir, dans le menu Actions de la feuille, défont une suppression, un ajout, une modification, un déplacement ou un réglage de réglette (un geste entier est une seule étape). Si la même feuille a été modifiée dans une autre fenêtre, l’annulation est refusée plutôt que d’effacer cette modification. Toute la saisie d’une ligne, du toucher à la sortie de la ligne, est une seule étape. Pendant la saisie, ⌘Z et le geste d’annulation ne concernent que le texte de la ligne.")
+                    Text("Choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer ; les réglettes sont alors masquées. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer, sauf pendant que sa réglette est ouverte. L’ordre des lignes n’influe pas sur le calcul.")
+                    Text("Maintenez une ligne pour Copier la valeur (1000 J), Copier la ligne (E = 1000 J), Copier la formule, Partager le résultat, Dupliquer, Modifier ou Supprimer. La valeur copiée suit l’unité affichée. La copie d’une ligne s’ouvre en modification : une déclaration copiée doit recevoir un autre nom.")
+                    Text("Partager la feuille ajoute les valeurs affichées en notes # valeur ; Partager sans les résultats envoie la source seule.")
                 }
 
                 Section("iPad et accessibilité") {
-                    Text("Sur iPad, chaque fenêtre affiche sa propre feuille, et le bouton Résultats place les résultats dans une colonne à côté des formules. Ajouter à la feuille, dans Références, complète la feuille de la fenêtre. Raccourcis : ⌘N nouvelle feuille, ⇧⌘N nouvelle ligne, ⌘F rechercher, ⌘1 et ⌘2 pour changer d’onglet, ⇧⌘R choisir les résultats, ⌥⌘R colonne Résultats, ⌥⌘1 et ⌥⌘2 pour les modes Formules et Texte, ⌘Z pour annuler. Maintenez ⌘ pour afficher la liste.")
-                    Text("Eval suit la taille de texte choisie dans Réglages. VoiceOver lit les formules comme des expressions mathématiques en français (« E égale 0,5 fois m fois v au carré ») et annonce les résultats avec leurs unités (« 1000 joules »). Ajustez une réglette avec le geste d’ajustement de VoiceOver : la valeur change au pas de la réglette.")
+                    Text("Sur iPad, chaque fenêtre affiche sa propre feuille. Ajouter à la feuille, dans Références, complète la feuille de la fenêtre avec une ligne qui affiche la valeur, comme c =. Raccourcis : ⌘N nouvelle feuille, ⇧⌘N nouvelle ligne, ⌘F rechercher, ⌘1 et ⌘2 pour changer d’onglet, ⌘, pour les Réglages, ⌘Z pour annuler. Maintenez ⌘ pour afficher la liste.")
+                    Text("Eval suit la taille de texte choisie dans les réglages de l’appareil. VoiceOver lit les formules comme des expressions mathématiques en français (« E égale 0,5 fois m fois v au carré ») et annonce les résultats avec leurs unités (« 1000 joules »). Sur une déclaration numérique, le geste d’ajustement de VoiceOver change la valeur au pas de la réglette, et l’action Afficher la réglette l’ouvre sous la ligne.")
                 }
             }
             .navigationTitle("Utiliser Eval")

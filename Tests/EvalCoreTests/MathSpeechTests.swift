@@ -279,7 +279,7 @@ final class MathSpeechTests: XCTestCase {
     }
 
     func testUnparsableLinesFallBackToTheSource() {
-        for source in ["", "   ", "2 +", "(", "a = ", "= 3", "a = b = c", "a → ", "a → b → c", "→ km", "1 + ?", "$",
+        for source in ["", "   ", "2 +", "(", "= 3", "a = b = c", "a → ", "a → b → c", "→ km", "1 + ?", "$",
                        "sin(", "max(1)", "a ==", "x = 2 @", "a\nb"] {
             XCTAssertNil(MathSpeech.description(source), source)
         }

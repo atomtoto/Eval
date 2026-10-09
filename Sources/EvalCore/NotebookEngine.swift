@@ -21,6 +21,15 @@ public struct EvaluatedLine: Identifiable, Sendable {
     /// True when `dimensionMessage` reports a dimension that was actually checked
     /// (a sum, a comparison or an equality), as opposed to merely derived.
     public let isHomogeneous: Bool
+    /// True when the line asks to show its value: a final `=` (`E =`, `v → km/h =`),
+    /// a display unit (`→ km/h`) or an unknown (`v = ? m/s`). A request on an
+    /// equality is ignored, and comments and blank lines never request one.
+    public let requestsValue: Bool
+    /// The declared names this line reads, directly or through other declarations
+    /// and the relations of unknowns. Constants and units that nothing declares
+    /// are not listed, nor is the name a declaration defines. Empty for a sheet
+    /// over the size limit.
+    public let dependencies: Set<String>
 }
 
 public struct ResolvedVariable: Identifiable, Sendable {
@@ -53,9 +62,11 @@ public struct NotebookEngine: Sendable {
             .replacingOccurrences(of: "\r", with: "\n").components(separatedBy: "\n")
         guard source.count <= 100_000, sourceLines.count <= 500 else { return Self.overLimit(sourceLines) }
 
-        let parsedLines = sourceLines.enumerated().map { ParsedLine(id: $0.offset, source: $0.element) }
+        var parsedLines = sourceLines.enumerated().map { ParsedLine(id: $0.offset, source: $0.element) }
         let resolver = Resolver(lines: parsedLines)
         resolver.resolveDeclarations()
+        let dependencies = resolver.dependencies()
+        for index in parsedLines.indices { parsedLines[index].dependencies = dependencies[index] }
         var results: [EvaluatedLine] = []
 
         for line in parsedLines {
@@ -129,16 +140,19 @@ public struct NotebookEngine: Sendable {
         let errorIndex = kinds.firstIndex { $0 != .empty && $0 != .comment }
             ?? kinds.firstIndex { $0 != .empty } ?? 0
         let lines = sourceLines.enumerated().map { index, source in
+            let requests = kinds[index] != .empty && kinds[index] != .comment && LineSyntax(source).requestsValue
+                && !(kinds[index] == .equation && LineSyntax(source).arrowRange == nil)
             guard index == errorIndex else {
                 return EvaluatedLine(id: index, source: source, kind: kinds[index], quantity: nil,
                                      message: nil, status: .neutral, dimensionMessage: nil, displayUnit: nil,
-                                     isHomogeneous: false)
+                                     isHomogeneous: false, requestsValue: requests, dependencies: [])
             }
             // A comment would not be listed among the results.
             let kind = kinds[index] == .empty || kinds[index] == .comment ? .expression : kinds[index]
             return EvaluatedLine(id: index, source: source, kind: kind, quantity: nil,
                                  message: "Feuille trop longue (500 lignes et 100 000 caractères maximum).",
-                                 status: .error, dimensionMessage: nil, displayUnit: nil, isHomogeneous: false)
+                                 status: .error, dimensionMessage: nil, displayUnit: nil, isHomogeneous: false,
+                                 requestsValue: requests, dependencies: [])
         }
         return NotebookEvaluation(lines: lines, constants: [], variables: [], symbolUnits: [])
     }
@@ -167,11 +181,23 @@ private struct ParsedLine {
     var conversionIssue: CalculationError?
     /// Set for `name = ? unit`: the engine solves for `name` from one relation.
     var unknown: UnknownSpec?
+    /// A final `=` asks to show the value. Ignored on an equality.
+    private let requestsResult: Bool
+    private let requestsConversionOrUnknown: Bool
+    var dependencies: Set<String> = []
+
+    /// Whether the line asks to show its value; nothing is requested of notes and blank lines.
+    var requestsValue: Bool {
+        guard kind != .empty, kind != .comment else { return false }
+        return (requestsResult && kind != .equation) || requestsConversionOrUnknown
+    }
 
     init(id: Int, source: String) {
         self.id = id
         self.source = source
         let syntax = LineSyntax(source)
+        requestsResult = syntax.requestsResult
+        requestsConversionOrUnknown = syntax.arrowRange != nil || syntax.unknownUnit != nil
         if syntax.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             kind = source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .empty : .comment
             return
@@ -265,7 +291,8 @@ private struct ParsedLine {
                 displayUnit: DisplayUnit? = nil) -> EvaluatedLine {
         EvaluatedLine(id: id, source: source, kind: kind, quantity: quantity,
                       message: message, status: status, dimensionMessage: dimensionMessage,
-                      displayUnit: displayUnit, isHomogeneous: isHomogeneous)
+                      displayUnit: displayUnit, isHomogeneous: isHomogeneous,
+                      requestsValue: requestsValue, dependencies: dependencies)
     }
 }
 
@@ -371,6 +398,111 @@ private final class Resolver {
                 }
             }
         }
+    }
+
+    /// For each line, the declared names it reads and everything those read in turn.
+    /// The unknown `v = ? m/s` reads what the relations that contain it read.
+    /// The transitive reads of each declared name are computed once (see `closures(of:)`)
+    /// and united per line.
+    func dependencies() -> [Set<String>] {
+        var reads: [String: Set<String>] = [:]
+        func declared(_ expressions: [Expression]) -> Set<String> {
+            var names = Set<String>()
+            for expression in expressions {
+                for name in Self.references(in: expression) where definitions[name] != nil { names.insert(name) }
+            }
+            return names
+        }
+        for (name, declarations) in definitions {
+            var found = Set<String>()
+            for declaration in declarations {
+                if let expression = declaration.left { found.formUnion(declared([expression])) }
+                if declaration.unknown != nil { found.formUnion(unknownReads(of: name)) }
+            }
+            reads[name] = found
+        }
+        let closure = Self.closures(of: reads)
+        return lines.map { line in
+            guard line.kind != .empty, line.kind != .comment else { return [] }
+            var direct = declared([line.left, line.right].compactMap { $0 })
+            if let name = line.name, line.unknown != nil { direct.formUnion(unknownReads(of: name)) }
+            var result = Set<String>()
+            for name in direct where !result.contains(name) {
+                // A closure is transitively closed: a name already in `result` brought its own reads.
+                result.insert(name)
+                if let reached = closure[name] { result.formUnion(reached) }
+            }
+            // A declaration is not its own dependency, even through a cycle.
+            if line.kind == .definition, let name = line.name { result.remove(name) }
+            return result
+        }
+    }
+
+    /// For each name, everything reachable through `reads` in one step or more; a name is in
+    /// its own closure only on a cycle. Strongly connected components are found with an
+    /// explicit stack (Tarjan), so a component shares one closure and cycles end.
+    private static func closures(of reads: [String: Set<String>]) -> [String: Set<String>] {
+        var order: [String: Int] = [:], low: [String: Int] = [:]
+        var open: [String] = [], isOpen = Set<String>()
+        var result: [String: Set<String>] = [:]
+        for root in reads.keys where order[root] == nil {
+            var frames: [(name: String, next: [String], position: Int)] = []
+            func visit(_ name: String) {
+                order[name] = order.count
+                low[name] = order[name]
+                open.append(name)
+                isOpen.insert(name)
+                frames.append((name, Array(reads[name] ?? []), 0))
+            }
+            visit(root)
+            while !frames.isEmpty {
+                let top = frames.count - 1
+                let (name, next, position) = frames[top]
+                if position < next.count {
+                    frames[top].position += 1
+                    let successor = next[position]
+                    if order[successor] == nil {
+                        visit(successor)
+                    } else if isOpen.contains(successor) {
+                        low[name] = min(low[name]!, order[successor]!)
+                    }
+                    continue
+                }
+                frames.removeLast()
+                if let parent = frames.last?.name { low[parent] = min(low[parent]!, low[name]!) }
+                guard low[name] == order[name] else { continue }
+                var members = Set<String>()
+                while let member = open.popLast() {
+                    isOpen.remove(member)
+                    members.insert(member)
+                    if member == name { break }
+                }
+                var reached = Set<String>()
+                if members.count > 1 || reads[name]?.contains(name) == true { reached = members }
+                for member in members {
+                    for successor in reads[member] ?? [] where !members.contains(successor) && !reached.contains(successor) {
+                        reached.insert(successor)
+                        reached.formUnion(result[successor] ?? [])
+                    }
+                }
+                for member in members { result[member] = reached }
+            }
+        }
+        return result
+    }
+
+    /// The declared names read by the relations (`==` lines) that contain an unknown
+    /// or one of the declarations that depend on it.
+    private func unknownReads(of name: String) -> Set<String> {
+        let family = Set(dependents(of: name) + [name])
+        var names = Set<String>()
+        for line in lines where line.kind == .equation {
+            guard let left = line.left, let right = line.right else { continue }
+            let references = Self.references(in: left) + Self.references(in: right)
+            guard !family.isDisjoint(with: references) else { continue }
+            for reference in references where definitions[reference] != nil { names.insert(reference) }
+        }
+        return names
     }
 
     // resolve, reference and measure call one another for every dependency

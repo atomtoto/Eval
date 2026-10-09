@@ -5,31 +5,31 @@ final class ExampleLibraryTests: XCTestCase {
     /// Lines that are meant to fail, to teach what an error looks like.
     private let intentionalErrors: [String: Set<String>] = ["dimensions": ["2 m + 3 s"]]
 
-    /// The displayed result of each bare line, as the app shows it.
+    /// The displayed result of each line that asks for it with a final `=`, as the app shows it.
     private let pinned: [String: [String: String]] = [
-        "free-fall": ["d": "44,1299 m", "v": "29,42 m·s⁻¹", "v → km/h": "105,912 km/h"],
-        "kinetic-energy": ["E": "1000 J", "c": "299792458 m·s⁻¹"],
-        "projectile": ["portee": "40,7886 m", "h_max": "10,1972 m", "duree": "2,88419 s"],
-        "pendulum": ["T": "2,00641 s"],
-        "spring": ["T": "0,314159 s", "f → Hz": "3,1831 Hz"],
-        "relativity": ["gamma": "1,66667", "v → km/s": "239834 km/s"],
-        "heater": ["I": "4,34783 A", "P": "1000 W", "E → kWh": "2 kWh"],
-        "rc-circuit": ["tau": "1 s", "U_C": "7,58545 V"],
-        "coulomb": ["F": "−21,5701 N"],
-        "lens": ["d_i": "0,0512821 m", "gamma": "−0,025641"],
-        "young": ["i → mm": "13 mm"],
-        "ideal-gas": ["p → atm": "1,0023 atm"],
-        "water-heating": ["Q → kJ": "501,6 kJ", "duree → min": "4,18 min"],
-        "black-body": ["lambda_max → nm": "502,039 nm", "M → W/m²": "62938592 W/m²"],
-        "electron": ["v → km/s": "5930,97 km/s", "lambda → pm": "122,643 pm"],
-        "photoelectric": ["E_c → eV": "0,819605 eV"],
-        "hydrogen": ["lambda → nm": "656,112 nm"],
-        "light-energy": ["E → eV": "2,25426 eV", "c / lambda → THz": "545,077 THz"],
-        "kepler": ["T": "31558196 s", "T → jour": "365,257 jour"],
-        "escape-velocity": ["v_lib → km/s": "11,1799 km/s"],
-        "geostationary": ["r": "42164171 m", "altitude → km": "35786,1 km"],
+        "free-fall": ["d =": "44,1299 m", "v =": "29,42 m·s⁻¹", "v → km/h =": "105,912 km/h"],
+        "kinetic-energy": ["E =": "1000 J", "c =": "299792458 m·s⁻¹"],
+        "projectile": ["portee =": "40,7886 m", "h_max =": "10,1972 m", "duree =": "2,88419 s"],
+        "pendulum": ["T =": "2,00641 s"],
+        "spring": ["T =": "0,314159 s", "f → Hz =": "3,1831 Hz"],
+        "relativity": ["gamma =": "1,66667", "v → km/s =": "239834 km/s"],
+        "heater": ["I =": "4,34783 A", "P =": "1000 W", "E → kWh =": "2 kWh"],
+        "rc-circuit": ["tau =": "1 s", "U_C =": "7,58545 V"],
+        "coulomb": ["F =": "−21,5701 N"],
+        "lens": ["d_i =": "0,0512821 m", "gamma =": "−0,025641"],
+        "young": ["i → mm =": "13 mm"],
+        "ideal-gas": ["p → atm =": "1,0023 atm"],
+        "water-heating": ["Q → kJ =": "501,6 kJ", "duree → min =": "4,18 min"],
+        "black-body": ["lambda_max → nm =": "502,039 nm", "M → W/m² =": "62938592 W/m²"],
+        "electron": ["v → km/s =": "5930,97 km/s", "lambda → pm =": "122,643 pm"],
+        "photoelectric": ["E_c → eV =": "0,819605 eV"],
+        "hydrogen": ["lambda → nm =": "656,112 nm"],
+        "light-energy": ["E → eV =": "2,25426 eV", "c / lambda → THz =": "545,077 THz"],
+        "kepler": ["T =": "31558196 s", "T → jour =": "365,257 jour"],
+        "escape-velocity": ["v_lib → km/s =": "11,1799 km/s"],
+        "geostationary": ["r =": "42164171 m", "altitude → km =": "35786,1 km"],
         "dimensions": ["m * a == F": "14,4 N"],
-        "solve-unknown": ["E == 0,5 * m * v²": "1000 J", "v → km/h": "18 km/h"]
+        "solve-unknown": ["E == 0,5 * m * v²": "1000 J", "v → km/h =": "18 km/h"]
     ]
 
     func testEveryExampleEvaluatesWithoutUnexpectedErrors() {
@@ -58,6 +58,17 @@ final class ExampleLibraryTests: XCTestCase {
             XCTAssertEqual(shown, expected, example.id)
         }
         XCTAssertEqual(Set(pinned.keys), Set(ExampleLibrary.all.map(\.id)))
+    }
+
+    func testEveryShownResultIsRequestedByItsLine() {
+        for example in ExampleLibrary.all {
+            for line in NotebookEngine.evaluate(example.source).lines where line.status == .success && line.kind == .expression {
+                XCTAssertTrue(line.requestsValue, "\(example.id): \(line.source) shows nothing without a final =")
+            }
+            for source in example.source.components(separatedBy: "\n") where LineSyntax(source).requestsResult {
+                XCTAssertTrue(source.hasSuffix(" ="), "\(example.id): \(source)")
+            }
+        }
     }
 
     func testExamplesFollowTheSheetConventions() {

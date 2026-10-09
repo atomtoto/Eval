@@ -1,9 +1,14 @@
+import EvalCore
 import SwiftUI
 
 @main
 struct EvalApp: App {
     @State private var library = SheetLibrary()
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        SignificantDigitsSetting.apply()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -26,8 +31,11 @@ private struct EvalRootView: View {
     @Environment(SheetLibrary.self) private var library
     @Environment(\.undoManager) private var undoManager
     @SceneStorage("eval.selectedSheetID") private var storedSheetID = ""
+    /// Read here so that every value is formatted again when the setting changes.
+    @AppStorage(SignificantDigitsSetting.storageKey) private var significantDigits = QuantityFormatter.defaultDigits
     @State private var tab = EvalTab.calculation
     @State private var showsHelp = false
+    @State private var showsSettings = false
     /// Each increment asks a search field to take focus: ⌘F.
     @State private var referenceSearchRequest = 0
     @State private var sheetSearchRequest = 0
@@ -50,7 +58,9 @@ private struct EvalRootView: View {
             .tabItem { Label("Références", systemImage: "books.vertical") }
             .tag(EvalTab.references)
         }
+        .environment(\.significantDigits, significantDigits)
         .sheet(isPresented: $showsHelp) { HelpView() }
+        .sheet(isPresented: $showsSettings) { SettingsView() }
         .alert("Enregistrement impossible", isPresented: storageAlertPresented) {
             Button("OK") {}
         } message: {
@@ -65,7 +75,7 @@ private struct EvalRootView: View {
 
     private var windowActions: WindowActions {
         WindowActions(tab: tab, newSheet: newSheet, showTab: { tab = $0 }, showHelp: { showsHelp = true },
-                      search: searchAction)
+                      showSettings: { showsSettings = true }, search: searchAction)
     }
 
     private func newSheet() {

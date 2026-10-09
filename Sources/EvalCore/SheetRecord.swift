@@ -1,9 +1,14 @@
 import Foundation
 
-/// One calculation sheet and the metadata attached to its lines: the chosen
-/// results and the ruler settings. A library stores one record per file.
+/// One calculation sheet and the metadata attached to its lines: their identities
+/// and the ruler settings. A library stores one record per file.
+///
+/// Schema 2 shows a result because its line asks for it with a final `=`
+/// (`E =`). Schema 1 sheets chose their results in `resultSelection`;
+/// decoding one writes those choices into the text, and `isSelected` is no
+/// longer used.
 public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
     public static let untitledTitle = "Nouvelle feuille"
 
     public let id: UUID
@@ -19,9 +24,8 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
     public var modifiedAt: Date
     public var schemaVersion: Int
 
-    /// A missing selection shows the results of formulas and equalities, like a
-    /// new sheet. Metadata of lines that are neither in `source` nor recently
-    /// removed from it is discarded.
+    /// Metadata of lines that are neither in `source` nor recently removed from it
+    /// is discarded.
     public init(
         id: UUID = UUID(),
         customTitle: String? = nil,
@@ -36,7 +40,7 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
         self.id = id
         self.customTitle = customTitle
         self.source = source
-        self.resultSelection = resultSelection ?? Self.defaultSelection(for: source)
+        self.resultSelection = resultSelection ?? ResultSelection(source: source)
         self.adjustmentRanges = adjustmentRanges
         self.manualStepIDs = manualStepIDs
         self.createdAt = createdAt
@@ -70,16 +74,38 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
         return nil
     }
 
-    /// Formulas and equalities show their result, and so do declarations that ask
-    /// for it with a conversion (`v = d / t → km/h`) or as an unknown (`v = ? m/s`).
-    /// Other declarations and notes start hidden.
-    public static func defaultSelection(for source: String) -> ResultSelection {
+    /// What sheets of schema 1 showed when nothing had been chosen: formulas and
+    /// equalities, and declarations that asked for it with a conversion or as an unknown.
+    static func schema1DefaultSelection(for source: String) -> ResultSelection {
         let lines = NotebookEngine.evaluate(source).lines
         let explicit = lines.filter {
             $0.kind == .expression || $0.kind == .equation
                 || ($0.kind == .definition && LineSyntax($0.source).requestsValue)
         }.map(\.id)
         return ResultSelection(source: source, initiallySelectedLineIDs: Set(explicit))
+    }
+
+    /// Writes the results chosen in schema 1 into the text: every chosen expression
+    /// or non-literal declaration that does not ask for its value gains a final
+    /// `=` (`E → kWh =`). Equalities, unknowns, conversions and adjustable
+    /// literals already show what they showed. The selection follows the new lines.
+    static func requestingChosenResults(source: String, selection: ResultSelection)
+        -> (source: String, selection: ResultSelection) {
+        var selection = selection
+        selection.reconcile(source: source)
+        let lines = selection.entries.map(\.source)
+        let evaluated = NotebookEngine.evaluate(lines.joined(separator: "\n")).lines
+        guard evaluated.count == lines.count else { return (source, selection) }
+        var changed = false
+        for (index, entry) in selection.entries.enumerated() where entry.isSelected {
+            let kind = evaluated[index].kind
+            let syntax = LineSyntax(entry.source)
+            guard kind == .expression || kind == .definition, !syntax.requestsValue else { continue }
+            if kind == .definition, AdjustableVariable(source: entry.source) != nil { continue }
+            selection.updateSource(syntax.addingResultRequest(), at: index)
+            changed = true
+        }
+        return (changed ? selection.entries.map(\.source).joined(separator: "\n") : source, selection)
     }
 
     /// Keeps the line metadata consistent with the current source. Metadata
@@ -113,7 +139,7 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
         }
     }
 
-    /// The first chosen result that has a value, as « E = 1 000 J ».
+    /// The first requested result that has a value, as « E = 1 000 J ».
     /// Evaluates the sheet; call it away from the main thread for large sheets.
     public func resultPreview() -> String? {
         resultPreviewWithSpeech()?.text
@@ -128,9 +154,11 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
         resultPreviewWithSpeech(selection: selection, evaluation: evaluation)?.text
     }
 
+    /// The first line that asks for its value and has a current, successful one.
+    /// Lines whose evaluation no longer matches `selection` are skipped.
     public static func resultPreviewWithSpeech(selection: ResultSelection, evaluation: NotebookEvaluation) -> ResultPreview? {
-        for line in evaluation.lines where selection.isSelected(at: line.id) {
-            guard selection.entries[line.id].source == line.source,
+        for line in evaluation.lines where line.requestsValue && line.kind != .equation {
+            guard selection.entries.indices.contains(line.id), selection.entries[line.id].source == line.source,
                   let preview = previewWithSpeech(of: line) else { continue }
             return preview
         }
@@ -177,8 +205,15 @@ public struct SheetRecord: Identifiable, Codable, Sendable, Equatable {
         createdAt = try values.decode(Date.self, forKey: .createdAt)
         modifiedAt = try values.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
         schemaVersion = try values.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-        resultSelection = (try? values.decode(ResultSelection.self, forKey: .resultSelection))
-            ?? Self.defaultSelection(for: source)
+        var selection = try? values.decode(ResultSelection.self, forKey: .resultSelection)
+        if schemaVersion < 2 {
+            let chosen = selection ?? Self.schema1DefaultSelection(for: source)
+            let upgraded = Self.requestingChosenResults(source: source, selection: chosen)
+            source = upgraded.source
+            selection = upgraded.selection
+            schemaVersion = 2
+        }
+        resultSelection = selection ?? ResultSelection(source: source)
         let ranges = (try? values.decode([String: LossyRange].self, forKey: .adjustmentRanges)) ?? [:]
         // Keys differing only by case parse to the same UUID: keep the first, never trap.
         adjustmentRanges = Dictionary(ranges.sorted { $0.key < $1.key }.compactMap { key, range in

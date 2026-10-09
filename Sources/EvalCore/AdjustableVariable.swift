@@ -9,6 +9,9 @@ public struct AdjustableVariable: Sendable {
     /// Resolution of the entered literal, including significant trailing zeros.
     /// 6 → 1; 8,2 → 0.1; 8,20 → 0.01; 1,2e3 → 100.
     public let automaticStep: Double
+    /// The number, sign included, in the source given to `init(source:)`.
+    /// A line may end with the request `=` (`m = 80 kg =`) and stays adjustable.
+    public let literalRange: Range<String.Index>
 
     private let prefix: String
     private let suffix: String
@@ -52,6 +55,7 @@ public struct AdjustableVariable: Sendable {
 
         let literalEnd = source.index(literalStart, offsetBy: literal.count)
         let unitSuffix = source[literalEnd..<contentEnd].trimmingCharacters(in: .whitespaces)
+        self.literalRange = literalStart..<literalEnd
         unitScale = scale
         hasConversion = line.arrowRange != nil
         name = identifier
@@ -125,7 +129,7 @@ public struct AdjustableVariable: Sendable {
         return decimalExponent < -323 ? .leastNonzeroMagnitude : power
     }
 
-    private static func isLiteralWithUnits(_ expression: Expression) -> Bool {
+    static func isLiteralWithUnits(_ expression: Expression) -> Bool {
         switch expression {
         case .number:
             return true

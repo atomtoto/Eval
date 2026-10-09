@@ -34,7 +34,10 @@ public enum LegacyNotebookMigration {
             .flatMap { try? decoder.decode([UUID: VariableAdjustmentRange].self, from: $0) } ?? [:]
         let manualSteps = defaults.data(forKey: manualStepKey)
             .flatMap { try? decoder.decode(Set<UUID>.self, from: $0) } ?? []
-        return SheetRecord(source: source, resultSelection: selection, adjustmentRanges: ranges,
+        // The earlier app showed the chosen results, or formulas and equalities by default:
+        // the new sheet asks for them with a final `=`.
+        let upgraded = SheetRecord.requestingChosenResults(source: source, selection: selection ?? SheetRecord.schema1DefaultSelection(for: source))
+        return SheetRecord(source: upgraded.source, resultSelection: upgraded.selection, adjustmentRanges: ranges,
                            manualStepIDs: manualSteps, createdAt: now)
     }
 

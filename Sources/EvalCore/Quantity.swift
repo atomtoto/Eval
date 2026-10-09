@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// A numerical value stored in coherent SI units together with its dimension.
 public struct Quantity: Hashable, Sendable {
@@ -46,8 +47,16 @@ public enum QuantityFormatter: Sendable {
         return dimension.isDimensionless ? "" : UnitCatalog.preferredSymbol(for: dimension) ?? dimension.formatted
     }
 
-    /// Significant digits shown for results; calculations keep the full `Double`.
-    public static let significantDigits = 6
+    /// The significant digits shown for results, 6 by default and clamped to 3...12.
+    /// Calculations keep the full `Double`. Safe to read and write from any thread.
+    public static var significantDigits: Int {
+        get { digitsStorage.withLock { $0 } }
+        set { digitsStorage.withLock { $0 = min(maximumDigits, max(minimumDigits, newValue)) } }
+    }
+    public static let defaultDigits = 6
+    public static let minimumDigits = 3
+    public static let maximumDigits = 12
+    private static let digitsStorage = OSAllocatedUnfairLock(initialState: defaultDigits)
     /// For text that must tell close values apart, such as an entered number or an exponent.
     public static let preciseDigits = 10
 
