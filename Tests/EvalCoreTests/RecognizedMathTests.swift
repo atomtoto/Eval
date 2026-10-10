@@ -83,6 +83,23 @@ final class RecognizedMathTests: XCTestCase {
         XCTAssertEqual(evaluation.lines[2].formattedValue, "−5 m·s⁻¹ ; 5 m·s⁻¹")
     }
 
+    func testBulletsAndUnitPowersAreSpelledForTheSheet() {
+        XCTAssertEqual(RecognizedMath.normalized("F =m•a"), "F =m·a")
+        XCTAssertEqual(RecognizedMath.normalized("a = 9,81 m/s2"), "a = 9,81 m/s²")
+        XCTAssertEqual(RecognizedMath.normalized("V = 3 cm3"), "V = 3 cm³")
+        // A variable that looks like a unit with a digit is left as written.
+        XCTAssertEqual(RecognizedMath.normalized("m2 = 3 kg"), "m2 = 3 kg")
+        XCTAssertEqual(RecognizedMath.normalized("x2 - 5x + 6 = 0"), "x2 - 5x + 6 = 0")
+    }
+
+    func testARequestTakesTheCaseOfTheNameUsedElsewhere() {
+        XCTAssertEqual(RecognizedMath.harmonizingCase(["v = g * t", "V ="], declared: []), ["v = g * t", "v ="])
+        XCTAssertEqual(RecognizedMath.harmonizingCase(["V ="], declared: ["v"]), ["v ="])
+        // A name written in the same case elsewhere, or found nowhere else, stays.
+        XCTAssertEqual(RecognizedMath.harmonizingCase(["U = R * I", "U ="], declared: []), ["U = R * I", "U ="])
+        XCTAssertEqual(RecognizedMath.harmonizingCase(["V ="], declared: []), ["V ="])
+    }
+
     func testRecognizedLinesEvaluate() {
         let lines = RecognizedMath.lines(from: [fragment("3x2+2x-3=0", raised: [2]), fragment("x=", y: 0.7)])
         let evaluation = NotebookEngine.evaluate(lines.joined(separator: "\n"))

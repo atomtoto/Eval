@@ -78,7 +78,7 @@ struct HelpView: View {
                 }
 
                 Section("Scanner une formule") {
-                    Text("Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Scanner une formule. La caméra s’ouvre en plein écran : faites glisser les coins du cadre pour l’ajuster à la formule, pincez pour zoomer, puis touchez le déclencheur (ou un bouton de volume). Le bouton Photos lit une photo de votre photothèque avec le même cadre, et la lampe éclaire la page.")
+                    Text("Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Scanner une formule. La caméra s’ouvre en plein écran : faites glisser un coin ou un bord du cadre, qui reste toujours centré, pour l’ajuster à la formule, pincez pour zoomer, puis touchez le déclencheur (ou un bouton de volume). Le bouton Photos lit une photo de votre photothèque avec le même cadre, et la lampe éclaire la page.")
                     Text("Seul le contenu du cadre est lu, sur l’appareil, et les lignes reconnues s’ajoutent à la fin de la feuille ; Annuler les retire. Les exposants et les fractions sont reconnus d’après leur position ; avec Apple Intelligence (iOS 27), le modèle sur l’appareil lit aussi l’image, et sa lecture est gardée lorsqu’elle concorde avec la reconnaissance de texte. Sur iPad, l’Apple Pencil écrit directement dans une ligne grâce à Griffonner.")
                 }
 

@@ -68,10 +68,11 @@ public enum RecognizedMath {
         text = latexFree(text)
         let replacements: [(String, String)] = [
             ("−", "-"), ("–", "-"), ("—", "-"), ("**", "^"), ("⋅", "·"), ("∗", "*"),
-            ("≡", "=="), ("：", ":"), ("‘", "’"), ("√ ", "√")
+            ("•", "·"), ("∙", "·"), ("≡", "=="), ("：", ":"), ("‘", "’"), ("√ ", "√")
         ]
         for (from, to) in replacements { text = text.replacingOccurrences(of: from, with: to) }
         text = digitLookAlikes(text)
+        text = unitPowers(text)
         // A trailing period ends a sentence, not a number.
         if text.hasSuffix("."), text.dropLast().last?.isNumber == false { text.removeLast() }
         return text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
@@ -108,6 +109,26 @@ public enum RecognizedMath {
             line.replacing(/(\d)[ \t]+([\p{L}_][\p{L}\p{N}_]*)/) { match in
                 names.contains(String(match.2)) ? match.1 + " * " + match.2 : String(match.0)
             }
+        }
+    }
+
+    /// Lines whose request asks for a name in the other case than the one written
+    /// elsewhere: handwriting hardly tells `v` from `V`, so `V =` beside `v = g * t`
+    /// becomes `v =`. A name the lines or the sheet (`declared`) use as written stays.
+    public static func harmonizingCase(_ lines: [String], declared: Set<String>) -> [String] {
+        func names(in line: String) -> Set<String> {
+            Set(line.matches(of: /[\p{L}_][\p{L}\p{N}_]*/).map { String($0.output) })
+        }
+        return lines.enumerated().map { index, line in
+            let syntax = LineSyntax(line)
+            let body = syntax.body.trimmingCharacters(in: .whitespaces)
+            guard syntax.requestsResult, syntax.separatorRange == nil, body.count == 1,
+                  let letter = body.first, letter.isLetter else { return line }
+            var used = declared
+            for (other, text) in lines.enumerated() where other != index { used.formUnion(names(in: text)) }
+            let swapped = letter.isUppercase ? body.lowercased() : body.uppercased()
+            guard !used.contains(body), used.contains(swapped) else { return line }
+            return syntax.replacingBody(swapped)
         }
     }
 
@@ -261,6 +282,17 @@ public enum RecognizedMath {
         // In LaTeX, \frac{1}{2} m v^2 is a product: in the sheet, a space between a
         // number and a name would make the name a unit.
         return result.replacing(/([\d)])\s+(?=[\p{L}√(])/) { match in match.1 + " * " }
+    }
+
+    /// A unit read with its exponent on the line, `m/s2` or `3 cm3`, is a power of
+    /// the unit: after a number or a `/`, as units are written. A name such as `x2`
+    /// or `m2 =` at the start of a line stays: it may be a variable.
+    private static func unitPowers(_ text: String) -> String {
+        text.replacing(/(\d ?|[\/*·])([\p{L}µΩÅ]+)([23])(?![\p{L}\p{N}])/) { match in
+            let unit = String(match.2)
+            guard UnitCatalog.lookup(unit) != nil else { return String(match.0) }
+            return match.1 + unit + (match.3 == "2" ? "²" : "³")
+        }
     }
 
     /// O between digits is a zero: 1O5 is 105.

@@ -4,8 +4,9 @@ import PhotosUI
 import SwiftUI
 
 /// Formulas photographed on paper, as in Photomath: the camera fills the screen, a
-/// frame resized by its corners chooses what is read, and the lines read go straight
-/// to the end of the sheet. A photo from the library is framed the same way.
+/// centered frame, resized around its center by its corners and edges, chooses what is
+/// read, and the lines read go straight to the end of the sheet. A photo from the
+/// library is framed the same way.
 @available(iOS 18, *)
 struct FormulaScannerView: View {
     /// The names the sheet declares, so that `0,5 m` beside `m = 80 kg` multiplies.
@@ -26,6 +27,13 @@ struct FormulaScannerView: View {
     @State private var failure: String?
     @State private var shots = 0
     @State private var zoomAtStart: CGFloat?
+    /// The zoom while a pinch changes it, shown above the frame.
+    @State private var shownZoom: CGFloat?
+    /// The picture taken, held in the frame while it is read.
+    @State private var frozen: UIImage?
+    /// The size of the camera's frame, as a share of the room it has, from one scan to the next.
+    @AppStorage("eval.scanner.frameWidth.v1") private var savedWidth = 0.0
+    @AppStorage("eval.scanner.frameHeight.v1") private var savedHeight = 0.0
 
     private var usesCamera: Bool { photo == nil }
 
@@ -44,19 +52,12 @@ struct FormulaScannerView: View {
                                 width: max(160, screen.width - insets.leading - insets.trailing - 40),
                                 height: max(140, screen.height - top - insets.bottom - 210))
             ZStack {
-                ZStack {
-                    background
-                    if photo != nil || camera.state == .running {
-                        ReadingFrame(rect: $frame, limits: photo == nil ? limits : photoRect) {
-                            if usesCamera { camera.focus(onLayerRect: frame) }
-                        }
-                    }
-                }
-                .ignoresSafeArea()
+                viewfinder(limits: limits)
+                    .ignoresSafeArea()
                 controls
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .onAppear { frame = Self.cameraFrame(in: limits) }
+            .onAppear { frame = cameraFrame(in: limits) }
             .onChange(of: screen) { resetFrame(limits: limits) }
             .onChange(of: photo) { resetFrame(limits: limits) }
         }
@@ -89,7 +90,58 @@ struct FormulaScannerView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: shots)
     }
 
-    // MARK: Background
+    // MARK: Viewfinder
+
+    /// The camera or the photo, the frame over it, the picture being read and the zoom.
+    private func viewfinder(limits: CGRect) -> some View {
+        ZStack {
+            background
+            if let frozen {
+                frozenPicture(frozen)
+            }
+            if photo != nil || camera.state == .running {
+                ReadingFrame(rect: $frame, limits: photo == nil ? limits : photoRect) {
+                    frameAdjusted(limits: limits)
+                }
+                .allowsHitTesting(!isReading)
+            }
+            if let shownZoom {
+                zoomLabel(shownZoom, limits: limits)
+            }
+        }
+    }
+
+    /// As in Photomath, the frame holds the picture taken while it is read.
+    private func frozenPicture(_ picture: UIImage) -> some View {
+        Image(uiImage: picture)
+            .resizable()
+            .scaledToFill()
+            .frame(width: frame.width, height: frame.height)
+            .clipShape(.rect(cornerRadius: 14))
+            .position(x: frame.midX, y: frame.midY)
+            .transition(.opacity)
+            .accessibilityHidden(true)
+    }
+
+    /// The zoom while a pinch changes it, above the frame, as in the Camera app.
+    private func zoomLabel(_ zoom: CGFloat, limits: CGRect) -> some View {
+        Text("\(Double(zoom).formatted(.number.precision(.fractionLength(1))))×")
+            .font(.footnote.weight(.semibold).monospacedDigit())
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.regularMaterial, in: .capsule)
+            .position(x: frame.midX, y: max(frame.minY - 22, limits.minY - 22))
+            .transition(.opacity)
+            .accessibilityHidden(true)
+    }
+
+    /// The camera focuses on the frame, whose size is kept for the next scan.
+    private func frameAdjusted(limits: CGRect) {
+        guard usesCamera, limits.width > 0, limits.height > 0 else { return }
+        camera.focus(onLayerRect: frame)
+        savedWidth = frame.width / limits.width
+        savedHeight = frame.height / limits.height
+    }
 
     @ViewBuilder
     private var background: some View {
@@ -108,8 +160,12 @@ struct FormulaScannerView: View {
                             let start = zoomAtStart ?? camera.zoomFactor
                             zoomAtStart = start
                             camera.zoom(to: start * value.magnification)
+                            shownZoom = camera.zoomFactor
                         }
-                        .onEnded { _ in zoomAtStart = nil })
+                        .onEnded { _ in
+                            zoomAtStart = nil
+                            withAnimation(.easeOut(duration: 0.3).delay(0.6)) { shownZoom = nil }
+                        })
                     .accessibilityHidden(true)
             case .unavailable:
                 ContentUnavailableView {
@@ -136,19 +192,24 @@ struct FormulaScannerView: View {
     private var controls: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(usesCamera ? "Fermer" : "Revenir à la caméra", systemImage: "xmark") {
-                    if photo != nil && camera.state == .running { photo = nil } else { dismiss() }
-                }
-                .modifier(ScannerControl())
+                Button("Fermer", systemImage: "xmark") { dismiss() }
+                    .modifier(ScannerControl())
                 Spacer()
             }
             Spacer()
             hint
                 .padding(.bottom, 20)
             HStack {
-                Button("Choisir une photo", systemImage: "photo.on.rectangle") { showsPhotoPicker = true }
-                    .modifier(ScannerControl())
-                    .disabled(isReading)
+                // Over a photo, the same place brings the camera back.
+                Group {
+                    if photo != nil && camera.state == .running {
+                        Button("Revenir à la caméra", systemImage: "camera") { photo = nil }
+                    } else {
+                        Button("Choisir une photo", systemImage: "photo.on.rectangle") { showsPhotoPicker = true }
+                    }
+                }
+                .modifier(ScannerControl())
+                .disabled(isReading)
                 Spacer()
                 shutter
                 Spacer()
@@ -211,14 +272,20 @@ struct FormulaScannerView: View {
                 } else {
                     try await camera.capture(layerRect: area)
                 }
+                // As in Photomath, the frame holds the picture while it is read.
+                if shownPhoto == nil { withAnimation(.easeOut(duration: 0.15)) { frozen = UIImage(cgImage: image) } }
                 let recognition = try await FormulaRecognizer.recognize(image)
-                insert(RecognizedMath.clarifyingProducts(recognition.lines, declared: Set(declaredNames)))
+                let declared = Set(declaredNames)
+                let lines = RecognizedMath.harmonizingCase(recognition.lines, declared: declared)
+                insert(RecognizedMath.clarifyingProducts(lines, declared: declared))
                 dismiss()
             } catch is CancellationError {
                 isReading = false
+                frozen = nil
             } catch {
                 failure = error.localizedDescription
                 isReading = false
+                withAnimation { frozen = nil }
             }
         }
     }
@@ -246,16 +313,20 @@ struct FormulaScannerView: View {
                                width: shown.width, height: shown.height)
             frame = photoRect.insetBy(dx: shown.width * 0.05, dy: shown.height * 0.05)
         } else {
-            frame = Self.cameraFrame(in: limits)
+            frame = cameraFrame(in: limits)
         }
     }
 
-    /// A wide frame a little above the middle, as for a line of formula.
-    private static func cameraFrame(in limits: CGRect) -> CGRect {
-        let width = min(limits.width, 560)
-        let height = min(limits.height, max(140, width * 0.45))
-        return CGRect(x: limits.midX - width / 2, y: limits.minY + (limits.height - height) * 0.4,
-                      width: width, height: height)
+    /// The frame centered in its room: as large as last time, else wide, as for a line of formula.
+    private func cameraFrame(in limits: CGRect) -> CGRect {
+        let minimum = ReadingFrame.minimumSize
+        var size = CGSize(width: min(limits.width, 560), height: 0)
+        size.height = min(limits.height, max(140, size.width * 0.45))
+        if savedWidth > 0, savedHeight > 0 {
+            size = CGSize(width: min(max(savedWidth * limits.width, minimum.width), limits.width),
+                          height: min(max(savedHeight * limits.height, minimum.height), limits.height))
+        }
+        return ReadingFrame.centered(size, in: limits)
     }
 }
 
@@ -266,6 +337,8 @@ private struct ScannerControl: ViewModifier {
             content
                 .labelStyle(.iconOnly)
                 .font(.title3)
+                // White, as over the Camera app's viewfinder, whatever the accent.
+                .foregroundStyle(.white)
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
                 .controlSize(.large)
@@ -273,6 +346,7 @@ private struct ScannerControl: ViewModifier {
             content
                 .labelStyle(.iconOnly)
                 .font(.title3)
+                .foregroundStyle(.white)
                 .buttonStyle(.bordered)
                 .buttonBorderShape(.circle)
                 .controlSize(.large)
@@ -281,25 +355,39 @@ private struct ScannerControl: ViewModifier {
     }
 }
 
-/// The reading frame: its corners, drawn as in the Camera app, are dragged to resize
-/// it; the outside is dimmed. VoiceOver adjusts its size with a swipe up or down.
+/// The reading frame, always centered in its room: its corners, drawn as in the Camera
+/// app, and its edges are dragged to resize it around its center, so the cross in the
+/// middle never moves. The outside is dimmed. VoiceOver adjusts its size with a swipe
+/// up or down.
 private struct ReadingFrame: View {
     @Binding var rect: CGRect
-    /// Where the frame may go.
+    /// Where the frame may go; it stays centered in it.
     let limits: CGRect
-    /// Called when a corner is let go.
+    /// Called when a corner or an edge is let go.
     let adjusted: () -> Void
-    @State private var startRect: CGRect?
+    @State private var startSize: CGSize?
+    @State private var isAtLimit = false
+    @State private var grabs = 0
 
-    private static let minimumSize = CGSize(width: 100, height: 60)
+    static let minimumSize = CGSize(width: 100, height: 60)
 
-    private enum Corner: CaseIterable, Identifiable {
-        case topLeading, topTrailing, bottomLeading, bottomTrailing
+    /// A frame of this size, centered in the limits.
+    static func centered(_ size: CGSize, in limits: CGRect) -> CGRect {
+        CGRect(x: limits.midX - size.width / 2, y: limits.midY - size.height / 2, width: size.width, height: size.height)
+    }
+
+    /// The four corners change both sides, the four edges one: always on both sides at once.
+    private enum Handle: CaseIterable, Identifiable {
+        case top, bottom, leading, trailing, topLeading, topTrailing, bottomLeading, bottomTrailing
 
         var id: Self { self }
-        /// −1 for the leading or top side, +1 for the trailing or bottom side.
+        /// −1 for the leading or top side, +1 for the trailing or bottom side, 0 for a side it keeps.
         var signs: (x: CGFloat, y: CGFloat) {
             switch self {
+            case .top: (0, -1)
+            case .bottom: (0, 1)
+            case .leading: (-1, 0)
+            case .trailing: (1, 0)
             case .topLeading: (-1, -1)
             case .topTrailing: (1, -1)
             case .bottomLeading: (-1, 1)
@@ -313,66 +401,79 @@ private struct ReadingFrame: View {
             DimmedOutside(hole: rect)
                 .fill(.black.opacity(0.35), style: FillStyle(eoFill: true))
                 .allowsHitTesting(false)
+            // A shadow keeps the white corners and cross visible over white paper.
             FrameCorners()
-                .stroke(.white, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                .stroke(.white, style: StrokeStyle(lineWidth: startSize == nil ? 4 : 5, lineCap: .round, lineJoin: .round))
+                .shadow(color: .black.opacity(0.45), radius: 3)
                 .frame(width: rect.width, height: rect.height)
                 .offset(x: rect.minX, y: rect.minY)
                 .allowsHitTesting(false)
             Image(systemName: "plus")
-                .font(.system(size: 30, weight: .ultraLight))
+                .font(.system(size: 30, weight: .light))
                 .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.45), radius: 2)
                 .position(x: rect.midX, y: rect.midY)
                 .allowsHitTesting(false)
-            ForEach(Corner.allCases) { corner in
+            // The edges first, so that the corners win where they overlap.
+            ForEach(Handle.allCases) { handle in
                 Color.clear
-                    .frame(width: 56, height: 56)
+                    .frame(width: area(of: handle).width, height: area(of: handle).height)
                     .contentShape(.rect)
-                    .position(point(of: corner, in: rect))
-                    .gesture(drag(corner))
+                    .position(point(of: handle))
+                    .gesture(drag(handle))
             }
         }
-        .coordinateSpace(.named("scanner"))
+        .sensoryFeedback(.selection, trigger: grabs)
+        .sensoryFeedback(trigger: isAtLimit) { _, reached in reached ? .impact(weight: .light) : nil }
         .accessibilityElement()
         .accessibilityLabel("Cadre de lecture")
         .accessibilityHint("Seul ce qui est dans le cadre est lu. Balayez vers le haut ou le bas pour l’agrandir ou le réduire.")
         .accessibilityAdjustableAction { direction in
             let factor: CGFloat = direction == .increment ? 1.15 : 1 / 1.15
-            resize(by: factor)
+            rect = Self.centered(clamped(CGSize(width: rect.width * factor, height: rect.height * factor)), in: limits)
+            adjusted()
         }
     }
 
-    private func point(of corner: Corner, in rect: CGRect) -> CGPoint {
-        CGPoint(x: corner.signs.x < 0 ? rect.minX : rect.maxX, y: corner.signs.y < 0 ? rect.minY : rect.maxY)
+    private func point(of handle: Handle) -> CGPoint {
+        let (sx, sy) = handle.signs
+        return CGPoint(x: rect.midX + sx * rect.width / 2, y: rect.midY + sy * rect.height / 2)
     }
 
-    /// The dragged corner follows the finger; the opposite one stays put.
-    private func drag(_ corner: Corner) -> some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .named("scanner"))
+    /// Where a handle can be grabbed: a square at a corner, the rest of the side for an edge.
+    private func area(of handle: Handle) -> CGSize {
+        let (sx, sy) = handle.signs
+        if sx != 0 && sy != 0 { return CGSize(width: 56, height: 56) }
+        return sx == 0 ? CGSize(width: max(44, rect.width - 112), height: 44)
+            : CGSize(width: 44, height: max(44, rect.height - 112))
+    }
+
+    private func clamped(_ size: CGSize) -> CGSize {
+        CGSize(width: min(max(size.width, min(Self.minimumSize.width, limits.width)), limits.width),
+               height: min(max(size.height, min(Self.minimumSize.height, limits.height)), limits.height))
+    }
+
+    /// The dragged side follows the finger, and the opposite side mirrors it.
+    private func drag(_ handle: Handle) -> some Gesture {
+        DragGesture(minimumDistance: 0)
             .onChanged { value in
-                let start = startRect ?? rect
-                startRect = start
-                let (sx, sy) = corner.signs
-                let fixed = CGPoint(x: sx < 0 ? start.maxX : start.minX, y: sy < 0 ? start.maxY : start.minY)
-                let origin = point(of: corner, in: start)
-                var x = min(max(origin.x + value.translation.width, limits.minX), limits.maxX)
-                var y = min(max(origin.y + value.translation.height, limits.minY), limits.maxY)
-                x = sx < 0 ? min(x, fixed.x - Self.minimumSize.width) : max(x, fixed.x + Self.minimumSize.width)
-                y = sy < 0 ? min(y, fixed.y - Self.minimumSize.height) : max(y, fixed.y + Self.minimumSize.height)
-                rect = CGRect(x: min(fixed.x, x), y: min(fixed.y, y), width: abs(x - fixed.x), height: abs(y - fixed.y))
+                if startSize == nil {
+                    startSize = rect.size
+                    grabs += 1
+                }
+                let start = startSize ?? rect.size
+                let (sx, sy) = handle.signs
+                let wanted = CGSize(width: start.width + 2 * sx * value.translation.width,
+                                    height: start.height + 2 * sy * value.translation.height)
+                let size = clamped(wanted)
+                isAtLimit = (sx != 0 && size.width != wanted.width) || (sy != 0 && size.height != wanted.height)
+                rect = Self.centered(size, in: limits)
             }
             .onEnded { _ in
-                startRect = nil
+                startSize = nil
+                isAtLimit = false
                 adjusted()
             }
-    }
-
-    private func resize(by factor: CGFloat) {
-        let width = min(max(rect.width * factor, Self.minimumSize.width), limits.width)
-        let height = min(max(rect.height * factor, Self.minimumSize.height), limits.height)
-        let x = min(max(rect.midX - width / 2, limits.minX), limits.maxX - width)
-        let y = min(max(rect.midY - height / 2, limits.minY), limits.maxY - height)
-        rect = CGRect(x: x, y: y, width: width, height: height)
-        adjusted()
     }
 }
 
