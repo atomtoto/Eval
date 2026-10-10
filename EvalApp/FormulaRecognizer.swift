@@ -7,13 +7,13 @@ import Vision
 import FoundationModels
 #endif
 
-/// Reads handwritten or printed formulas in an image and writes them as lines of a
+/// Reads handwritten or printed formulas in a photo and writes them as lines of a
 /// sheet. Vision reads the characters, and `RecognizedMath` rebuilds exponents and
 /// fraction bars from where they lie. With Apple Intelligence (iOS 27 or later), the
 /// on-device model also reads the image itself, fractions, exponents and roots
 /// included; its reading is kept when it agrees with Vision's, since a model that
 /// misses the image can make up plausible formulas. The image never leaves the device.
-enum HandwritingRecognizer {
+enum FormulaRecognizer {
     enum Engine: Sendable {
         case appleIntelligence, textRecognition
     }
@@ -27,11 +27,11 @@ enum HandwritingRecognizer {
         case nothingRead
 
         var errorDescription: String? {
-            String(localized: "Aucune formule n’a été reconnue. Écrivez plus grand, ou photographiez la page de plus près et bien éclairée.")
+            String(localized: "Aucune formule n’a été reconnue. Rapprochez-vous, éclairez la page et ajustez le cadre autour de la formule.")
         }
     }
 
-    private static let logger = Logger(subsystem: "com.atom.Eval", category: "Handwriting")
+    private static let logger = Logger(subsystem: "com.atom.Eval", category: "Scanner")
 
     /// Whether this device reads formulas at all: Vision's text recognition needs iOS 18.
     static var isSupported: Bool {
@@ -67,13 +67,10 @@ enum HandwritingRecognizer {
         #endif
     }
 
-    /// The lines read in `image`, top to bottom. `bars` are fraction bars drawn as a
-    /// single stroke, which a text recognizer does not read as characters.
-    static func recognize(_ image: CGImage, bars: [RecognizedMath.Box] = []) async throws -> Recognition {
+    /// The lines read in `image`, top to bottom.
+    static func recognize(_ image: CGImage) async throws -> Recognition {
         guard #available(iOS 18, *) else { throw Failure.nothingRead }
-        let fragments = try await readText(image)
-        let barFragments = bars.map { RecognizedMath.Fragment(text: "—", box: $0) }
-        let textLines = RecognizedMath.lines(from: fragments + barFragments)
+        let textLines = RecognizedMath.lines(from: try await readText(image))
         #if canImport(FoundationModels)
         if #available(iOS 27, *), engine == .appleIntelligence {
             do {

@@ -1,29 +1,13 @@
 import SwiftUI
 
-/// Whether the warning before a reading without Apple Intelligence is still shown.
+/// Whether the warning before a scan without Apple Intelligence is still shown.
 enum ReadingWarningSetting {
     static let storageKey = "eval.readingWarning.hidden.v1"
 }
 
-/// What the person is about to read: a page from the camera, a photo or the drawing.
-enum ReadingSource: Identifiable {
-    case scan, photo, drawing
-
-    var id: Self { self }
-
-    var confirmation: LocalizedStringKey {
-        switch self {
-        case .scan: "Scanner la page"
-        case .photo: "Choisir une photo"
-        case .drawing: "Lire le dessin"
-        }
-    }
-}
-
-/// A warning shown before a reading on a device without Apple Intelligence: the text
-/// recognizer reads characters well, but not the layout of fractions and exponents.
+/// A warning shown before the scanner opens on a device without Apple Intelligence:
+/// the text recognizer reads characters well, but not the layout of fractions and exponents.
 struct ReadingWarningView: View {
-    let source: ReadingSource
     /// Why Apple Intelligence is not available here.
     let reason: LocalizedStringResource?
     let proceed: () -> Void
@@ -52,7 +36,7 @@ struct ReadingWarningView: View {
             Text("Lecture moins fiable")
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
-            Text("Sans Apple Intelligence, Eval lit les caractères un par un : les chiffres et les lettres sont bien reconnus, mais les fractions, les exposants et les racines le sont souvent mal. Vérifiez chaque ligne avant de l’ajouter.")
+            Text("Sans Apple Intelligence, Eval lit les caractères un par un : les chiffres et les lettres sont bien reconnus, mais les fractions, les exposants et les racines le sont souvent mal. Vérifiez les lignes ajoutées à la feuille.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             if let reason {
@@ -74,7 +58,7 @@ struct ReadingWarningView: View {
                     proceed()
                     dismiss()
                 } label: {
-                    Text(source.confirmation)
+                    Text("Continuer")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

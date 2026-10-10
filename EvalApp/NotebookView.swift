@@ -23,7 +23,11 @@ struct NotebookView: View {
     @State private var showsSettings = false
     @State private var showsTextEditor = false
     @State private var showsReferences = false
-    @State private var showsHandwriting = false
+    @State private var showsScanner = false
+    @State private var showsReadingWarning = false
+    /// Set when the warning before the scanner was accepted: the scanner opens once it is gone.
+    @State private var opensScannerAfterWarning = false
+    @AppStorage(ReadingWarningSetting.storageKey) private var hidesReadingWarning = false
     @State private var plotRequest: PlotRequest?
     @State private var showsClearConfirmation = false
     @State private var renaming: SheetRecord?
@@ -110,9 +114,19 @@ struct NotebookView: View {
         .sheet(item: $plotRequest) { request in
             PlotView(notebook: notebook, request: request)
         }
-        .sheet(isPresented: $showsHandwriting) {
-            HandwritingView(declaredNames: notebook.declaredNames) { lines in
-                notebook.appendLines(lines, undoManager: undoManager)
+        .sheet(isPresented: $showsReadingWarning, onDismiss: {
+            if opensScannerAfterWarning {
+                opensScannerAfterWarning = false
+                showsScanner = true
+            }
+        }) {
+            ReadingWarningView(reason: FormulaRecognizer.unavailabilityReason) { opensScannerAfterWarning = true }
+        }
+        .fullScreenCover(isPresented: $showsScanner) {
+            if #available(iOS 18, *) {
+                FormulaScannerView(declaredNames: notebook.declaredNames) { lines in
+                    notebook.appendLines(lines, undoManager: undoManager)
+                }
             }
         }
         .confirmationDialog("Effacer la feuille ?", isPresented: $showsClearConfirmation, titleVisibility: .visible) {
@@ -176,8 +190,10 @@ struct NotebookView: View {
         finishEditing()
         guard let session = notebook.beginEditing(lineID: lineID) else { return }
         textSelection = FormulaSelectionState()
+        // The field of the line takes the focus once it appears. Asked for now, before the
+        // field exists, the focus would be dropped, and that loss would close the line:
+        // the first line of an empty sheet then needed a second tap.
         editing = session
-        focusedLineID = lineID
     }
 
     /// Ends the session of the edited line: one undo step, and a blank line goes away.
@@ -204,8 +220,8 @@ struct NotebookView: View {
         finishEditing()
         guard let session = notebook.insertLines([""], at: nil) else { return }
         textSelection = FormulaSelectionState()
+        // Its field takes the focus once it appears, as in `startEditing(_:)`.
         editing = session
-        focusedLineID = session.lineID
     }
 
     /// A Return, or a paste of several lines, in the edited line: the line keeps
@@ -254,12 +270,17 @@ struct NotebookView: View {
         showsTextEditor = true
     }
 
-    /// Handwriting, a scan or a photo, whose lines go to the end of the sheet.
-    private func writeByHand() {
+    /// The camera, or a photo, whose formulas go to the end of the sheet. Without Apple
+    /// Intelligence a warning comes first, unless the person turned it off.
+    private func scan() {
         if editMode.isEditing { editMode = .inactive }
         focusedLineID = nil
         finishEditing()
-        showsHandwriting = true
+        if FormulaRecognizer.engine == .textRecognition && !hidesReadingWarning {
+            showsReadingWarning = true
+        } else {
+            showsScanner = true
+        }
     }
 
     /// Undo and Redo of the menu apply to whole lines: the line being edited is validated first.
@@ -324,8 +345,8 @@ struct NotebookView: View {
         } actions: {
             Button("Ajouter une formule", action: newLine)
                 .buttonStyle(.borderedProminent)
-            if HandwritingRecognizer.isSupported {
-                Button("Écrire à la main", action: writeByHand)
+            if FormulaRecognizer.isSupported {
+                Button("Scanner une formule", action: scan)
             }
             Menu("Partir d’un exemple") {
                 ExampleMenuContent(choose: createFromExample)
@@ -403,10 +424,10 @@ struct NotebookView: View {
             }
         }
         ToolbarItem(placement: .primaryAction) {
-            if HandwritingRecognizer.isSupported {
+            if FormulaRecognizer.isSupported {
                 // A tap adds a line; a press offers the other ways to add some, as Safari's + does.
                 Menu {
-                    Button("Écrire à la main", systemImage: "pencil.and.scribble", action: writeByHand)
+                    Button("Scanner une formule", systemImage: "text.viewfinder", action: scan)
                 } label: {
                     Label("Nouvelle ligne", systemImage: "plus")
                 } primaryAction: {
@@ -431,8 +452,8 @@ struct NotebookView: View {
                         Button("Réorganiser", systemImage: "arrow.up.arrow.down") { editMode = .active }
                     }
                     Button("Modifier en texte", systemImage: "text.alignleft", action: editAsText)
-                    if HandwritingRecognizer.isSupported {
-                        Button("Écrire à la main", systemImage: "pencil.and.scribble", action: writeByHand)
+                    if FormulaRecognizer.isSupported {
+                        Button("Scanner une formule", systemImage: "text.viewfinder", action: scan)
                     }
                     Button("Renommer", systemImage: "character.cursor.ibeam") { renaming = notebook.record }
                     Menu("Nouvelle à partir d’un exemple", systemImage: "text.book.closed") {

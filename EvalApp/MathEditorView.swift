@@ -6,10 +6,12 @@ import SwiftUI
 /// this editor; SwiftUI has no native control for 2D math, so it stays a small
 /// composition of native text, stacks and a hidden native text field.
 ///
-/// The keyboard types into a hidden `TextField` that starts with a run of invisible
-/// characters: what is added to its text goes to the editing tree, each character
+/// The keyboard types into a hidden `TextField` whose caret sits between two runs of
+/// invisible characters: what is added to its text goes to the editing tree, each character
 /// removed is a backspace, a line break is a Return. Every change writes the line, so its value
 /// stays up to date; a Return writes a line break, which the sheet turns into a new line.
+/// The characters have a width, so that the keyboard's trackpad (a press on the space bar)
+/// moves the hidden caret among them; each step moves the caret of the formula (iOS 18).
 struct MathEditorView: View {
     @Binding var source: String
     let lineID: UUID
@@ -25,11 +27,17 @@ struct MathEditorView: View {
     /// field fires after the action that follows a key, so an action first takes the pending text
     /// (see `flushBuffer()`): the order of the keys is kept.
     @State private var processed = Self.filler
+    /// The selection of the hidden field, and the caret position already followed.
+    @State private var fieldSelection = FormulaSelectionState()
+    @State private var fieldCaret = Self.padding
     @ScaledMetric(relativeTo: .title3) private var pointSize = 21.0
 
-    /// The invisible characters of the hidden field, before its caret: deleting one is a backspace.
-    private static let sentinel = "\u{200B}"
-    private static let filler = String(repeating: sentinel, count: 64)
+    /// The invisible characters of the hidden field around its caret: deleting one is a
+    /// backspace. A figure space is blank but has a width, unlike a zero-width space.
+    private static let sentinel = "\u{2007}"
+    /// Sentinels on each side of the caret: as many steps of the trackpad each way.
+    private static let padding = 48
+    private static let filler = String(repeating: sentinel, count: 2 * padding)
 
     init(source: Binding<String>, lineID: UUID, focus: FocusState<UUID?>.Binding, keyboard: LineKeyboard) {
         _source = source
@@ -92,11 +100,12 @@ struct MathEditorView: View {
 
     /// The field that has the keyboard, invisible: the formula above shows what is typed.
     private var inputField: some View {
-        TextField("", text: $buffer, axis: .vertical)
+        FormulaTextField(title: "", text: $buffer, selection: fieldSelection, axis: .vertical)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
             .focused(focus, equals: lineID)
             .onChange(of: buffer) { _, new in if new != processed { receive(new) } }
+            .onChange(of: fieldCaretOffset) { _, caret in follow(caret) }
             .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
                 switch press.key {
                 case .leftArrow: apply(.left)
@@ -106,21 +115,54 @@ struct MathEditorView: View {
                 }
                 return .handled
             }
-            .frame(width: 1, height: 1)
+            // Wide enough for its sentinels on one line, where the trackpad moves across them.
+            .frame(width: 2_000, height: 1, alignment: .topLeading)
             .opacity(0)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
             .task {
                 // The bar of the sheet reaches this editor for the keys of the structures.
                 keyboard.mathKeys.apply = apply
-                // The field takes the focus once it exists, like the text field of a line.
+                // The field takes the focus once it exists, like the text field of a line,
+                // then its caret goes between the sentinels, which the focus does not do.
                 if focus.wrappedValue != lineID { focus.wrappedValue = lineID }
+                try? await Task.sleep(for: .milliseconds(150))
+                flushBuffer()
+                resetField()
             }
+    }
+
+    /// Where the hidden field's caret is, in characters; nil for a selection, before iOS 18,
+    /// or while the selection still refers to a text the field has since replaced.
+    private var fieldCaretOffset: Int? {
+        guard #available(iOS 18, *), let selection = fieldSelection.selection,
+              case .selection(let range) = selection.indices, range.isEmpty,
+              let caret = range.lowerBound.samePosition(in: buffer.unicodeScalars),
+              caret <= buffer.unicodeScalars.endIndex else { return nil }
+        return buffer.unicodeScalars.distance(from: buffer.unicodeScalars.startIndex, to: caret)
+    }
+
+    /// The trackpad moved the hidden caret: the caret of the formula takes the same steps.
+    /// Typing moves it too, and was accounted for when received; a larger jump, such as
+    /// to an end of the line, is not a step and is ignored.
+    private func follow(_ caret: Int?) {
+        guard let caret else { return }
+        flushBuffer()
+        let steps = caret - fieldCaret
+        fieldCaret = caret
+        if steps != 0, abs(steps) <= 8 {
+            for _ in 0..<abs(steps) {
+                if steps > 0 { state.moveRight() } else { state.moveLeft() }
+            }
+        }
+        // Near an end of the sentinels, the hidden caret goes back to the middle, so
+        // that the trackpad never runs out of room.
+        if caret < 12 || buffer.unicodeScalars.count - caret < 12 { resetField() }
     }
 
     /// What the hidden field received: typed text, backspaces or a Return. The field
     /// keeps its text, so that it never lags behind a text set from here while keys
-    /// arrive; only an almost empty or long text is replaced, between two keys.
+    /// arrive; only a caret near the end of its sentinels or a long text is reset, between two keys.
     private func receive(_ new: String) {
         let before = Array(processed), after = Array(new)
         processed = new
@@ -133,6 +175,8 @@ struct MathEditorView: View {
         // a suggestion of the keyboard, deletes the word it replaces.
         for _ in 0..<(before.count - prefix - suffix) { state.deleteBackward() }
         let typed = String(after[prefix..<(after.count - suffix)]).replacingOccurrences(of: Self.sentinel, with: "")
+        // The caret follows what was typed; the trackpad's steps are counted from there.
+        fieldCaret = String(after[..<(after.count - suffix)]).unicodeScalars.count
         if let lineBreak = typed.firstIndex(where: \.isNewline) {
             state.insert(String(typed[..<lineBreak]))
             // The sheet validates the line and edits a new one below; pasted lines follow it.
@@ -143,7 +187,10 @@ struct MathEditorView: View {
         }
         state.insert(typed)
         write()
-        if after.count < 16 || after.count > 256 {
+        // Near either end of the sentinels, the caret goes back to the middle. Before iOS 18,
+        // where the caret is not followed, it stays at the end and only backspaces matter.
+        let caret = after.count - suffix
+        if caret < 12 || (FormulaSelectionState.tracksCaret && suffix < 12) || after.count > 256 {
             Task { @MainActor in
                 flushBuffer()
                 resetField()
@@ -159,6 +206,11 @@ struct MathEditorView: View {
     private func resetField() {
         processed = Self.filler
         buffer = Self.filler
+        fieldCaret = Self.padding
+        if #available(iOS 18, *) {
+            fieldSelection.selection = TextSelection(insertionPoint: Self.filler.index(Self.filler.startIndex,
+                                                                                      offsetBy: Self.padding))
+        }
     }
 
     /// The line follows every change of the formula, so its value is computed as it is typed.
@@ -192,7 +244,7 @@ struct MathEditorView: View {
     /// After a move or a key of the bar, the keyboard’s suggestions no longer
     /// continue the text of the hidden field: it starts again.
     private func clearField() {
-        guard buffer != Self.filler || processed != Self.filler else { return }
+        guard buffer != Self.filler || processed != Self.filler || fieldCaret != Self.padding else { return }
         resetField()
     }
 
