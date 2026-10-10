@@ -84,6 +84,9 @@
     "000" : {
 
     },
+    "À corriger : Eval ne lit pas cette ligne." : {
+
+    },
     "À partir d’iOS 26, avec Apple Intelligence, une feuille sans titre ni note # reçoit un nom d’après son contenu la première fois que vous la quittez, par exemple « Chute libre ». Tout se passe sur l’appareil. Le réglage Nommer les feuilles automatiquement le désactive." : {
 
     },
@@ -91,6 +94,9 @@
 
     },
     "Actions de la feuille" : {
+
+    },
+    "Affiche le numéro de chaque ligne à gauche de la feuille." : {
 
     },
     "Afficher en" : {
@@ -127,6 +133,9 @@
     "Ajoute une ligne à la fin de la feuille." : {
 
     },
+    "Ajouter" : {
+
+    },
     "Ajouter %@ à la feuille" : {
 
     },
@@ -154,6 +163,12 @@
     "Annuler, réorganiser, copier" : {
 
     },
+    "Apple Intelligence est désactivée. Activez-la dans Réglages › Apple Intelligence et Siri pour une lecture fiable." : {
+
+    },
+    "Apple Intelligence n’est pas disponible sur cet appareil." : {
+
+    },
     "Après « %@ »" : {
 
     },
@@ -176,6 +191,9 @@
 
     },
     "Aucune feuille" : {
+
+    },
+    "Aucune formule n’a été reconnue. Écrivez plus grand, ou photographiez la page de plus près et bien éclairée." : {
 
     },
     "Aucune valeur calculable" : {
@@ -205,7 +223,13 @@
     "Ces valeurs sont proposées pour les symboles non déclarés. Une déclaration explicite, comme c = 12 m/s, les remplace dans cette feuille." : {
 
     },
+    "Cet appareil ne prend pas en charge Apple Intelligence." : {
+
+    },
     "Cette feuille sera supprimée de cet appareil." : {
+
+    },
+    "Cette photo ne peut pas être ouverte." : {
 
     },
     "Chaque cran modifie la valeur de %@." : {
@@ -218,6 +242,9 @@
 
     },
     "Chiffres significatifs" : {
+
+    },
+    "Choisir une photo" : {
 
     },
     "Choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer ; les réglettes sont alors indisponibles. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer. L’ordre des lignes n’influe pas sur le calcul." : {
@@ -292,6 +319,9 @@
     "Dupliquer" : {
 
     },
+    "Écrire à la main" : {
+
+    },
     "Écrire une formule" : {
 
     },
@@ -305,6 +335,12 @@
 
     },
     "Écrivez une formule ou une déclaration par ligne. Les résultats se mettent à jour pendant la saisie." : {
+
+    },
+    "Écrivez une formule par ligne, avec Apple Pencil ou le doigt." : {
+
+    },
+    "Écrivez vos formules" : {
 
     },
     "Effacer" : {
@@ -338,6 +374,9 @@
 
     },
     "Erreur à la ligne %lld" : {
+
+    },
+    "Eval calcule les nombres exactement, regroupe les termes semblables (2x + 3x → 5x), simplifie les facteurs communs, fusionne les puissances, réduit les racines (√12 → 2√3) et les fractions (x² − 1)/(x − 1) → x + 1, et développe quand le résultat est plus court. Une formule déjà simple n’affiche pas de proposition." : {
 
     },
     "Eval connaît aussi atm, Torr, mmHg, mbar, hPa, cal, kcal, Wh, kWh, Ah, Å, ly, pc, ft, mi, Da, lb, jour, an, tr, rpm, %, ppm, ml, cl, kohm… La liste complète se trouve dans Références › Unités." : {
@@ -382,10 +421,10 @@
     "Fond chaud" : {
 
     },
-    "Fraction" : {
+    "Forme simplifiée" : {
 
     },
-    "Gardez exactement une relation (==) qui contient l’inconnue, directement ou par vos déclarations. Eval affiche la plus petite solution positive entre 10⁻¹² et 10¹². Ce n’est pas un calcul symbolique : il ne transforme pas l’équation et ne résout qu’une inconnue par relation." : {
+    "Fraction" : {
 
     },
     "Gauche" : {
@@ -395,6 +434,9 @@
 
     },
     "Icône de l’app" : {
+
+    },
+    "Importer" : {
 
     },
     "Insère %@ dans la formule." : {
@@ -412,6 +454,9 @@
     "iPad et accessibilité" : {
 
     },
+    "Jusqu’au degré 2, les solutions d’un polynôme s’affichent sous forme exacte, puis en décimales ; au-delà, et pour les autres équations (exp, sin, racines…), elles sont cherchées numériquement. Les unités sont respectées : avec m = 80 kg et 1000 J = 0,5 * m * v^2, v = affiche −5 m·s⁻¹ ; 5 m·s⁻¹. Le nom cherché ne doit être ni déclaré, ni une constante, ni une unité, et une seule équation doit le contenir. Les autres lignes utilisent la plus petite solution positive." : {
+
+    },
     "L’icône de l’app suit la couleur d’accent." : {
 
     },
@@ -422,6 +467,12 @@
 
     },
     "L’onglet Références contient les constantes de physique, de chimie, d’astronomie et de mathématiques, ainsi que les unités. Basculez entre Constantes et Unités, filtrez par Domaine ou cherchez un nom, un symbole ou un identifiant de saisie." : {
+
+    },
+    "La lecture par Apple Intelligence nécessite iOS 27." : {
+
+    },
+    "La lecture se fait sur l’appareil. Les exposants et les fractions sont reconnus d’après leur position ; avec Apple Intelligence (iOS 27), le modèle sur l’appareil lit aussi l’image, et sa lecture est gardée lorsqu’elle concorde avec la reconnaissance de texte. Vérifiez toujours les lignes avant de les ajouter." : {
 
     },
     "La ligne du résultat ou celle de la variable n’existe plus, ou la variable n’est plus un nombre réglable." : {
@@ -448,6 +499,12 @@
     "Le maximum doit dépasser le minimum, le pas doit être positif et les valeurs doivent être finies." : {
 
     },
+    "Le modèle d’Apple Intelligence de cet appareil ne lit pas les images." : {
+
+    },
+    "Le modèle d’Apple Intelligence est en cours de préparation. Réessayez plus tard pour une lecture fiable." : {
+
+    },
     "Le pas automatique suit la précision saisie : 6 avance de 1, 8,2 de 0,1 et 8,25 de 0,01. Désactivez-le pour choisir un autre pas." : {
 
     },
@@ -458,6 +515,15 @@
 
     },
     "Le signe = déclare une variable lorsque le membre de gauche est un nom. Utilisez == pour vérifier une égalité (≠ n’existe pas)." : {
+
+    },
+    "Lecture des formules…" : {
+
+    },
+    "Lecture impossible" : {
+
+    },
+    "Lecture moins fiable" : {
 
     },
     "Lentille" : {
@@ -481,6 +547,9 @@
     "Les variables peuvent dépendre d’autres variables. Chaque nom doit être défini une seule fois ; les dépendances circulaires sont signalées. Une note commence par # (titre) ou // (texte secondaire)." : {
 
     },
+    "Ligne" : {
+
+    },
     "Ligne %lld" : {
 
     },
@@ -498,6 +567,21 @@
 
     },
     "Ligne vide" : {
+
+    },
+    "Lire" : {
+
+    },
+    "Lire le dessin" : {
+
+    },
+    "Lu sur l’appareil par Apple Intelligence. Corrigez une ligne en la touchant ; glissez vers la gauche pour la supprimer." : {
+
+    },
+    "Lu sur l’appareil par la reconnaissance de texte. Vérifiez les fractions et les exposants, corrigez une ligne en la touchant ; glissez vers la gauche pour la supprimer." : {
+
+    },
+    "Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Écrire à la main. Écrivez une formule par ligne avec l’Apple Pencil ou le doigt, ou utilisez le bouton caméra pour scanner une page ou choisir une photo. Touchez Lire, vérifiez et corrigez les lignes reconnues, puis touchez Ajouter." : {
 
     },
     "Maintenez une feuille dans la liste pour la renommer, la dupliquer, la partager ou la supprimer. La suppression demande toujours une confirmation." : {
@@ -551,6 +635,9 @@
     "Nature" : {
 
     },
+    "Ne plus afficher" : {
+
+    },
     "Nécessite Apple Intelligence, dont le modèle est en cours de préparation. Réessayez plus tard." : {
 
     },
@@ -582,6 +669,9 @@
 
     },
     "Nouvelle ligne" : {
+
+    },
+    "Numéros de ligne" : {
 
     },
     "OK" : {
@@ -686,7 +776,7 @@
     "Réorganiser" : {
 
     },
-    "Résoudre une inconnue" : {
+    "Résoudre une équation" : {
 
     },
     "Résultat : %@" : {
@@ -701,10 +791,22 @@
     "Rétablir le réglage automatique" : {
 
     },
+    "Retour" : {
+
+    },
     "Saisie" : {
 
     },
     "Saisie des formules" : {
+
+    },
+    "Sans Apple Intelligence, Eval lit les caractères un par un : les chiffres et les lettres sont bien reconnus, mais les fractions, les exposants et les racines le sont souvent mal. Vérifiez chaque ligne avant de l’ajouter." : {
+
+    },
+    "Scanner la page" : {
+
+    },
+    "Scanner une page" : {
 
     },
     "Segment" : {
@@ -714,6 +816,15 @@
 
     },
     "Séparez la valeur et son unité par un espace : 5 m désigne le mètre même si m est aussi une variable. Pour les unités composées, gardez les opérateurs sans espaces : 2 kg*m/s². Dans une formule, utilisez * entre les variables et espacez les opérateurs autour d’une quantité : 2 m/s² * m." : {
+
+    },
+    "Simplifier" : {
+
+    },
+    "Simplifier en %@" : {
+
+    },
+    "Simplifier une formule" : {
 
     },
     "Source" : {
@@ -782,6 +893,9 @@
     "Une formule par ligne" : {
 
     },
+    "Une formule par ligne, avec Apple Pencil ou le doigt. Pour une page déjà écrite, utilisez Scanner ou Photos." : {
+
+    },
     "Une fréquence en s⁻¹ s’affiche s⁻¹ ; choisissez → Hz, → rad/s ou → tr/min selon l’usage. Les cibles sont des unités ou des constantes, jamais des variables de la feuille : m, h et g désignent donc le mètre, l’heure et le gramme." : {
 
     },
@@ -824,10 +938,16 @@
     "Variables de la feuille" : {
 
     },
+    "Vérifier les lignes" : {
+
+    },
     "Vos feuilles" : {
 
     },
     "Vous pouvez remplacer une constante en déclarant vous-même son identifiant dans la feuille. Les symboles respectent la casse : g est la pesanteur standard, G est la constante gravitationnelle. Si e n’est pas déclaré, il désigne la charge élémentaire : pour l’exponentielle, écrivez exp(x)." : {
+
+    },
+    "Zone d’écriture" : {
 
     },
     "π" : {
