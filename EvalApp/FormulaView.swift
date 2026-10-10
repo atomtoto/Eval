@@ -102,6 +102,9 @@ struct FormulaValueInteraction {
 
 extension EnvironmentValues {
     @Entry var formulaValueInteraction: FormulaValueInteraction?
+    /// Set on the value of a declaration: its digits keep the same width while they change,
+    /// so the popover of its ruler, anchored to the value, does not move with each step.
+    @Entry var formulaMonospacedDigits = false
 }
 
 extension VerticalAlignment {
@@ -122,6 +125,7 @@ private struct FormulaContent: View {
     let pointSize: Double
 
     @Environment(\.formulaValueInteraction) private var valueInteraction
+    @Environment(\.formulaMonospacedDigits) private var monospacedDigits
     @State private var longPresses = 0
 
     var body: some View {
@@ -131,8 +135,9 @@ private struct FormulaContent: View {
     /// Text whose math axis lies a quarter of its size above the baseline.
     private func text(_ value: String, size: Double? = nil) -> some View {
         let size = size ?? pointSize
+        let font = Font.system(size: size, design: .serif)
         return Text(value)
-            .font(.system(size: size, design: .serif))
+            .font(monospacedDigits ? font.monospacedDigit() : font)
             .alignmentGuide(.mathAxis) { $0[.firstTextBaseline] - size * 0.25 }
     }
 
@@ -196,6 +201,7 @@ extension FormulaContent {
     @ViewBuilder
     fileprivate func value(_ inner: MathFormula) -> some View {
         let formula = FormulaContent(formula: inner, pointSize: pointSize)
+            .environment(\.formulaMonospacedDigits, true)
         if let interaction = valueInteraction {
             formula
                 .foregroundStyle(.tint)
