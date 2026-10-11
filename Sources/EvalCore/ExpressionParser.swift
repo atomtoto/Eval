@@ -425,10 +425,10 @@ struct ExpressionParser {
             || character == "π" || character == "√"
     }
 
-    /// √ and ° end a name: a√2 is a·√2 and θ° is θ·°.
+    /// √ and ° end a name: a√2 is a·√2 and θ° is θ·°. ∞ only follows, as in R_∞.
     private static func isIdentifierContinuation(_ character: Character) -> Bool {
         (isIdentifierStart(character) && character != "√" && character != "°")
-            || "0123456789₀₁₂₃₄₅₆₇₈₉".contains(character)
+            || "0123456789₀₁₂₃₄₅₆₇₈₉∞".contains(character)
     }
 
     private static let superscriptDigits: [Character: Character] = [

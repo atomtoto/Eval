@@ -510,7 +510,7 @@ public enum ConstantCatalog: Sendable {
         "π": "pi", "α": "alpha", "me": "m_e", "mp": "m_p", "mn": "m_n",
         "Faraday": "F_const", "faraday": "F_const", "F_Faraday": "F_const",
         "atomic_mass": "m_u", "amu": "m_u", "Bohr_radius": "a_0", "a0": "a_0",
-        "Rydberg": "R_inf", "R_infinity": "R_inf", "hartree": "E_h",
+        "Rydberg": "R_inf", "R_infinity": "R_inf", "R∞": "R_inf", "hartree": "E_h",
         "muB": "mu_B", "μ_B": "mu_B", "µ_B": "mu_B", "muN": "mu_N", "μ_N": "mu_N", "µ_N": "mu_N",
         "Phi0": "Phi_0", "phi_0": "Phi_0", "Φ0": "Phi_0", "Φ₀": "Phi_0",
         "sigma": "sigma_SB", "σ": "sigma_SB", "σ_SB": "sigma_SB", "Stefan_Boltzmann": "sigma_SB",

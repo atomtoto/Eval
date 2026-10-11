@@ -96,6 +96,17 @@ final class PhysicalCatalogTests: XCTestCase {
         XCTAssertEqual(try constant("m_u").nature, .measured)
     }
 
+    func testInfinitySignNamesTheRydbergConstant() throws {
+        for spelling in ["R_∞", "R∞"] {
+            let result = NotebookEngine().evaluate(spelling)
+            XCTAssertEqual(try successfulQuantity(try XCTUnwrap(result.lines.first)), try constant("R_inf").quantity, spelling)
+        }
+        let formula = NotebookEngine().evaluate("R_∞ = m_e e^4 / (8 epsilon_0^2 h^3 c)")
+        let value = try successfulQuantity(try XCTUnwrap(formula.lines.first))
+        XCTAssertEqual(value.value, 10_973_731.568157, accuracy: 1)
+        XCTAssertTrue(value.dimension.isEquivalent(to: .dimensionless - .length))
+    }
+
     func testDerivedElectricalConstantsKeepSIUnitsAndExactness() throws {
         let evaluation = NotebookEngine().evaluate("Phi_0 = h/(2e)\nR_K = h/e^2\nG_0 = 2e^2/h\nK_J = 2e/h\nF_const = N_A*e")
         for (line, identifier) in zip(evaluation.lines, ["Phi_0", "R_K", "G_0", "K_J", "F_const"]) {

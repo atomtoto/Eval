@@ -590,7 +590,7 @@ enum MathSerialization {
     private static let operators: Set<Character> = ["+", "-", "−", "–", "*", "×", "·", "⋅", "/", "÷", ";", "=", "→", ">", "<"]
 
     static func isNameCharacter(_ character: Character) -> Bool {
-        character.isLetter || character.isNumber || "_°µΩℏπ".contains(character)
+        character.isLetter || character.isNumber || "_°µΩℏπ∞".contains(character)
     }
 
     /// A character of a name or a number, including its decimal separator.
