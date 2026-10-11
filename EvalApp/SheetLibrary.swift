@@ -163,13 +163,29 @@ final class SheetLibrary {
         }
     }
 
-    func deleteSheet(id: UUID) {
+    /// Deletes the sheet at once and returns it as it was, so that
+    /// `restoreSheet(_:)` can bring it back.
+    @discardableResult
+    func deleteSheet(id: UUID) -> SheetRecord? {
+        let removed = sessions[id]?.record ?? record(for: id)
         sessions.removeValue(forKey: id)?.close()
         pendingWrites[id] = nil
         sheets.removeAll { $0.id == id }
         sheetIDs.remove(id)
         if mostRecentSheetID == id { mostRecentSheetID = sheets.first?.id }
         storage.delete(id: id)
+        return removed
+    }
+
+    /// Brings back a deleted sheet, at the place its modification date gives it.
+    func restoreSheet(_ record: SheetRecord) {
+        guard !contains(record.id) else { return }
+        var updated = sheets
+        updated.insert(record, at: insertionIndex(for: record, in: updated))
+        sheets = updated
+        sheetIDs.insert(record.id)
+        if mostRecentSheetID == nil { mostRecentSheetID = record.id }
+        storage.save(record)
     }
 
     /// Writes pending edits now. Waiting guarantees that they reach the disk

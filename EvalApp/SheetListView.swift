@@ -5,12 +5,14 @@ import SwiftUI
 struct SheetListView: View {
     @Environment(SheetLibrary.self) private var library
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.undoManager) private var undoManager
     @Binding var selection: UUID?
     var searchRequest = 0
     let open: (UUID) -> Void
     @State private var search = ""
     @State private var renaming: SheetRecord?
-    @State private var pendingDeletion: SheetRecord?
+    @State private var deletedSheet: SheetRecord?
+    @State private var undoTimeout: Task<Void, Never>?
     @State private var showsSettings = false
 
     private var visibleSheets: [SheetRecord] {
@@ -28,7 +30,7 @@ struct SheetListView: View {
                     .contextMenu { actions(for: record) }
             }
             .onDelete { offsets in
-                pendingDeletion = offsets.first.map { sheets[$0] }
+                if let record = offsets.first.map({ sheets[$0] }) { delete(record) }
             }
         }
         .overlay {
@@ -75,9 +77,38 @@ struct SheetListView: View {
         }
         .sheet(isPresented: $showsSettings) { SettingsView() }
         .sheetRenameAlert($renaming)
-        .sheetDeletionConfirmation($pendingDeletion) { id in
-            if selection == id { selection = nil }
+        .safeAreaInset(edge: .bottom) {
+            if let deletedSheet, !library.contains(deletedSheet.id) {
+                DeletionUndoBar(title: deletedSheet.displayTitle) { restore(deletedSheet) }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.smooth, value: deletedSheet?.id)
+    }
+
+    /// Deletes at once and offers to undo, instead of asking first: the sheet
+    /// comes back with the bar's button or with the system undo gesture.
+    private func delete(_ record: SheetRecord) {
+        guard let removed = library.deleteSheet(id: record.id) else { return }
+        if selection == removed.id { selection = nil }
+        deletedSheet = removed
+        undoManager?.registerUndo(withTarget: library) { library in
+            MainActor.assumeIsolated { library.restoreSheet(removed) }
+        }
+        undoManager?.setActionName(String(localized: "Supprimer la feuille"))
+        VoiceOverAnnouncement.post(String(localized: "Feuille supprimée. Annuler est disponible."))
+        undoTimeout?.cancel()
+        undoTimeout = Task {
+            try? await Task.sleep(for: .seconds(6))
+            if !Task.isCancelled { deletedSheet = nil }
+        }
+    }
+
+    private func restore(_ record: SheetRecord) {
+        undoTimeout?.cancel()
+        deletedSheet = nil
+        undoManager?.removeAllActions(withTarget: library)
+        library.restoreSheet(record)
     }
 
     @ViewBuilder
@@ -90,7 +121,27 @@ struct SheetListView: View {
             Label("Partager", systemImage: "square.and.arrow.up")
         }
         Divider()
-        Button("Supprimer", systemImage: "trash", role: .destructive) { pendingDeletion = record }
+        Button("Supprimer", systemImage: "trash", role: .destructive) { delete(record) }
+    }
+}
+
+/// Shown for a few seconds after a sheet is deleted.
+private struct DeletionUndoBar: View {
+    let title: String
+    let undo: () -> Void
+
+    var body: some View {
+        HStack {
+            Text("« \(title) » supprimée")
+                .lineLimit(1)
+            Spacer()
+            Button("Annuler", action: undo)
+                .fontWeight(.semibold)
+        }
+        .padding()
+        .background(.regularMaterial, in: .rect(cornerRadius: 20))
+        .padding(.horizontal)
+        .padding(.bottom, 8)
     }
 }
 
