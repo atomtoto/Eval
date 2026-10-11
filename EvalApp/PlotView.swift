@@ -9,6 +9,9 @@ struct PlotView: View {
     let request: PlotRequest
     @Environment(\.dismiss) private var dismiss
     @State private var variableID: UUID
+    /// The interval of a name that the sheet does not declare, which has no ruler to give one.
+    @State private var lowerBound = -10.0
+    @State private var upperBound = 10.0
     @State private var plot: SweepPlot?
     @State private var selectedX: Double?
     /// The unit of the result’s last value, kept while the current value is an error.
@@ -18,7 +21,28 @@ struct PlotView: View {
     init(notebook: NotebookStore, request: PlotRequest) {
         self.notebook = notebook
         self.request = request
-        _variableID = State(initialValue: request.variableLineID)
+        _variableID = State(initialValue: request.variableLineID ?? UUID())
+    }
+
+    private var freeVariable: String? {
+        request.freeVariable
+    }
+
+    private var variableName: String {
+        freeVariable ?? variable?.name ?? ""
+    }
+
+    private var variableUnit: String {
+        freeVariable == nil ? variable?.unit ?? "" : ""
+    }
+
+    /// The interval the plot covers: the one typed for a free name, else the variable's own.
+    private var plotRange: VariableAdjustmentRange? {
+        if freeVariable != nil {
+            return VariableAdjustmentRange(lowerBound: lowerBound, upperBound: upperBound,
+                                           step: (upperBound - lowerBound) / 100)
+        }
+        return variable.flatMap { notebook.adjustmentRange(for: variableID, variable: $0) }
     }
 
     private var variables: [NotebookVariable] {
@@ -49,29 +73,50 @@ struct PlotView: View {
         let variableID: UUID
         let source: String
         let range: VariableAdjustmentRange?
+        let isFree: Bool
     }
 
     private var samplingKey: SamplingKey {
-        SamplingKey(variableID: variableID, source: notebook.source,
-                    range: variable.flatMap { notebook.adjustmentRange(for: variableID, variable: $0) })
+        SamplingKey(variableID: variableID, source: notebook.source, range: plotRange, isFree: freeVariable != nil)
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Picker("Variable", selection: $variableID) {
-                        ForEach(variables) { item in
-                            Text(item.variable.name).tag(item.id)
+                if freeVariable == nil {
+                    Section {
+                        Picker("Variable", selection: $variableID) {
+                            ForEach(variables) { item in
+                                Text(item.variable.name).tag(item.id)
+                            }
                         }
+                        .pickerStyle(.menu)
                     }
-                    .pickerStyle(.menu)
                 }
 
                 Section {
                     chartContent
                 } footer: {
-                    Text("L’intervalle tracé est l’intervalle du graphique de la variable : modifiez-le avec ses réglages pour tracer une autre plage. La ligne pointillée marque la valeur actuelle. Touchez le graphique pour lire une valeur.")
+                    if freeVariable == nil {
+                        Text("L’intervalle tracé est l’intervalle du graphique de la variable : modifiez-le avec ses réglages pour tracer une autre plage. La ligne pointillée marque la valeur actuelle. Touchez le graphique pour lire une valeur.")
+                    } else {
+                        Text("\(variableName) n’est pas déclaré dans la feuille : le tracé le fait varier sur l’intervalle ci-dessous, sans rien ajouter à la feuille. Touchez le graphique pour lire une valeur.")
+                    }
+                }
+
+                if let freeVariable {
+                    Section("Intervalle de \(freeVariable)") {
+                        LabeledContent("De") {
+                            TextField("De", value: $lowerBound, format: .number)
+                                .keyboardType(.numbersAndPunctuation)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        LabeledContent("À") {
+                            TextField("À", value: $upperBound, format: .number)
+                                .keyboardType(.numbersAndPunctuation)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
                 }
 
                 if let variable, let value = result?.formattedValue {
@@ -87,7 +132,7 @@ struct PlotView: View {
                 }
             }
             .warmPage()
-            .navigationTitle(Text("\(resultName) en fonction de \(variable?.name ?? "")"))
+            .navigationTitle(Text("\(resultName) en fonction de \(variableName)"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -120,22 +165,26 @@ struct PlotView: View {
                                        description: Text("La ligne du résultat ou celle de la variable n’existe plus, ou la variable n’est plus un nombre réglable."))
             case .noRange:
                 ContentUnavailableView("Tracé impossible", systemImage: "chart.xyaxis.line",
-                                       description: Text("La variable n’a pas d’intervalle de graphique valide. Modifiez ses réglages."))
+                                       description: freeVariable == nil
+                                       ? Text("La variable n’a pas d’intervalle de graphique valide. Modifiez ses réglages.")
+                                       : Text("L’intervalle est vide : « De » doit être plus petit que « À »."))
             case .undefined:
                 ContentUnavailableView("Aucune valeur calculable", systemImage: "chart.xyaxis.line",
                                        description: Text("Le résultat n’est défini pour aucune valeur de l’intervalle du graphique."))
             }
-        } else if let variable, let plot, plot.variableID == variableID {
-            chart(plot, variable: variable)
+        } else if let plot, plot.variableID == variableID, freeVariable != nil || variable != nil {
+            chart(plot)
         } else {
             ProgressView("Calcul du tracé…")
                 .frame(maxWidth: .infinity, minHeight: chartHeight)
         }
     }
 
-    private func chart(_ plot: SweepPlot, variable: AdjustableVariable) -> some View {
+    private func chart(_ plot: SweepPlot) -> some View {
+        let variableName = variableName
+        let variableUnit = variableUnit
         let selected = selectedX.flatMap { plot.nearest(to: $0) }
-        let xLabel = axisLabel(variable.name, unit: variable.unit)
+        let xLabel = axisLabel(variableName, unit: variableUnit)
         let yLabel = axisLabel(resultName, unit: resultUnit)
         return Chart {
             ForEach(Array(plot.segments.enumerated()), id: \.offset) { index, segment in
@@ -152,23 +201,25 @@ struct PlotView: View {
                     }
                 }
             }
-            RuleMark(x: .value("Valeur actuelle", variable.value))
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Valeur actuelle")
-                .accessibilityValue(spokenText(variable.value, unit: variable.unit))
+            if freeVariable == nil, let variable {
+                RuleMark(x: .value("Valeur actuelle", variable.value))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Valeur actuelle")
+                    .accessibilityValue(spokenText(variable.value, unit: variable.unit))
+            }
             if let selected {
                 RuleMark(x: .value(xLabel, selected.x))
                     .foregroundStyle(.tertiary)
                     .annotation(position: .top, spacing: 4,
                                 overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
                         VStack(alignment: .leading) {
-                            Text("\(variable.name) = \(valueText(selected.x, unit: variable.unit))")
+                            Text("\(variableName) = \(valueText(selected.x, unit: variableUnit))")
                             Text("\(resultName) = \(valueText(selected.y, unit: resultUnit))")
                         }
                         .font(.caption.monospacedDigit())
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("\(variable.name) égale \(spokenText(selected.x, unit: variable.unit)), \(resultName) égale \(spokenText(selected.y, unit: resultUnit))")
+                        .accessibilityLabel("\(variableName) égale \(spokenText(selected.x, unit: variableUnit)), \(resultName) égale \(spokenText(selected.y, unit: resultUnit))")
                         .padding(6)
                         .background(.regularMaterial, in: .rect(cornerRadius: 8))
                     }
@@ -201,20 +252,42 @@ struct PlotView: View {
 
     private func load() async {
         selectedX = nil
-        guard let variable, let index = notebook.lineIndex(of: request.resultLineID),
+        let id = variableID
+        if let freeVariable {
+            guard let index = notebook.lineIndex(of: request.resultLineID) else {
+                plot = SweepPlot(variableID: id, failure: .missingLine)
+                return
+            }
+            guard let range = plotRange else {
+                plot = SweepPlot(variableID: id, failure: .noRange)
+                return
+            }
+            let points = await Self.sample(source: notebook.source, freeVariable: freeVariable,
+                                           resultIndex: index, range: range)
+            guard !Task.isCancelled else { return }
+            plot = SweepPlot(variableID: id, range: range, points: points)
+            return
+        }
+        guard let index = notebook.lineIndex(of: request.resultLineID),
               let variableIndex = notebook.lineIndex(of: variableID) else {
             plot = SweepPlot(variableID: variableID, failure: .missingLine)
             return
         }
-        guard let range = notebook.adjustmentRange(for: variableID, variable: variable) else {
+        guard let range = plotRange else {
             plot = SweepPlot(variableID: variableID, failure: .noRange)
             return
         }
-        let id = variableID
         let points = await Self.sample(source: notebook.source, variableIndex: variableIndex,
                                        resultIndex: index, range: range)
         guard !Task.isCancelled else { return }
         plot = SweepPlot(variableID: id, range: range, points: points)
+    }
+
+    @concurrent
+    private nonisolated static func sample(source: String, freeVariable: String, resultIndex: Int,
+                                           range: VariableAdjustmentRange) async -> [SweepPoint] {
+        VariableSweep.sample(source: source, freeVariable: freeVariable, resultLineIndex: resultIndex,
+                             range: range, count: 161)
     }
 
     @concurrent

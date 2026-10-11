@@ -49,6 +49,28 @@ public enum VariableSweep {
         return points
     }
 
+    /// The name a line fails on because nothing declares it, as in `y = 2·x`
+    /// without a line for `x`: the variable such a line can be plotted against.
+    /// Nil for any other line, and for a name that cannot be declared with a number.
+    public static func freeVariable(in line: EvaluatedLine) -> String? {
+        guard line.status == .error, line.kind == .expression || line.kind == .definition,
+              let message = line.message, message.hasPrefix("« "),
+              let end = message.range(of: " » n’est ni une variable déclarée") else { return nil }
+        let name = String(message[message.index(message.startIndex, offsetBy: 2)..<end.lowerBound])
+        guard !name.isEmpty, AdjustableVariable(source: "\(name) = 1") != nil else { return nil }
+        return name
+    }
+
+    /// Like `sample(source:variableLineIndex:…)`, for a name that the sheet does
+    /// not declare: a line `name = value` is put above the sheet for each sample.
+    /// `resultLineIndex` is the line of the sheet itself.
+    public static func sample(source: String, freeVariable name: String, resultLineIndex: Int,
+                              range: VariableAdjustmentRange, count: Int = 101) -> [SweepPoint] {
+        let points = sample(source: "\(name) = 1\n" + source, variableLineIndex: 0,
+                            resultLineIndex: resultLineIndex + 1, range: range, count: count)
+        return points
+    }
+
     /// The runs of consecutive samples: draw each as its own line so that
     /// no segment joins two sides of a gap.
     public static func segments(_ points: [SweepPoint]) -> [[SweepPoint]] {

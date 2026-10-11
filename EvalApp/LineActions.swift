@@ -77,11 +77,13 @@ extension DisplayUnitMenu {
     }
 }
 
-/// A request to plot one result against one ruler variable.
+/// A request to plot one result against one ruler variable, or against a name
+/// that the sheet does not declare (`freeVariable`, then there is no variable line).
 struct PlotRequest: Identifiable {
     let id = UUID()
     let resultLineID: UUID
-    let variableLineID: UUID
+    var variableLineID: UUID?
+    var freeVariable: String?
 }
 
 /// « Tracer en fonction de »: the adjustable variables a computed line can be plotted against.
@@ -94,7 +96,11 @@ struct PlotMenu: View {
     var body: some View {
         let line = notebook.result(for: lineID)
         let variables = notebook.plotVariables(for: lineID)
-        if let line, line.source == source, line.status == .success, line.quantity != nil,
+        if let line, line.source == source, let name = VariableSweep.freeVariable(in: line) {
+            Button("Tracer en fonction de \(name)", systemImage: "chart.xyaxis.line") {
+                plot(PlotRequest(resultLineID: lineID, freeVariable: name))
+            }
+        } else if let line, line.source == source, line.status == .success, line.quantity != nil,
            line.kind == .expression || line.kind == .definition, !variables.isEmpty {
             Menu("Tracer en fonction de", systemImage: "chart.xyaxis.line") {
                 ForEach(variables) { item in

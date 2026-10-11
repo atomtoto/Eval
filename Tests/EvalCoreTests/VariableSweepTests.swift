@@ -104,4 +104,22 @@ final class VariableSweepTests: XCTestCase {
         wait(for: [done], timeout: 10)
         _ = task
     }
+
+    func testUndeclaredNameIsAFreeVariableAndIsSwept() throws {
+        let source = "# Droite\ny = 2 * x"
+        let evaluation = NotebookEngine.evaluate(source)
+        XCTAssertEqual(VariableSweep.freeVariable(in: evaluation.lines[1]), "x")
+        XCTAssertNil(VariableSweep.freeVariable(in: evaluation.lines[0]))
+        let points = VariableSweep.sample(source: source, freeVariable: "x", resultLineIndex: 1,
+                                          range: try range(-10, 10, 1), count: 5)
+        XCTAssertEqual(points.map(\.x), [-10, -5, 0, 5, 10])
+        XCTAssertEqual(points.map(\.y), [-20, -10, 0, 10, 20])
+    }
+
+    func testDeclaredLinesAreNotFreeVariables() {
+        let evaluation = NotebookEngine.evaluate("x = 3\ny = 2 * x\n1 / 0")
+        for line in evaluation.lines {
+            XCTAssertNil(VariableSweep.freeVariable(in: line))
+        }
+    }
 }

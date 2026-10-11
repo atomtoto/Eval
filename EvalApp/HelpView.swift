@@ -90,7 +90,7 @@ struct HelpView: View {
                 }
 
                 Section("Tracer un résultat") {
-                    Text("Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle du graphique de la variable (autour de sa valeur, par défaut) ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou.")
+                    Text("Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle du graphique de la variable (autour de sa valeur, par défaut) ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou. Une ligne comme y = 2·x, où x n’est pas déclaré, se trace aussi : choisissez Tracer en fonction de x, puis réglez l’intervalle de x, de −10 à 10 au départ. Rien n’est ajouté à la feuille.")
                 }
 
                 Section("Constantes reconnues") {

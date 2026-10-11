@@ -7,6 +7,9 @@
     " égale %@" : {
 
     },
+    "« %@ » supprimée" : {
+
+    },
     "%@" : {
 
     },
@@ -54,6 +57,9 @@
 
     },
     "%@, vide" : {
+
+    },
+    "%@×" : {
 
     },
     "%lld" : {
@@ -241,9 +247,6 @@
     "Cet appareil ne prend pas en charge Apple Intelligence." : {
 
     },
-    "Cette feuille sera supprimée de cet appareil." : {
-
-    },
     "Cette photo ne peut pas être ouverte." : {
 
     },
@@ -424,6 +427,9 @@
     "Feuille Eval" : {
 
     },
+    "Feuille supprimée. Annuler est disponible." : {
+
+    },
     "Feuille vide" : {
 
     },
@@ -587,7 +593,7 @@
     "Lire la formule" : {
 
     },
-    "Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Scanner une formule. La caméra s’ouvre en plein écran : faites glisser les coins du cadre pour l’ajuster à la formule, pincez pour zoomer, puis touchez le déclencheur (ou un bouton de volume). Le bouton Photos lit une photo de votre photothèque avec le même cadre, et la lampe éclaire la page." : {
+    "Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Scanner une formule. La caméra s’ouvre en plein écran : faites glisser un coin ou un bord du cadre, qui reste toujours centré, pour l’ajuster à la formule, pincez pour zoomer, puis touchez le déclencheur (ou un bouton de volume). Le bouton Photos lit une photo de votre photothèque avec le même cadre, et la lampe éclaire la page." : {
 
     },
     "Maintenez une feuille dans la liste pour la renommer, la dupliquer, la partager ou la supprimer. La suppression demande toujours une confirmation." : {
@@ -857,7 +863,7 @@
     "Supprimer" : {
 
     },
-    "Supprimer « %@ » ?" : {
+    "Supprimer la feuille" : {
 
     },
     "Sur iPad, chaque fenêtre affiche sa propre feuille. Ajouter à la feuille, dans Références, complète la feuille de la fenêtre avec une ligne qui affiche la valeur, comme c =. Raccourcis : ⌘N nouvelle feuille, ⇧⌘N nouvelle ligne, ⌘F rechercher, ⌘1 et ⌘2 pour changer d’onglet, ⌘, pour les Réglages, ⌘Z pour annuler. Maintenez ⌘ pour afficher la liste." : {
