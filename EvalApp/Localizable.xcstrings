@@ -84,10 +84,10 @@
     "000" : {
 
     },
-    "À corriger : Eval ne lit pas cette ligne." : {
+    "À partir d’iOS 26, avec Apple Intelligence, une feuille sans titre ni note # reçoit un nom d’après son contenu la première fois que vous la quittez, par exemple « Chute libre ». Tout se passe sur l’appareil. Le réglage Nommer les feuilles automatiquement le désactive." : {
 
     },
-    "À partir d’iOS 26, avec Apple Intelligence, une feuille sans titre ni note # reçoit un nom d’après son contenu la première fois que vous la quittez, par exemple « Chute libre ». Tout se passe sur l’appareil. Le réglage Nommer les feuilles automatiquement le désactive." : {
+    "Accès à la caméra refusé" : {
 
     },
     "Action impossible : la feuille a été modifiée dans une autre fenêtre." : {
@@ -133,9 +133,6 @@
     "Ajoute une ligne à la fin de la feuille." : {
 
     },
-    "Ajouter" : {
-
-    },
     "Ajouter %@ à la feuille" : {
 
     },
@@ -151,7 +148,13 @@
     "Ajuster une variable en glissant" : {
 
     },
+    "Ajustez le cadre sur la formule" : {
+
+    },
     "Alias" : {
+
+    },
+    "Allumer la lampe" : {
 
     },
     "Annuler" : {
@@ -193,19 +196,28 @@
     "Aucune feuille" : {
 
     },
-    "Aucune formule n’a été reconnue. Écrivez plus grand, ou photographiez la page de plus près et bien éclairée." : {
+    "Aucune formule n’a été reconnue. Rapprochez-vous, éclairez la page et ajustez le cadre autour de la formule." : {
 
     },
     "Aucune valeur calculable" : {
 
     },
+    "Autorisez la caméra dans Réglages pour photographier une formule, ou choisissez une photo." : {
+
+    },
     "Autres" : {
 
     },
-    "Avec le réglage Écriture mathématique, la ligne se modifie telle qu’elle s’affiche. / fait du terme qui précède le numérateur d’une fraction, ^ ouvre un exposant. La barre propose xⁿ (exposant), √ (racine carrée), ◀ et ▶ pour déplacer le curseur, et son menu Insérer ajoute Fraction, Racine n-ième, ², ⁻¹, Monter, Descendre, =, ×, π, deg, les variables de la feuille et Constantes et unités…. Touchez la formule pour placer le curseur ; un cadre pointillé marque une case vide. L’effacement entre dans une fraction ou une racine, puis la défait quand elle est vide. Retour valide la ligne et en crée une nouvelle, comme en texte." : {
+    "Avec le réglage Écriture mathématique, la ligne se modifie telle qu’elle s’affiche. / fait du terme qui précède le numérateur d’une fraction, ^ ouvre un exposant. La barre propose xⁿ (exposant), √ (racine carrée), ◀ et ▶ pour déplacer le curseur, et son menu Insérer ajoute Fraction, Racine n-ième, ², ⁻¹, Monter, Descendre, =, ×, π, deg, les variables de la feuille et Constantes et unités…. Touchez la formule pour placer le curseur, ou maintenez la barre d’espace pour le déplacer comme avec un trackpad ; un cadre pointillé marque une case vide. L’effacement entre dans une fraction ou une racine, puis la défait quand elle est vide. Retour valide la ligne et en crée une nouvelle, comme en texte." : {
 
     },
     "Bleu" : {
+
+    },
+    "Cadre de lecture" : {
+
+    },
+    "Cadrez la formule, puis prenez la photo" : {
 
     },
     "Calcul" : {
@@ -215,6 +227,9 @@
 
     },
     "Calcul en cours" : {
+
+    },
+    "Caméra indisponible" : {
 
     },
     "Ces symboles ne sont pas déclarés dans la feuille et ont été interprétés comme des unités. S’il s’agit de variables, déclarez-les, par exemple T = 300 K." : {
@@ -250,6 +265,9 @@
     "Choisissez Réorganiser dans le menu Actions de la feuille pour déplacer des lignes avec leur poignée ou les supprimer ; les réglettes sont alors indisponibles. Touchez Terminé pour finir. Glissez une ligne vers la gauche pour la supprimer. L’ordre des lignes n’influe pas sur le calcul." : {
 
     },
+    "Choisissez une photo de la formule dans votre photothèque." : {
+
+    },
     "Constantes" : {
 
     },
@@ -257,6 +275,9 @@
 
     },
     "Constantes reconnues" : {
+
+    },
+    "Continuer" : {
 
     },
     "Convertir l’affichage" : {
@@ -319,9 +340,6 @@
     "Dupliquer" : {
 
     },
-    "Écrire à la main" : {
-
-    },
     "Écrire une formule" : {
 
     },
@@ -335,12 +353,6 @@
 
     },
     "Écrivez une formule ou une déclaration par ligne. Les résultats se mettent à jour pendant la saisie." : {
-
-    },
-    "Écrivez une formule par ligne, avec Apple Pencil ou le doigt." : {
-
-    },
-    "Écrivez vos formules" : {
 
     },
     "Effacer" : {
@@ -376,6 +388,9 @@
     "Erreur à la ligne %lld" : {
 
     },
+    "Éteindre la lampe" : {
+
+    },
     "Eval calcule les nombres exactement, regroupe les termes semblables (2x + 3x → 5x), simplifie les facteurs communs, fusionne les puissances, réduit les racines (√12 → 2√3) et les fractions (x² − 1)/(x − 1) → x + 1, et développe quand le résultat est plus court. Une formule déjà simple n’affiche pas de proposition." : {
 
     },
@@ -395,6 +410,9 @@
 
     },
     "Faites glisser les lignes pour les réorganiser, puis touchez Terminé. L’ordre n’influe pas sur le calcul." : {
+
+    },
+    "Fermer" : {
 
     },
     "Feuille" : {
@@ -436,9 +454,6 @@
     "Icône de l’app" : {
 
     },
-    "Importer" : {
-
-    },
     "Insère %@ dans la formule." : {
 
     },
@@ -472,10 +487,10 @@
     "La lecture par Apple Intelligence nécessite iOS 27." : {
 
     },
-    "La lecture se fait sur l’appareil. Les exposants et les fractions sont reconnus d’après leur position ; avec Apple Intelligence (iOS 27), le modèle sur l’appareil lit aussi l’image, et sa lecture est gardée lorsqu’elle concorde avec la reconnaissance de texte. Vérifiez toujours les lignes avant de les ajouter." : {
+    "La ligne du résultat ou celle de la variable n’existe plus, ou la variable n’est plus un nombre réglable." : {
 
     },
-    "La ligne du résultat ou celle de la variable n’existe plus, ou la variable n’est plus un nombre réglable." : {
+    "La photo n’a pas pu être prise." : {
 
     },
     "La touche Retour valide la ligne et en crée une nouvelle en dessous." : {
@@ -532,6 +547,9 @@
     "Les lettres t, d, a et u ne sont pas des unités : elles restent libres comme noms de variables. Pour une durée, écrivez s, min, h, jour ou an." : {
 
     },
+    "Les lignes lues sont ajoutées à la fin de la feuille." : {
+
+    },
     "Les noms t, d, a, u, j, in, kn, psi et G ne sont pas des unités : vous pouvez les utiliser comme variables. Si Eval lit un symbole non déclaré comme une unité (par exemple T comme tesla), il le signale dans Symboles lus comme des unités ; déclarez-le pour en faire une variable." : {
 
     },
@@ -545,9 +563,6 @@
 
     },
     "Les variables peuvent dépendre d’autres variables. Chaque nom doit être défini une seule fois ; les dépendances circulaires sont signalées. Une note commence par # (titre) ou // (texte secondaire)." : {
-
-    },
-    "Ligne" : {
 
     },
     "Ligne %lld" : {
@@ -569,19 +584,10 @@
     "Ligne vide" : {
 
     },
-    "Lire" : {
+    "Lire la formule" : {
 
     },
-    "Lire le dessin" : {
-
-    },
-    "Lu sur l’appareil par Apple Intelligence. Corrigez une ligne en la touchant ; glissez vers la gauche pour la supprimer." : {
-
-    },
-    "Lu sur l’appareil par la reconnaissance de texte. Vérifiez les fractions et les exposants, corrigez une ligne en la touchant ; glissez vers la gauche pour la supprimer." : {
-
-    },
-    "Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Écrire à la main. Écrivez une formule par ligne avec l’Apple Pencil ou le doigt, ou utilisez le bouton caméra pour scanner une page ou choisir une photo. Touchez Lire, vérifiez et corrigez les lignes reconnues, puis touchez Ajouter." : {
+    "Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Scanner une formule. La caméra s’ouvre en plein écran : faites glisser les coins du cadre pour l’ajuster à la formule, pincez pour zoomer, puis touchez le déclencheur (ou un bouton de volume). Le bouton Photos lit une photo de votre photothèque avec le même cadre, et la lampe éclaire la page." : {
 
     },
     "Maintenez une feuille dans la liste pour la renommer, la dupliquer, la partager ou la supprimer. La suppression demande toujours une confirmation." : {
@@ -680,6 +686,9 @@
     "Orange industriel" : {
 
     },
+    "Ouvrir Réglages" : {
+
+    },
     "Parenthèses" : {
 
     },
@@ -710,6 +719,9 @@
     "Pas de la réglette" : {
 
     },
+    "Photo choisie" : {
+
+    },
     "Plus" : {
 
     },
@@ -723,6 +735,9 @@
 
     },
     "Pourcentage et factorielle" : {
+
+    },
+    "Prendre la photo" : {
 
     },
     "Puissance" : {
@@ -791,7 +806,7 @@
     "Rétablir le réglage automatique" : {
 
     },
-    "Retour" : {
+    "Revenir à la caméra" : {
 
     },
     "Saisie" : {
@@ -800,13 +815,10 @@
     "Saisie des formules" : {
 
     },
-    "Sans Apple Intelligence, Eval lit les caractères un par un : les chiffres et les lettres sont bien reconnus, mais les fractions, les exposants et les racines le sont souvent mal. Vérifiez chaque ligne avant de l’ajouter." : {
+    "Sans Apple Intelligence, Eval lit les caractères un par un : les chiffres et les lettres sont bien reconnus, mais les fractions, les exposants et les racines le sont souvent mal. Vérifiez les lignes ajoutées à la feuille." : {
 
     },
-    "Scanner la page" : {
-
-    },
-    "Scanner une page" : {
+    "Scanner une formule" : {
 
     },
     "Segment" : {
@@ -816,6 +828,12 @@
 
     },
     "Séparez la valeur et son unité par un espace : 5 m désigne le mètre même si m est aussi une variable. Pour les unités composées, gardez les opérateurs sans espaces : 2 kg*m/s². Dans une formule, utilisez * entre les variables et espacez les opérateurs autour d’une quantité : 2 m/s² * m." : {
+
+    },
+    "Seul ce qui est dans le cadre est lu. Balayez vers le haut ou le bas pour l’agrandir ou le réduire." : {
+
+    },
+    "Seul le contenu du cadre est lu, sur l’appareil, et les lignes reconnues s’ajoutent à la fin de la feuille ; Annuler les retire. Les exposants et les fractions sont reconnus d’après leur position ; avec Apple Intelligence (iOS 27), le modèle sur l’appareil lit aussi l’image, et sa lecture est gardée lorsqu’elle concorde avec la reconnaissance de texte. Sur iPad, l’Apple Pencil écrit directement dans une ligne grâce à Griffonner." : {
 
     },
     "Simplifier" : {
@@ -893,9 +911,6 @@
     "Une formule par ligne" : {
 
     },
-    "Une formule par ligne, avec Apple Pencil ou le doigt. Pour une page déjà écrite, utilisez Scanner ou Photos." : {
-
-    },
     "Une fréquence en s⁻¹ s’affiche s⁻¹ ; choisissez → Hz, → rad/s ou → tr/min selon l’usage. Les cibles sont des unités ou des constantes, jamais des variables de la feuille : m, h et g désignent donc le mètre, l’heure et le gramme." : {
 
     },
@@ -938,16 +953,10 @@
     "Variables de la feuille" : {
 
     },
-    "Vérifier les lignes" : {
-
-    },
     "Vos feuilles" : {
 
     },
     "Vous pouvez remplacer une constante en déclarant vous-même son identifiant dans la feuille. Les symboles respectent la casse : g est la pesanteur standard, G est la constante gravitationnelle. Si e n’est pas déclaré, il désigne la charge élémentaire : pour l’exponentielle, écrivez exp(x)." : {
-
-    },
-    "Zone d’écriture" : {
 
     },
     "π" : {
