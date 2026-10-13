@@ -53,6 +53,9 @@
         }
       }
     },
+    "%@ n’est pas déclaré dans la feuille : le tracé le fait varier sur l’intervalle ci-dessous, sans rien ajouter à la feuille. Touchez le graphique pour lire une valeur." : {
+
+    },
     "%@, à la fin" : {
 
     },
@@ -88,6 +91,9 @@
       }
     },
     "000" : {
+
+    },
+    "À" : {
 
     },
     "À partir d’iOS 26, avec Apple Intelligence, une feuille sans titre ni note # reçoit un nom d’après son contenu la première fois que vous la quittez, par exemple « Chute libre ». Tout se passe sur l’appareil. Le réglage Nommer les feuilles automatiquement le désactive." : {
@@ -322,6 +328,9 @@
     "Dans la ligne (texte)" : {
 
     },
+    "De" : {
+
+    },
     "Début de ligne" : {
 
     },
@@ -466,6 +475,9 @@
     "Insérer" : {
 
     },
+    "Intervalle de %@" : {
+
+    },
     "Intervalle du graphique" : {
 
     },
@@ -482,6 +494,9 @@
 
     },
     "L’icône n’a pas pu être changée." : {
+
+    },
+    "L’intervalle est vide : « De » doit être plus petit que « À »." : {
 
     },
     "L’intervalle tracé est l’intervalle du graphique de la variable : modifiez-le avec ses réglages pour tracer une autre plage. La ligne pointillée marque la valeur actuelle. Touchez le graphique pour lire une valeur." : {
@@ -605,7 +620,7 @@
     "Maintenez une feuille dans la liste pour la renommer, la dupliquer, la partager ou la supprimer. La suppression demande toujours une confirmation." : {
 
     },
-    "Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle du graphique de la variable (autour de sa valeur, par défaut) ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou." : {
+    "Maintenez une ligne calculée et choisissez Tracer en fonction de, puis une des variables à réglette dont elle dépend. Le graphique couvre l’intervalle du graphique de la variable (autour de sa valeur, par défaut) ; modifiez-le avec les réglages de la variable pour tracer une autre plage. Touchez le graphique pour lire une valeur. Les points où le calcul est impossible laissent un trou. Une ligne comme y = 2·x, où x n’est pas déclaré, se trace aussi : choisissez Tracer en fonction de x, puis réglez l’intervalle de x, de −10 à 10 au départ. Rien n’est ajouté à la feuille." : {
 
     },
     "Maintenez une ligne pour Copier la valeur (1000 J), Copier la ligne (E = 1000 J), Copier la formule, Partager le résultat, Dupliquer, Modifier ou Supprimer. La valeur copiée suit l’unité affichée. La copie d’une ligne s’ouvre en modification : une déclaration copiée doit recevoir un autre nom." : {
@@ -906,6 +921,9 @@
 
     },
     "Tracer en fonction de" : {
+
+    },
+    "Tracer en fonction de %@" : {
 
     },
     "Tracer en fonction de cette variable couvre cet intervalle. La réglette, elle, n’a pas de bornes : elle passe par zéro et va aussi loin que vous la faites glisser." : {
