@@ -5,13 +5,20 @@ import SwiftUI
 
 /// Formulas photographed on paper, as in Photomath: the camera fills the screen, a
 /// centered frame, resized around its center by its corners and edges, chooses what is
-/// read, and the lines read go straight to the end of the sheet. A photo from the
-/// library is framed the same way.
+/// read, and the lines read go straight to the sheet, at its end or below the line
+/// being edited. A photo from the library is framed the same way. The controls are
+/// Liquid Glass from iOS 26.
 @available(iOS 18, *)
 struct FormulaScannerView: View {
+    /// Where the lines read go in the sheet.
+    enum Destination {
+        case endOfSheet, belowLine
+    }
+
     /// The names the sheet declares, so that `0,5 m` beside `m = 80 kg` multiplies.
     var declaredNames: [String] = []
-    /// Adds the lines read at the end of the sheet.
+    var destination = Destination.endOfSheet
+    /// Adds the lines read to the sheet, where `destination` says.
     let insert: ([String]) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -37,8 +44,22 @@ struct FormulaScannerView: View {
 
     private var usesCamera: Bool { photo == nil }
 
+    /// A photo or the camera's picture, under the frame.
+    private var hasPicture: Bool {
+        photo != nil || camera.state == .running
+    }
+
     private var canRead: Bool {
-        !isReading && (photo != nil || camera.state == .running)
+        !isReading && hasPicture
+    }
+
+    /// Over a photo, the button of the photo library brings the camera back.
+    private var returnsToCamera: Bool {
+        photo != nil && camera.state == .running
+    }
+
+    private var showsTorch: Bool {
+        usesCamera && camera.hasTorch && camera.state == .running
     }
 
     var body: some View {
@@ -99,7 +120,7 @@ struct FormulaScannerView: View {
             if let frozen {
                 frozenPicture(frozen)
             }
-            if photo != nil || camera.state == .running {
+            if hasPicture {
                 ReadingFrame(rect: $frame, limits: photo == nil ? limits : photoRect) {
                     frameAdjusted(limits: limits)
                 }
@@ -129,7 +150,7 @@ struct FormulaScannerView: View {
             .font(.footnote.weight(.semibold).monospacedDigit())
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(.regularMaterial, in: .capsule)
+            .scannerBubble()
             .position(x: frame.midX, y: max(frame.minY - 22, limits.minY - 22))
             .transition(.opacity)
             .accessibilityHidden(true)
@@ -189,42 +210,53 @@ struct FormulaScannerView: View {
 
     // MARK: Controls
 
+    /// In one glass container, so that the glass of the controls is drawn together,
+    /// and the lamp appears as glass does.
     private var controls: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button("Fermer", systemImage: "xmark") { dismiss() }
-                    .modifier(ScannerControl())
+        ScannerGlassContainer {
+            VStack(spacing: 0) {
+                HStack {
+                    Button("Fermer", systemImage: "xmark") { dismiss() }
+                        .modifier(ScannerControl())
+                    Spacer()
+                }
                 Spacer()
-            }
-            Spacer()
-            hint
-                .padding(.bottom, 20)
-            HStack {
-                // Over a photo, the same place brings the camera back.
-                Group {
-                    if photo != nil && camera.state == .running {
-                        Button("Revenir à la caméra", systemImage: "camera") { photo = nil }
-                    } else {
-                        Button("Choisir une photo", systemImage: "photo.on.rectangle") { showsPhotoPicker = true }
+                // Glass ignores opacity: what is hidden is left out.
+                if hasPicture {
+                    hint
+                        .padding(.bottom, 20)
+                }
+                // The side columns share the width, so that the shutter stays centered.
+                HStack(spacing: 0) {
+                    Button(returnsToCamera ? "Revenir à la caméra" : "Choisir une photo",
+                           systemImage: returnsToCamera ? "camera" : "photo.on.rectangle") {
+                        if returnsToCamera { photo = nil } else { showsPhotoPicker = true }
                     }
+                    .contentTransition(.symbolEffect(.replace))
+                    .modifier(ScannerControl())
+                    .disabled(isReading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    shutter
+                    ZStack {
+                        if showsTorch {
+                            Button(camera.isTorchOn ? "Éteindre la lampe" : "Allumer la lampe",
+                                   systemImage: camera.isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill") {
+                                camera.toggleTorch()
+                            }
+                            .contentTransition(.symbolEffect(.replace))
+                            .modifier(ScannerControl())
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .modifier(ScannerControl())
-                .disabled(isReading)
-                Spacer()
-                shutter
-                Spacer()
-                Button(camera.isTorchOn ? "Éteindre la lampe" : "Allumer la lampe",
-                       systemImage: camera.isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill") {
-                    camera.toggleTorch()
-                }
-                .modifier(ScannerControl())
-                .opacity(usesCamera && camera.hasTorch && camera.state == .running ? 1 : 0)
-                .disabled(!(usesCamera && camera.hasTorch && camera.state == .running))
+                .padding(.horizontal, 12)
+                .animation(.default, value: returnsToCamera)
+                .animation(.default, value: showsTorch)
+                .animation(.default, value: camera.isTorchOn)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
 
     private var hint: some View {
@@ -236,25 +268,25 @@ struct FormulaScannerView: View {
         .font(.subheadline.weight(.semibold))
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.regularMaterial, in: .capsule)
+        .scannerBubble()
         .accessibilityElement(children: .combine)
-        .opacity(photo != nil || camera.state == .running ? 1 : 0)
     }
 
-    /// The shutter of the Camera app, in the color of the app.
+    /// The shutter of the Camera app, in the color of the app, in a ring of glass from iOS 26.
     private var shutter: some View {
         Button(action: read) {
+            // Glass ignores opacity: only the disc fades while the shutter is unavailable.
             Circle()
-                .fill(.tint)
+                .fill(.tint.opacity(canRead || isReading ? 1 : 0.4))
                 .frame(width: 66, height: 66)
                 .padding(6)
-                .overlay { Circle().strokeBorder(.white, lineWidth: 4) }
+                .shutterRing()
         }
         .buttonStyle(.plain)
         .disabled(!canRead)
-        .opacity(canRead || isReading ? 1 : 0.4)
         .accessibilityLabel(usesCamera ? "Prendre la photo" : "Lire la formule")
-        .accessibilityHint("Les lignes lues sont ajoutées à la fin de la feuille.")
+        .accessibilityHint(destination == .belowLine ? "Les lignes lues sont ajoutées sous la ligne en cours."
+                           : "Les lignes lues sont ajoutées à la fin de la feuille.")
     }
 
     // MARK: Reading
@@ -330,6 +362,41 @@ struct FormulaScannerView: View {
     }
 }
 
+/// The glass of the controls, drawn together from iOS 26.
+private struct ScannerGlassContainer<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        if #available(iOS 26, *) {
+            GlassEffectContainer { content }
+        } else {
+            content
+        }
+    }
+}
+
+private extension View {
+    /// A label over the camera: Liquid Glass from iOS 26, a system material before.
+    @ViewBuilder
+    func scannerBubble() -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(.regular, in: .capsule)
+        } else {
+            background(.regularMaterial, in: .capsule)
+        }
+    }
+
+    /// The ring of the shutter: Liquid Glass from iOS 26, which answers the touch; white before, as in Camera.
+    @ViewBuilder
+    func shutterRing() -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            overlay { Circle().strokeBorder(.white, lineWidth: 4) }
+        }
+    }
+}
+
 /// The round glass buttons over the camera.
 private struct ScannerControl: ViewModifier {
     func body(content: Content) -> some View {
@@ -357,8 +424,9 @@ private struct ScannerControl: ViewModifier {
 
 /// The reading frame, always centered in its room: its corners, drawn as in the Camera
 /// app, and its edges are dragged to resize it around its center, so the cross in the
-/// middle never moves. The outside is dimmed. VoiceOver adjusts its size with a swipe
-/// up or down.
+/// middle never moves. From iOS 26 the corners are Liquid Glass that answers the finger,
+/// as the thumb of a slider does. The outside is dimmed. VoiceOver adjusts its size with
+/// a swipe up or down.
 private struct ReadingFrame: View {
     @Binding var rect: CGRect
     /// Where the frame may go; it stays centered in it.
@@ -370,6 +438,8 @@ private struct ReadingFrame: View {
     @State private var grabs = 0
 
     static let minimumSize = CGSize(width: 100, height: 60)
+    /// The side of the square where a corner is grabbed and drawn.
+    private static let cornerGrip: CGFloat = 64
 
     /// A frame of this size, centered in the limits.
     static func centered(_ size: CGSize, in limits: CGRect) -> CGRect {
@@ -381,6 +451,7 @@ private struct ReadingFrame: View {
         case top, bottom, leading, trailing, topLeading, topTrailing, bottomLeading, bottomTrailing
 
         var id: Self { self }
+        var isCorner: Bool { signs.x != 0 && signs.y != 0 }
         /// −1 for the leading or top side, +1 for the trailing or bottom side, 0 for a side it keeps.
         var signs: (x: CGFloat, y: CGFloat) {
             switch self {
@@ -401,13 +472,7 @@ private struct ReadingFrame: View {
             DimmedOutside(hole: rect)
                 .fill(.black.opacity(0.35), style: FillStyle(eoFill: true))
                 .allowsHitTesting(false)
-            // A shadow keeps the white corners and cross visible over white paper.
-            FrameCorners()
-                .stroke(.white, style: StrokeStyle(lineWidth: startSize == nil ? 4 : 5, lineCap: .round, lineJoin: .round))
-                .shadow(color: .black.opacity(0.45), radius: 3)
-                .frame(width: rect.width, height: rect.height)
-                .offset(x: rect.minX, y: rect.minY)
-                .allowsHitTesting(false)
+            // A shadow keeps the white cross visible over white paper.
             Image(systemName: "plus")
                 .font(.system(size: 30, weight: .light))
                 .foregroundStyle(.white)
@@ -416,7 +481,7 @@ private struct ReadingFrame: View {
                 .allowsHitTesting(false)
             // The edges first, so that the corners win where they overlap.
             ForEach(Handle.allCases) { handle in
-                Color.clear
+                grip(handle)
                     .frame(width: area(of: handle).width, height: area(of: handle).height)
                     .contentShape(.rect)
                     .position(point(of: handle))
@@ -442,10 +507,29 @@ private struct ReadingFrame: View {
 
     /// Where a handle can be grabbed: a square at a corner, the rest of the side for an edge.
     private func area(of handle: Handle) -> CGSize {
-        let (sx, sy) = handle.signs
-        if sx != 0 && sy != 0 { return CGSize(width: 56, height: 56) }
-        return sx == 0 ? CGSize(width: max(44, rect.width - 112), height: 44)
-            : CGSize(width: 44, height: max(44, rect.height - 112))
+        let grip = Self.cornerGrip
+        if handle.isCorner { return CGSize(width: grip, height: grip) }
+        return handle.signs.x == 0 ? CGSize(width: max(44, rect.width - 2 * grip), height: 44)
+            : CGSize(width: 44, height: max(44, rect.height - 2 * grip))
+    }
+
+    /// What a handle shows: nothing for an edge; for a corner, glass from iOS 26, else
+    /// white with a shadow that keeps it visible over white paper, thicker while dragged.
+    @ViewBuilder
+    private func grip(_ handle: Handle) -> some View {
+        if handle.isCorner {
+            let length = min(Self.cornerGrip / 2 - 4, rect.width / 3, rect.height / 3)
+            if #available(iOS 26, *) {
+                Color.clear
+                    .glassEffect(.regular.interactive(), in: FrameCorner(signs: handle.signs, length: length, lineWidth: 6))
+            } else {
+                FrameCorner(signs: handle.signs, length: length, lineWidth: startSize == nil ? 4 : 5)
+                    .fill(.white)
+                    .shadow(color: .black.opacity(0.45), radius: 3)
+            }
+        } else {
+            Color.clear
+        }
     }
 
     private func clamped(_ size: CGSize) -> CGSize {
@@ -488,23 +572,21 @@ private struct DimmedOutside: Shape {
     }
 }
 
-/// The four rounded corners of a viewfinder.
-private struct FrameCorners: Shape {
+/// A rounded corner of a viewfinder, as a filled outline: from the corner, at the
+/// middle of its rect, toward the inside of the frame, which the signs point away from.
+private struct FrameCorner: Shape {
+    /// −1 for a leading or top corner, +1 for a trailing or bottom one.
+    let signs: (x: CGFloat, y: CGFloat)
+    let length: CGFloat
+    let lineWidth: CGFloat
+
     func path(in rect: CGRect) -> Path {
-        let length = min(30, rect.width / 3, rect.height / 3)
-        let radius = min(14, length / 2)
+        let corner = CGPoint(x: rect.midX, y: rect.midY)
         var path = Path()
-        let corners: [(CGPoint, CGPoint, CGPoint)] = [
-            (CGPoint(x: rect.minX, y: rect.minY + length), CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.minX + length, y: rect.minY)),
-            (CGPoint(x: rect.maxX - length, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY + length)),
-            (CGPoint(x: rect.maxX, y: rect.maxY - length), CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.maxX - length, y: rect.maxY)),
-            (CGPoint(x: rect.minX + length, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY - length)),
-        ]
-        for (start, corner, end) in corners {
-            path.move(to: start)
-            path.addArc(tangent1End: corner, tangent2End: end, radius: radius)
-            path.addLine(to: end)
-        }
-        return path
+        path.move(to: CGPoint(x: corner.x, y: corner.y - signs.y * length))
+        path.addArc(tangent1End: corner, tangent2End: CGPoint(x: corner.x - signs.x * length, y: corner.y),
+                    radius: min(14, length / 2))
+        path.addLine(to: CGPoint(x: corner.x - signs.x * length, y: corner.y))
+        return path.strokedPath(StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
     }
 }

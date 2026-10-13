@@ -556,6 +556,12 @@
     "Les lignes lues sont ajoutées à la fin de la feuille." : {
 
     },
+    "Les lignes lues sont ajoutées sous cette ligne." : {
+
+    },
+    "Les lignes lues sont ajoutées sous la ligne en cours." : {
+
+    },
     "Les noms t, d, a, u, j, in, kn, psi et G ne sont pas des unités : vous pouvez les utiliser comme variables. Si Eval lit un symbole non déclaré comme une unité (par exemple T comme tesla), il le signale dans Symboles lus comme des unités ; déclarez-le pour en faire une variable." : {
 
     },
@@ -593,7 +599,7 @@
     "Lire la formule" : {
 
     },
-    "Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Scanner une formule. La caméra s’ouvre en plein écran : faites glisser un coin ou un bord du cadre, qui reste toujours centré, pour l’ajuster à la formule, pincez pour zoomer, puis touchez le déclencheur (ou un bouton de volume). Le bouton Photos lit une photo de votre photothèque avec le même cadre, et la lampe éclaire la page." : {
+    "Maintenez + (ou ouvrez le menu Actions de la feuille) et choisissez Scanner une formule ; pendant la saisie d’une ligne, le bouton scanner de la barre au-dessus du clavier l’ouvre aussi. La caméra s’ouvre en plein écran : faites glisser un coin ou un bord du cadre, qui reste toujours centré, pour l’ajuster à la formule, pincez pour zoomer, puis touchez le déclencheur (ou un bouton de volume). Le bouton Photos lit une photo de votre photothèque avec le même cadre, et la lampe éclaire la page." : {
 
     },
     "Maintenez une feuille dans la liste pour la renommer, la dupliquer, la partager ou la supprimer. La suppression demande toujours une confirmation." : {
@@ -626,7 +632,7 @@
     "Modifier en texte" : {
 
     },
-    "Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu ou avec le bouton engrenage de la liste des feuilles, choisissent la saisie des formules, le nombre de chiffres significatifs, le nom automatique des feuilles, la couleur d’accent (orange industriel par défaut, ou bleu), le fond chaud des feuilles en mode clair et le style de l’icône de l’app (Lentille ou Point), qui suit la couleur d’accent. Pendant la saisie, une barre flotte juste au-dessus du clavier avec le menu Insérer, les touches courantes et Terminé." : {
+    "Modifier en texte, dans le menu Actions de la feuille, ouvre toute la feuille dans un seul champ. Les Réglages, dans le même menu ou avec le bouton engrenage de la liste des feuilles, choisissent la saisie des formules, le nombre de chiffres significatifs, le nom automatique des feuilles, la couleur d’accent (orange industriel par défaut, ou bleu), le fond chaud des feuilles en mode clair et le style de l’icône de l’app (Lentille ou Point), qui suit la couleur d’accent. Pendant la saisie, une barre flotte juste au-dessus du clavier avec le bouton scanner, le menu Insérer, les touches courantes et Terminé." : {
 
     },
     "Modifier en texte…" : {
@@ -839,7 +845,7 @@
     "Seul ce qui est dans le cadre est lu. Balayez vers le haut ou le bas pour l’agrandir ou le réduire." : {
 
     },
-    "Seul le contenu du cadre est lu, sur l’appareil, et les lignes reconnues s’ajoutent à la fin de la feuille ; Annuler les retire. Les exposants et les fractions sont reconnus d’après leur position ; avec Apple Intelligence (iOS 27), le modèle sur l’appareil lit aussi l’image, et sa lecture est gardée lorsqu’elle concorde avec la reconnaissance de texte. Sur iPad, l’Apple Pencil écrit directement dans une ligne grâce à Griffonner." : {
+    "Seul le contenu du cadre est lu, sur l’appareil, et les lignes reconnues s’ajoutent à la fin de la feuille, ou sous la ligne en cours si le scanner a été ouvert depuis la barre du clavier ; Annuler les retire. Les exposants et les fractions sont reconnus d’après leur position ; avec Apple Intelligence (iOS 27), le modèle sur l’appareil lit aussi l’image, et sa lecture est gardée lorsqu’elle concorde avec la reconnaissance de texte. Sur iPad, l’Apple Pencil écrit directement dans une ligne grâce à Griffonner." : {
 
     },
     "Simplifier" : {

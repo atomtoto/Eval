@@ -27,6 +27,9 @@ struct NotebookView: View {
     @State private var showsReadingWarning = false
     /// Set when the warning before the scanner was accepted: the scanner opens once it is gone.
     @State private var opensScannerAfterWarning = false
+    /// The line edited when the scanner was opened from the keyboard bar: the lines read go below it.
+    @State private var scanAnchor: ScanAnchor?
+    @State private var scannedLines: [String] = []
     @AppStorage(ReadingWarningSetting.storageKey) private var hidesReadingWarning = false
     @State private var plotRequest: PlotRequest?
     @State private var showsClearConfirmation = false
@@ -118,14 +121,22 @@ struct NotebookView: View {
             if opensScannerAfterWarning {
                 opensScannerAfterWarning = false
                 showsScanner = true
+            } else {
+                finishScanBelowLine()
             }
         }) {
             ReadingWarningView(reason: FormulaRecognizer.unavailabilityReason) { opensScannerAfterWarning = true }
         }
-        .fullScreenCover(isPresented: $showsScanner) {
+        .fullScreenCover(isPresented: $showsScanner, onDismiss: finishScanBelowLine) {
             if #available(iOS 18, *) {
-                FormulaScannerView(declaredNames: notebook.declaredNames) { lines in
-                    notebook.appendLines(lines, undoManager: undoManager)
+                FormulaScannerView(declaredNames: notebook.declaredNames,
+                                   destination: scanAnchor == nil ? .endOfSheet : .belowLine) { lines in
+                    // Below a line, once the scanner is gone, so that the new line gets the keyboard.
+                    if scanAnchor != nil {
+                        scannedLines = lines
+                    } else {
+                        notebook.appendLines(lines, undoManager: undoManager)
+                    }
                 }
             }
         }
@@ -254,8 +265,10 @@ struct NotebookView: View {
 
     /// The keyboard bar of the edited line.
     private var lineKeyboard: LineKeyboard {
-        LineKeyboard(mathKeys: mathKeys, variableNames: notebook.declaredNames, insert: insertIntoLine,
-                     showReferences: { showsReferences = true }, done: { focusedLineID = nil })
+        var keyboard = LineKeyboard(mathKeys: mathKeys, variableNames: notebook.declaredNames, insert: insertIntoLine,
+                                    showReferences: { showsReferences = true }, done: { focusedLineID = nil })
+        if FormulaRecognizer.isSupported { keyboard.scan = scanBelowLine }
+        return keyboard
     }
 
     private func insertIntoLine(_ snippet: FormulaInsertion.Snippet) {
@@ -281,6 +294,48 @@ struct NotebookView: View {
         } else {
             showsScanner = true
         }
+    }
+
+    /// Where the lines scanned from the keyboard bar go: below the line, or in its
+    /// place if it was blank, since a blank line goes away when its editing ends.
+    private struct ScanAnchor {
+        let lineID: UUID
+        let position: Int
+    }
+
+    /// The scanner from the keyboard bar: the edited line is validated, as for any scan.
+    private func scanBelowLine() {
+        guard let lineID = editing?.lineID, let position = notebook.lineIndex(of: lineID) else { return }
+        scanAnchor = ScanAnchor(lineID: lineID, position: position)
+        scannedLines = []
+        scan()
+    }
+
+    /// Once the scanner opened from the keyboard bar is gone: the lines read go below the
+    /// line, as one undo step with the editing of the last of them, which gets the keyboard.
+    /// Without any, the keyboard comes back where it was.
+    private func finishScanBelowLine() {
+        guard let anchor = scanAnchor else { return }
+        let lines = scannedLines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        scanAnchor = nil
+        scannedLines = []
+        if let index = notebook.lineIndex(of: anchor.lineID) {
+            if lines.isEmpty {
+                startEditing(anchor.lineID)
+            } else {
+                editNewLines(lines, at: index + 1)
+            }
+        } else {
+            // The blank line went away: the lines take its place, or a blank one comes back.
+            editNewLines(lines.isEmpty ? [""] : lines, at: anchor.position)
+        }
+    }
+
+    /// Lines inserted at a position, the last of them edited; its field takes the focus once it appears.
+    private func editNewLines(_ lines: [String], at position: Int) {
+        guard let session = notebook.insertLines(lines, at: position) else { return }
+        textSelection = FormulaSelectionState()
+        editing = session
     }
 
     /// Undo and Redo of the menu apply to whole lines: the line being edited is validated first.

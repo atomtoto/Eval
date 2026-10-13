@@ -84,6 +84,8 @@ struct LineKeyboard {
     var variableNames: [String] = []
     var insert: (FormulaInsertion.Snippet) -> Void = { _ in }
     var showReferences: () -> Void = {}
+    /// Opens the scanner, whose lines go below the edited line; nil where formulas cannot be read.
+    var scan: (() -> Void)?
     var done: () -> Void = {}
 }
 
@@ -195,13 +197,19 @@ struct FormulaKeyboardToolbar: ToolbarContent {
 /// The bar of a sheet’s line being edited. The system bar of the keyboard sits against
 /// the keyboard and cannot be moved, so the sheet shows its own above it, in a safe-area
 /// inset: it floats a little over the keyboard, which keeps avoiding the list. It holds
-/// the same keys as the keyboard toolbar, and « Terminé » is always visible.
+/// the same keys as the keyboard toolbar, after the scanner, and « Terminé » is always visible.
 struct LineKeyboardBar: View {
     let mode: FormulaInputMode
     let keyboard: LineKeyboard
 
     var body: some View {
         HStack(spacing: 0) {
+            if let scan = keyboard.scan {
+                Button("Scanner une formule", systemImage: "text.viewfinder", action: scan)
+                    .labelStyle(.iconOnly)
+                    .accessibilityHint("Les lignes lues sont ajoutées sous cette ligne.")
+                    .frame(maxWidth: .infinity)
+            }
             switch mode {
             case .text:
                 if FormulaSelectionState.tracksCaret {
