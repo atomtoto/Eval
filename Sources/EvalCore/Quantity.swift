@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(os)
 import os
+#else
+import Synchronization
+#endif
 
 /// A numerical value stored in coherent SI units together with its dimension.
 public struct Quantity: Hashable, Sendable {
@@ -56,7 +60,11 @@ public enum QuantityFormatter: Sendable {
     public static let defaultDigits = 6
     public static let minimumDigits = 3
     public static let maximumDigits = 12
+    #if canImport(os)
     private static let digitsStorage = OSAllocatedUnfairLock(initialState: defaultDigits)
+    #else
+    private static let digitsStorage = Mutex(defaultDigits)
+    #endif
     /// For text that must tell close values apart, such as an entered number or an exponent.
     public static let preciseDigits = 10
 

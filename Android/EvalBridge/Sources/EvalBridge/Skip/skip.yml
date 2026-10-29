@@ -1,0 +1,6 @@
+# Natively compiled Skip Fuse module, bridged to plain Kotlin types for the Compose app.
+skip:
+  mode: 'native'
+  bridging:
+    enabled: true
+    options: 'kotlincompat'

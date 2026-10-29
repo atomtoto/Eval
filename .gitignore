@@ -5,3 +5,8 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 *.moved-aside
+.gradle/
+local.properties
+Android/**/build/
+Android/.idea/
+.kotlin/

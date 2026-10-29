@@ -135,3 +135,10 @@ When several implementations are possible, choose them in this order:
 The desired result is not merely an interface that visually resembles iOS. It should **behave like iOS because it is built from the same system primitives Apple expects apps to use.**
 
 For this project, follow this hierarchy by default: **native SwiftUI → native composition → custom only when necessary.** You can ask the user when you think custom components would be better.
+
+# Android
+
+- `Android/` is the Android app: Kotlin, Jetpack Compose and Material 3. The native-first rule applies the Android way: Material 3 and Compose components before any custom control.
+- `Android/EvalBridge` is a Skip Fuse package that compiles `EvalCore` natively for Android and bridges it to Kotlin. Keep Skip out of the root `Package.swift`, so that Xcode never resolves it.
+- `EvalCore` must keep building for Android (guard Apple-only modules with `#if canImport(...)`). It assumes a 64-bit `Int`, so the app ships arm64-v8a and x86_64 only.
+- Build with `./gradlew :app:assembleDebug` in `Android/`. Run the engine tests on a running emulator with `skip android test --package-path .` at the root.

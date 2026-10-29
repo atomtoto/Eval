@@ -258,7 +258,7 @@ struct ExactPolynomialRoots {
     }
 
     private static func divisors(of value: Int) -> [Int]? {
-        guard value > 0, value <= 1_000_000_000_000 else { return nil }
+        guard value > 0, Int64(value) <= 1_000_000_000_000 else { return nil }
         var small: [Int] = [], large: [Int] = []
         var candidate = 1
         while candidate * candidate <= value {

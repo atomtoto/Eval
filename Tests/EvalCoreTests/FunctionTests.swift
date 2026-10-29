@@ -243,9 +243,10 @@ final class FunctionTests: XCTestCase {
             String(repeating: "\(function)(", count: depth) + "1" + String(repeating: ")", count: depth)
         }
         let allowed = nest("sin", 79), tooDeep = nest("sin", 80), tooDeepRoots = nest("sqrt", 200)
+        let nestedMax = "max(2; " + nest("abs", 78) + ")"
         let done = expectation(description: "Feuilles évaluées")
         let thread = Thread {
-            let evaluation = NotebookEngine.evaluate([allowed, tooDeep, tooDeepRoots, "max(2; " + nest("abs", 78) + ")"].joined(separator: "\n"))
+            let evaluation = NotebookEngine.evaluate([allowed, tooDeep, tooDeepRoots, nestedMax].joined(separator: "\n"))
             XCTAssertEqual(evaluation.lines[0].status, .success)
             for index in 1...2 {
                 XCTAssertTrue(evaluation.lines[index].message?.contains("trop imbriquée") == true, "ligne \(index)")
