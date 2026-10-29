@@ -154,17 +154,17 @@ private fun Node(math: Math, size: TextUnit) {
             Node(math.content, size)
             MathText(")", size)
         }
-        is Math.Fraction -> Fraction(math, size)
-        is Math.Power -> Power(math, size)
-        is Math.Radical -> Radical(math.radicand, size, index = null)
-        is Math.Root -> Radical(math.radicand, size, index = math.index)
+        is Math.Fraction -> FractionLayout(size, { Node(math.numerator, size * 0.9f) }, { Node(math.denominator, size * 0.9f) })
+        is Math.Power -> PowerLayout(size, { Node(math.base, size) }, { Node(math.exponent, size * 0.65f) })
+        is Math.Radical -> RadicalLayout(size, { Node(math.radicand, size) })
+        is Math.Root -> RadicalLayout(size, { Node(math.radicand, size) }, index = { Node(math.index, size * 0.55f) })
         is Math.Value -> Value(math.content, size)
     }
 }
 
 /** Text whose axis lies a quarter of its size above the baseline. */
 @Composable
-private fun MathText(text: String, size: TextUnit) {
+internal fun MathText(text: String, size: TextUnit) {
     val style = LocalTextStyle.current.copy(fontFamily = FontFamily.Serif, fontSize = size, lineHeight = TextUnit.Unspecified)
     Layout(content = { Text(text, style = style, maxLines = 1, softWrap = false) }) { measurables, _ ->
         val text = measurables[0].measure(Constraints())
@@ -175,7 +175,7 @@ private fun MathText(text: String, size: TextUnit) {
 
 /** Items side by side, their axes on one line. */
 @Composable
-private fun AxisRow(content: @Composable () -> Unit) {
+internal fun AxisRow(content: @Composable () -> Unit) {
     Layout(content = content) { measurables, _ ->
         val placeables = measurables.map { it.measure(Constraints()) }
         val axis = placeables.maxOfOrNull { it.axis() } ?: 0
@@ -192,12 +192,12 @@ private fun AxisRow(content: @Composable () -> Unit) {
 
 /** A fraction whose bar is its axis. */
 @Composable
-private fun Fraction(fraction: Math.Fraction, size: TextUnit) {
+internal fun FractionLayout(size: TextUnit, numerator: @Composable () -> Unit, denominator: @Composable () -> Unit) {
     val color = LocalContentColor.current
     Layout(content = {
-        Node(fraction.numerator, size * 0.9f)
+        Box { numerator() }
         Box(Modifier.background(color))
-        Node(fraction.denominator, size * 0.9f)
+        Box { denominator() }
     }) { measurables, _ ->
         val inner = (size.toPx() * 0.22f).roundToInt()
         val outer = (size.toPx() * 0.1f).roundToInt()
@@ -218,10 +218,10 @@ private fun Fraction(fraction: Math.Fraction, size: TextUnit) {
 
 /** The exponent is lifted above the axis; the base stays on the line of its neighbours. */
 @Composable
-private fun Power(power: Math.Power, size: TextUnit) {
+internal fun PowerLayout(size: TextUnit, base: @Composable () -> Unit, exponent: @Composable () -> Unit) {
     Layout(content = {
-        Node(power.base, size)
-        Node(power.exponent, size * 0.65f)
+        Box { base() }
+        Box { exponent() }
     }) { measurables, _ ->
         val base = measurables[0].measure(Constraints())
         val exponent = measurables[1].measure(Constraints())
@@ -240,7 +240,7 @@ private fun Power(power: Math.Power, size: TextUnit) {
 
 /** The radical sign is drawn behind the radicand, so it stretches with it; a root's index sits in its hook. */
 @Composable
-private fun Radical(radicand: Math, size: TextUnit, index: Math?) {
+internal fun RadicalLayout(size: TextUnit, radicand: @Composable () -> Unit, index: (@Composable () -> Unit)? = null) {
     val color = LocalContentColor.current
     val density = LocalDensity.current
     val hook = with(density) { size.toPx() * 0.7f }
@@ -259,10 +259,10 @@ private fun Radical(radicand: Math, size: TextUnit, index: Math?) {
                 }
                 .padding(start = with(density) { (size * 0.75f).toDp() }, end = with(density) { (size * 0.1f).toDp() }, top = 3.dp),
         ) {
-            Node(radicand, size)
+            radicand()
         }
         index?.let {
-            Box(Modifier.padding(start = with(density) { (size * 0.04f).toDp() })) { Node(it, size * 0.55f) }
+            Box(Modifier.padding(start = with(density) { (size * 0.04f).toDp() })) { it() }
         }
     }
 }
@@ -291,7 +291,7 @@ private fun Value(content: Math, size: TextUnit) {
 }
 
 /** The axis of a node, the middle of its height when it reports none. */
-private fun Placeable.axis(): Int = this[MathAxis].let { if (it == AlignmentLine.Unspecified) height / 2 else it }
+internal fun Placeable.axis(): Int = this[MathAxis].let { if (it == AlignmentLine.Unspecified) height / 2 else it }
 
 /** The style of a value shown beside a formula: the formula's size, semibold. */
 @Composable

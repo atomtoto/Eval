@@ -140,4 +140,9 @@
     <string name="accent_blue">Bleu</string>
     <string name="warm_background">Fond chaud</string>
     <string name="warm_background_footer">En mode clair, les feuilles prennent un fond crème chaud. Le mode sombre ne change pas.</string>
+    <string name="square_root">Racine carrée</string>
+    <string name="insert_nth_root">Racine n-ième ⁿ√</string>
+    <string name="insert_times">Multiplier ×</string>
+    <string name="key_left">Gauche</string>
+    <string name="key_right">Droite</string>
 </resources>

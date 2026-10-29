@@ -63,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atom.eval.R
 import com.atom.eval.sheets.RenameSheetDialog
 import com.atom.eval.appSettings
+import com.atom.eval.data.FormulaInputMode
 import com.atom.eval.settings.SettingsDialog
 import com.atom.eval.sheetStore
 import com.atom.eval.ui.BackButton
@@ -97,6 +98,7 @@ fun SheetScreen(
     var showsSettings by rememberSaveable { mutableStateOf(false) }
     val settings = context.appSettings
     val showsLineNumbers by settings.lineNumbers.collectAsStateWithLifecycle()
+    val inputMode by settings.inputMode.collectAsStateWithLifecycle()
     val significantDigits by settings.significantDigits.collectAsStateWithLifecycle()
     // Results are written again with the number of digits chosen in « Réglages ».
     LaunchedEffect(significantDigits) { viewModel.refresh() }
@@ -196,6 +198,7 @@ fun SheetScreen(
                             isLast = index == state.lines.lastIndex,
                             field = field,
                             showsLineNumber = showsLineNumbers,
+                            inputMode = inputMode,
                         )
                     }
                 }
@@ -241,6 +244,7 @@ fun SheetScreen(
             if (isTyping) {
                 KeyboardBar(
                     variableNames = state.declaredNames,
+                    math = if (inputMode == FormulaInputMode.Math) field.math else null,
                     onInsert = { kind, value -> field.insert(kind, value)?.let(viewModel::updateEditedLine) },
                     onShowReferences = { field.isPicking = true },
                     onScan = null,
@@ -258,7 +262,12 @@ fun SheetScreen(
     if (field.isPicking) {
         SymbolPicker(
             onPick = { kind, value ->
-                field.insert(kind, value)?.let(viewModel::updateEditedLine)
+                val math = field.math
+                if (inputMode == FormulaInputMode.Math && math != null) {
+                    if (kind == "unit") math.type(" $value") else math.insertName(value)
+                } else {
+                    field.insert(kind, value)?.let(viewModel::updateEditedLine)
+                }
                 field.isPicking = false
             },
             onDismiss = { field.isPicking = false },

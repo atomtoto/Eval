@@ -66,6 +66,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.atom.eval.R
+import com.atom.eval.data.FormulaInputMode
 import com.atom.eval.math.FormulaLine
 import com.atom.eval.math.Math
 import com.atom.eval.math.ValueInteraction
@@ -90,6 +91,7 @@ fun SheetLineRow(
     isLast: Boolean,
     field: EditedField,
     showsLineNumber: Boolean,
+    inputMode: FormulaInputMode,
     modifier: Modifier = Modifier,
 ) {
     var menu by remember { mutableStateOf<LineMenu?>(null) }
@@ -97,11 +99,11 @@ fun SheetLineRow(
 
     Box(modifier) {
         if (line.isEditing) {
-            EditedLine(line, viewModel, field)
+            if (inputMode == FormulaInputMode.Math) MathEditedLine(line, viewModel, field) else EditedLine(line, viewModel, field)
         } else {
             ListItem(
                 headlineContent = { LineText(line) },
-                supportingContent = line.notes.takeIf { it.isNotEmpty() }?.let { notes -> { Notes(notes) } },
+                supportingContent = line.notes.takeIf { it.isNotEmpty() }?.let { notes -> { LineNotes(notes) } },
                 leadingContent = if (showsLineNumber) {
                     { LineNumber(line.index + 1) }
                 } else null,
@@ -217,13 +219,13 @@ private fun EditedLine(line: LineState, viewModel: SheetViewModel, field: Edited
                     else if (hadFocus && !field.isPicking) viewModel.endEditing(line.id)
                 },
         )
-        if (line.editingNotes.isNotEmpty()) Notes(line.editingNotes, Modifier.padding(top = 4.dp))
+        if (line.editingNotes.isNotEmpty()) LineNotes(line.editingNotes, Modifier.padding(top = 4.dp))
     }
 }
 
 /** The lines of text under a formula: its value while it is edited, errors, verdicts and remarks. */
 @Composable
-private fun Notes(notes: List<LineNote>, modifier: Modifier = Modifier) {
+internal fun LineNotes(notes: List<LineNote>, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     val success = if (isSystemInDarkTheme()) Color(0xFF81C995) else Color(0xFF1E8E3E)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {

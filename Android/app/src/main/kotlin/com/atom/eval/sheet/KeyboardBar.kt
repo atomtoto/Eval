@@ -52,6 +52,8 @@ import eval.bridge.ReferenceCatalog
 class EditedField {
     /** The text and selection of the edited line's field, set by that field. */
     var state: MutableState<TextFieldValue>? = null
+    /** The math editor of the line, in « Écriture mathématique »; null in text input. */
+    var math: MathActions? by mutableStateOf(null)
     /** True while « Constantes et unités… » is open: the line stays edited meanwhile. */
     var isPicking by mutableStateOf(false)
 
@@ -72,6 +74,8 @@ class EditedField {
 @Composable
 fun KeyboardBar(
     variableNames: List<String>,
+    /** The math editor in « Écriture mathématique », whose keys replace the text ones. */
+    math: MathActions?,
     onInsert: (kind: String, value: String) -> Unit,
     onShowReferences: () -> Unit,
     onScan: (() -> Unit)?,
@@ -92,11 +96,19 @@ fun KeyboardBar(
                     Icon(Icons.Outlined.DocumentScanner, contentDescription = stringResource(R.string.scan_formula))
                 }
             }
-            InsertMenu(variableNames, onInsert, onShowReferences)
-            Key("+", stringResource(R.string.key_plus)) { onInsert("operator", "+") }
-            Key("−", stringResource(R.string.key_minus)) { onInsert("operator", "-") }
-            Key("×", stringResource(R.string.key_times)) { onInsert("operator", "*") }
-            Key("( )", stringResource(R.string.key_parentheses)) { onInsert("parentheses", "") }
+            if (math != null) {
+                MathInsertMenu(variableNames, math, onShowReferences)
+                Key("xⁿ", stringResource(R.string.insert_power)) { math.key("power") }
+                Key("√", stringResource(R.string.square_root)) { math.key("radical") }
+                Key("◀", stringResource(R.string.key_left)) { math.key("left") }
+                Key("▶", stringResource(R.string.key_right)) { math.key("right") }
+            } else {
+                InsertMenu(variableNames, onInsert, onShowReferences)
+                Key("+", stringResource(R.string.key_plus)) { onInsert("operator", "+") }
+                Key("−", stringResource(R.string.key_minus)) { onInsert("operator", "-") }
+                Key("×", stringResource(R.string.key_times)) { onInsert("operator", "*") }
+                Key("( )", stringResource(R.string.key_parentheses)) { onInsert("parentheses", "") }
+            }
             TextButton(onClick = onDone) { Text(stringResource(R.string.done), fontWeight = FontWeight.SemiBold) }
         }
     }
@@ -145,6 +157,51 @@ private fun InsertMenu(variableNames: List<String>, onInsert: (String, String) -
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
                 variableNames.forEach { Item(it, "name", it) }
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.constants_and_units)) },
+                leadingIcon = { Icon(Icons.Outlined.LibraryBooks, contentDescription = null) },
+                onClick = { isExpanded = false; onShowReferences() },
+            )
+        }
+    }
+}
+
+/** « Insérer » of the math editor (iOS MathKeys): structures, moves between levels, symbols and names. */
+@Composable
+private fun MathInsertMenu(variableNames: List<String>, math: MathActions, onShowReferences: () -> Unit) {
+    var isExpanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { isExpanded = true }) {
+            Icon(Icons.Outlined.AddCircleOutline, contentDescription = stringResource(R.string.insert))
+        }
+        DropdownMenu(expanded = isExpanded, onDismissRequest = { isExpanded = false }, properties = PopupProperties(focusable = false)) {
+            @Composable
+            fun Item(text: String, action: () -> Unit) =
+                DropdownMenuItem(text = { Text(text) }, onClick = { isExpanded = false; action() })
+
+            Item(stringResource(R.string.insert_fraction)) { math.key("fraction") }
+            Item(stringResource(R.string.insert_nth_root)) { math.key("root") }
+            Item(stringResource(R.string.insert_squared)) { math.type("²") }
+            Item(stringResource(R.string.insert_inverse)) { math.type("⁻¹") }
+            HorizontalDivider()
+            Item(stringResource(R.string.move_up)) { math.key("up") }
+            Item(stringResource(R.string.move_down)) { math.key("down") }
+            HorizontalDivider()
+            Item(stringResource(R.string.insert_equal)) { math.type(" = ") }
+            Item(stringResource(R.string.insert_times)) { math.type(" * ") }
+            Item("π") { math.insertName("π") }
+            Item(stringResource(R.string.insert_degrees)) { math.type(" deg") }
+            if (variableNames.isNotEmpty()) {
+                HorizontalDivider()
+                Text(
+                    stringResource(R.string.sheet_variables),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+                variableNames.forEach { name -> Item(name) { math.insertName(name) } }
             }
             HorizontalDivider()
             DropdownMenuItem(

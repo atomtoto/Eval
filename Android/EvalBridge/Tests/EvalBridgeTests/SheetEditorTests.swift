@@ -382,3 +382,29 @@ import Testing
         #expect(square.text == "v² + ")
     }
 }
+
+@Suite struct MathLineEditorTests {
+    @Test func typingASlashMakesAFractionAndTheCursorGoesDown() {
+        let editor = MathLineEditor(source: "")
+        editor.type("v = d/t")
+        #expect(editor.source == "v = d/t")
+        #expect(editor.cursorPath == [4, 1])
+        #expect(editor.cursorDescription == "Au dénominateur")
+        editor.key("right")
+        editor.type("^2")
+        let source = editor.source
+        #expect(source == "v = (d/t)²")
+    }
+
+    @Test func aRootsRadicandIsItsSecondSlot() {
+        let editor = MathLineEditor(source: "")
+        editor.key("root")
+        editor.type("3")
+        #expect(editor.cursorPath == [0, 0])
+        editor.key("right")
+        editor.type("8")
+        #expect(editor.cursorPath == [0, 1])
+        #expect(editor.setCursor(path: [0, 0], offset: 1))
+        #expect(editor.cursorDescription == "Dans l’indice de la racine")
+    }
+}
