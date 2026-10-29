@@ -74,6 +74,11 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.compose)
+    // Reads text on the device, with a box per character; the model ships with the app.
+    implementation(libs.mlkit.text.recognition)
     debugImplementation(libs.compose.ui.tooling)
 }
 

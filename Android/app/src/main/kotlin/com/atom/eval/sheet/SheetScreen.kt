@@ -65,6 +65,7 @@ import com.atom.eval.sheets.RenameSheetDialog
 import com.atom.eval.appSettings
 import com.atom.eval.data.FormulaInputMode
 import com.atom.eval.settings.SettingsDialog
+import com.atom.eval.scanner.FormulaScanner
 import com.atom.eval.sheetStore
 import com.atom.eval.ui.BackButton
 import com.atom.eval.ui.shareText
@@ -97,6 +98,9 @@ fun SheetScreen(
     var confirmsClear by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
     var plot by remember { mutableStateOf<PlotRequest?>(null) }
+    // The scanner, and the line below which its lines go (the end of the sheet for null).
+    var scansAfter by remember { mutableStateOf<String?>(null) }
+    var isScanning by rememberSaveable { mutableStateOf(false) }
     val settings = context.appSettings
     val showsLineNumbers by settings.lineNumbers.collectAsStateWithLifecycle()
     val inputMode by settings.inputMode.collectAsStateWithLifecycle()
@@ -148,6 +152,10 @@ fun SheetScreen(
                             onReorder = { isReordering = true },
                             onClear = { confirmsClear = true },
                             onSettings = { showsSettings = true },
+                            onScan = {
+                                scansAfter = null
+                                isScanning = true
+                            },
                         )
                     }
                 },
@@ -249,7 +257,10 @@ fun SheetScreen(
                     math = if (inputMode == FormulaInputMode.Math) field.math else null,
                     onInsert = { kind, value -> field.insert(kind, value)?.let(viewModel::updateEditedLine) },
                     onShowReferences = { field.isPicking = true },
-                    onScan = null,
+                    onScan = {
+                        scansAfter = state.editingLineId
+                        isScanning = true
+                    },
                     onDone = { focusManager.clearFocus() },
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
                 )
@@ -277,6 +288,16 @@ fun SheetScreen(
     }
     if (showsSettings) SettingsDialog { showsSettings = false }
     plot?.let { PlotDialog(it, viewModel) { plot = null } }
+    if (isScanning) {
+        FormulaScanner(
+            declared = state.declaredNames,
+            onLines = { lines ->
+                isScanning = false
+                viewModel.insertScannedLines(lines, scansAfter)
+            },
+            onDismiss = { isScanning = false },
+        )
+    }
     state.ruler?.let { ruler -> RulerSheet(ruler, viewModel, onDismiss = viewModel::hideRuler) }
     // The line of an open ruler stays in view above it.
     LaunchedEffect(state.ruler?.lineId) {
@@ -328,6 +349,7 @@ private fun SheetMenu(
     onReorder: () -> Unit,
     onClear: () -> Unit,
     onSettings: () -> Unit,
+    onScan: () -> Unit,
 ) {
     var isExpanded by rememberSaveable { mutableStateOf(false) }
     Box {
@@ -339,6 +361,7 @@ private fun SheetMenu(
             fun Item(text: Int, action: () -> Unit) =
                 DropdownMenuItem(text = { Text(stringResource(text)) }, onClick = { isExpanded = false; action() })
 
+            Item(R.string.scan_formula, onScan)
             Item(R.string.rename, onRename)
             Item(R.string.duplicate, onDuplicate)
             Item(R.string.share_sheet) { onShare(true) }

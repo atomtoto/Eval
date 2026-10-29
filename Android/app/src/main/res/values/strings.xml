@@ -168,4 +168,22 @@
     <string name="plot_draw">Tracer</string>
     <string name="plot_computing">Calcul du tracé…</string>
     <string name="plot_touch_hint">Touchez le graphique pour lire une valeur.</string>
+
+    <!-- Scanner -->
+    <string name="scan_nothing_read">Aucune formule n’a été reconnue. Rapprochez-vous, éclairez la page et cadrez la formule.</string>
+    <string name="scan_camera_denied">Accès à la caméra refusé. Autorisez la caméra dans les réglages pour photographier une formule, ou choisissez une photo.</string>
+    <string name="scan_no_camera">Caméra indisponible. Choisissez une photo de la formule dans votre photothèque.</string>
+    <string name="open_settings">Ouvrir les réglages</string>
+    <string name="scan_reading">Lecture des formules…</string>
+    <string name="scan_hint_camera">Cadrez la formule, puis prenez la photo</string>
+    <string name="scan_hint_photo">Placez la formule dans le cadre, puis lisez-la</string>
+    <string name="scan_back_to_camera">Revenir à la caméra</string>
+    <string name="scan_choose_photo">Choisir une photo</string>
+    <string name="scan_shoot">Prendre la photo</string>
+    <string name="scan_torch">Lampe</string>
+    <string name="scan_failed">Lecture impossible</string>
+    <string name="scan_warning_title">Lecture moins fiable</string>
+    <string name="scan_warning_message">Eval lit les caractères un par un : les chiffres et les lettres sont bien reconnus, mais les fractions, les exposants et les racines le sont souvent mal. Vérifiez les lignes ajoutées à la feuille.</string>
+    <string name="scan_warning_hide">Ne plus afficher</string>
+    <string name="scan_continue">Continuer</string>
 </resources>

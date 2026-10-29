@@ -394,3 +394,13 @@ import Testing
         #expect(editor.cursorDescription == "Dans l’indice de la racine")
     }
 }
+
+@Suite struct FormulaReaderTests {
+    @Test func aRaisedSmallDigitIsAnExponent() {
+        // « x2 » with the 2 written smaller and higher.
+        let fragment = TextFragment(text: "y = x2", x: 0.1, y: 0.4, width: 0.5, height: 0.1,
+                                    characterBoxes: [0.10, 0.40, 0.05, 0.1, 0.17, 0.40, 0.05, 0.1, 0.24, 0.40, 0.05, 0.1,
+                                                     0.31, 0.40, 0.05, 0.1, 0.38, 0.40, 0.05, 0.1, 0.44, 0.36, 0.03, 0.05])
+        #expect(FormulaReader.lines(fragments: [fragment], declared: []) == ["y = x²"])
+    }
+}

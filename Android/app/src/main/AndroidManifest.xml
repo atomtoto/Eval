@@ -4,6 +4,9 @@
     <!-- Eval works offline: drop what Skip's libraries request for networking and tests. -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <queries tools:node="remove" />
+    <!-- « Scanner une formule » reads formulas on the device; the picture is neither kept nor sent. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
         android:name=".EvalApplication"

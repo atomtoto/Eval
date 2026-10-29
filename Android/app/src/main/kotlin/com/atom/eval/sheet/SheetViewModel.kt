@@ -104,6 +104,12 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
         store.changed()
     }
 
+    /** Lines read by the scanner, below a line (its keyboard stays on the last one) or at the end. */
+    fun insertScannedLines(lines: List<String>, afterLineId: String?) {
+        if (afterLineId != null && _state.value.lines.any { it.id == afterLineId }) edit { insertLinesAfter(lines, afterLineId) }
+        else edit { appendLines(lines) }
+    }
+
     // Rulers
 
     fun showRuler(lineId: String) = edit { showRuler(lineId) }
