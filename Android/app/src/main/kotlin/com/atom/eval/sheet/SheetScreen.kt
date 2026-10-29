@@ -65,6 +65,7 @@ import com.atom.eval.sheets.RenameSheetDialog
 import com.atom.eval.appSettings
 import com.atom.eval.data.FormulaInputMode
 import com.atom.eval.settings.SettingsDialog
+import com.atom.eval.help.HelpDialog
 import com.atom.eval.scanner.FormulaScanner
 import com.atom.eval.sheetStore
 import com.atom.eval.ui.BackButton
@@ -97,6 +98,7 @@ fun SheetScreen(
     var isRenaming by rememberSaveable { mutableStateOf(false) }
     var confirmsClear by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
+    var showsHelp by rememberSaveable { mutableStateOf(false) }
     var plot by remember { mutableStateOf<PlotRequest?>(null) }
     // The scanner, and the line below which its lines go (the end of the sheet for null).
     var scansAfter by remember { mutableStateOf<String?>(null) }
@@ -156,6 +158,7 @@ fun SheetScreen(
                                 scansAfter = null
                                 isScanning = true
                             },
+                            onHelp = { showsHelp = true },
                         )
                     }
                 },
@@ -287,6 +290,7 @@ fun SheetScreen(
         )
     }
     if (showsSettings) SettingsDialog { showsSettings = false }
+    if (showsHelp) HelpDialog { showsHelp = false }
     plot?.let { PlotDialog(it, viewModel) { plot = null } }
     if (isScanning) {
         FormulaScanner(
@@ -350,6 +354,7 @@ private fun SheetMenu(
     onClear: () -> Unit,
     onSettings: () -> Unit,
     onScan: () -> Unit,
+    onHelp: () -> Unit,
 ) {
     var isExpanded by rememberSaveable { mutableStateOf(false) }
     Box {
@@ -371,6 +376,7 @@ private fun SheetMenu(
             Item(R.string.clear_sheet, onClear)
             HorizontalDivider()
             Item(R.string.settings, onSettings)
+            Item(R.string.help, onHelp)
         }
     }
 }

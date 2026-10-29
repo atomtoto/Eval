@@ -186,4 +186,8 @@
     <string name="scan_warning_message">Eval lit les caractères un par un : les chiffres et les lettres sont bien reconnus, mais les fractions, les exposants et les racines le sont souvent mal. Vérifiez les lignes ajoutées à la feuille.</string>
     <string name="scan_warning_hide">Ne plus afficher</string>
     <string name="scan_continue">Continuer</string>
+
+    <!-- Help -->
+    <string name="help">Aide</string>
+    <string name="help_title">Utiliser Eval</string>
 </resources>

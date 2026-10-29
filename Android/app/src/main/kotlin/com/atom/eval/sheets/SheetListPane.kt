@@ -58,7 +58,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import com.atom.eval.R
+import com.atom.eval.help.HelpDialog
 import com.atom.eval.settings.SettingsDialog
 import com.atom.eval.ui.EmptyState
 import com.atom.eval.ui.NoSearchResults
@@ -117,6 +119,11 @@ fun SheetListPane(
                         Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
                     }
                     if (showsSettings) SettingsDialog { showsSettings = false }
+                    var showsHelp by rememberSaveable { mutableStateOf(false) }
+                    IconButton(onClick = { showsHelp = true }) {
+                        Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = stringResource(R.string.help))
+                    }
+                    if (showsHelp) HelpDialog { showsHelp = false }
                 },
             )
         },
