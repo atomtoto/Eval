@@ -1,4 +1,106 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Eval is in French only, as on iOS: the wording follows EvalApp/Localizable.xcstrings. -->
 <resources>
     <string name="app_name">Eval</string>
+
+    <!-- Tabs -->
+    <string name="tab_calculation">Calcul</string>
+    <string name="tab_references">Références</string>
+
+    <!-- Shared -->
+    <string name="back">Retour</string>
+    <string name="cancel">Annuler</string>
+    <string name="ok">OK</string>
+    <string name="clear_search">Effacer la recherche</string>
+    <string name="no_results">Aucun résultat pour « %1$s »</string>
+    <string name="no_results_message">Vérifiez l’orthographe ou lancez une nouvelle recherche.</string>
+    <string name="copied">Copié</string>
+    <string name="storage_problem_title">Enregistrement impossible</string>
+
+    <!-- Sheet list -->
+    <string name="sheets_title">Feuilles</string>
+    <string name="search_sheets">Rechercher dans les feuilles</string>
+    <string name="new_sheet">Nouvelle feuille</string>
+    <string name="new_from_example">Nouvelle à partir d’un exemple</string>
+    <string name="no_sheet">Aucune feuille</string>
+    <string name="no_sheet_list_message">Créez une feuille pour commencer un calcul.</string>
+    <string name="no_sheet_selected_message">Créez une feuille ou choisissez-en une.</string>
+    <string name="sheet_actions">Actions de la feuille</string>
+    <string name="rename">Renommer</string>
+    <string name="duplicate">Dupliquer</string>
+    <string name="share">Partager</string>
+    <string name="delete">Supprimer</string>
+    <string name="sheet_deleted">« %1$s » supprimée</string>
+
+    <!-- Rename -->
+    <string name="rename_sheet">Renommer la feuille</string>
+    <string name="sheet_title_field">Titre</string>
+    <string name="rename_message">Laissez le titre vide pour nommer la feuille d’après sa première note.</string>
+
+    <!-- Sheet -->
+    <string name="sheet_subject">Feuille Eval</string>
+    <string name="empty_sheet">Feuille vide</string>
+    <string name="empty_sheet_message">Écrivez une formule ou partez d’un exemple.</string>
+
+    <!-- References -->
+    <string name="references_title">Références</string>
+    <string name="reference_kind">Référence</string>
+    <string name="constants">Constantes</string>
+    <string name="units">Unités</string>
+    <string name="search_references">Nom, symbole ou domaine</string>
+    <string name="domain">Domaine</string>
+    <string name="all_domains">Tous les domaines</string>
+    <string name="recognized_units">Unités reconnues</string>
+    <plurals name="constant_count">
+        <item quantity="one">%d constante</item>
+        <item quantity="many">%d constantes</item>
+        <item quantity="other">%d constantes</item>
+    </plurals>
+    <string name="constants_footer_offline">Les valeurs de référence sont incluses dans l’application et disponibles hors ligne. Chaque constante précise sa nature et sa source.</string>
+    <string name="constants_footer_case">Les symboles respectent la casse : g et G représentent deux constantes différentes. Une variable déclarée a priorité sur une constante.</string>
+    <string name="units_footer_spacing">Séparez la valeur de son unité par un espace : 7,2 m/s². Combinez les unités avec des opérateurs sans espaces : kg*m/s². Utilisez K pour une température absolue.</string>
+    <string name="units_footer_conversion">Pour afficher un résultat dans une autre unité, ajoutez → et l’unité en fin de ligne : E → kWh. Les préfixes SI (k, m, µ…) s’ajoutent aux unités qui les acceptent.</string>
+    <string name="units_footer_names">Les lettres t, d, a et u ne sont pas des unités : elles restent libres comme noms de variables. Pour une durée, écrivez s, min, h, jour ou an.</string>
+    <string name="choose_constant">Touchez une constante pour consulter sa valeur, sa nature et sa source.</string>
+    <string name="copy_value">Copier la valeur</string>
+    <string name="copy_identifier">Copier l’identifiant</string>
+    <string name="copy_symbol">Copier le symbole</string>
+    <string name="constant_value">Valeur</string>
+    <string name="constant_input">Saisie</string>
+    <string name="constant_aliases">Alias</string>
+    <string name="constant_nature">Nature</string>
+    <string name="constant_source">Source</string>
+    <string name="constant_source_link">Source : %1$s</string>
+
+    <!-- Sheet -->
+    <string name="undo">Annuler</string>
+    <string name="redo">Rétablir</string>
+    <string name="undo_action">Annuler %1$s</string>
+    <string name="redo_action">Rétablir %1$s</string>
+    <string name="sheet_more_actions">Actions de la feuille</string>
+    <string name="share_sheet">Partager la feuille</string>
+    <string name="share_without_results">Partager sans les résultats</string>
+    <string name="reorder">Réorganiser</string>
+    <string name="done">Terminé</string>
+    <string name="move_up">Monter</string>
+    <string name="move_down">Descendre</string>
+    <string name="clear_sheet">Effacer la feuille…</string>
+    <string name="clear_sheet_title">Effacer la feuille ?</string>
+    <string name="clear_sheet_message">Toutes les lignes seront supprimées. Annuler les rétablit.</string>
+    <string name="clear">Effacer</string>
+    <string name="new_line">Nouvelle ligne</string>
+    <string name="add_line">Ajouter une ligne</string>
+    <string name="line_field">Ligne</string>
+    <string name="evaluating">Calcul en cours</string>
+    <string name="recognized_constants">Constantes reconnues</string>
+    <string name="symbols_read_as_units">Symboles lus comme des unités</string>
+    <string name="symbols_read_as_units_footer">Si ce sont des variables, déclarez-les dans la feuille.</string>
+    <string name="simplify">Simplifier</string>
+    <string name="copy_line">Copier la ligne</string>
+    <string name="copy_formula">Copier la formule</string>
+    <string name="share_result">Partager le résultat</string>
+    <string name="show_in">Afficher en</string>
+    <string name="si_units">Unités SI</string>
+    <string name="edit">Modifier</string>
+    <string name="line_actions">Actions de la ligne</string>
 </resources>

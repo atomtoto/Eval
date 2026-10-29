@@ -52,11 +52,10 @@ for ((skipKey, appKey) in listOf("android-gradle-plugin" to "agp", "kotlin" to "
     }
 }
 
-// Debug and release builds of EvalBridge share one folder of native libraries:
-// release builds start from an empty one, so that no debug library ships.
-if (gradle.startParameter.taskNames.any { it.contains("Release") }) {
-    skipOutput.resolve("EvalBridge/build/jni-libs").deleteRecursively()
-}
+// Every build of EvalBridge copies its native libraries into one folder, for the
+// ABIs it builds (debug builds only the connected device's): each build starts
+// from an empty folder, so that no library of an earlier build ships.
+skipOutput.resolve("EvalBridge/build/jni-libs").deleteRecursively()
 
 gradle.extra["evalBridgeProguardRules"] = skipOutput.resolve("EvalBridge/proguard-rules.pro").path
 includeBuild(skipOutput)

@@ -65,9 +65,15 @@ dependencies {
     implementation("eval.bridge:EvalBridge")
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.material3)
+    implementation(libs.compose.material3.navigation.suite)
+    implementation(libs.compose.material.icons.extended)
+    implementation(libs.material3.adaptive)
+    implementation(libs.material3.adaptive.layout)
+    implementation(libs.material3.adaptive.navigation)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.lifecycle.runtime.compose)
     debugImplementation(libs.compose.ui.tooling)
 }
 
