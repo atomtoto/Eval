@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +44,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -86,6 +88,7 @@ fun SheetScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val listState = rememberLazyListState()
+    val field = remember { EditedField() }
     var isReordering by rememberSaveable { mutableStateOf(false) }
     var isRenaming by rememberSaveable { mutableStateOf(false) }
     var confirmsClear by rememberSaveable { mutableStateOf(false) }
@@ -156,7 +159,15 @@ fun SheetScreen(
                 // A tap outside the lines validates the edited one, as on iOS.
                 .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } },
         ) {
-            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+            // Room at the end for the floating button, or the keyboard bar.
+            val isTyping = state.editingLineId != null && !isReordering
+            // While a line is edited, the list ends above the keyboard bar, so the
+            // field it keeps in view is never under the bar.
+            LazyColumn(
+                Modifier.fillMaxSize().padding(bottom = if (isTyping) 72.dp else 0.dp),
+                state = listState,
+                contentPadding = PaddingValues(bottom = if (isTyping) 8.dp else 88.dp),
+            ) {
                 state.sheetIssue?.let { issue ->
                     item(key = "issue") {
                         Text(
@@ -174,6 +185,7 @@ fun SheetScreen(
                             isReordering = isReordering,
                             isFirst = index == 0,
                             isLast = index == state.lines.lastIndex,
+                            field = field,
                         )
                     }
                 }
@@ -216,6 +228,16 @@ fun SheetScreen(
                     }
                 }
             }
+            if (isTyping) {
+                KeyboardBar(
+                    variableNames = state.declaredNames,
+                    onInsert = { kind, value -> field.insert(kind, value)?.let(viewModel::updateEditedLine) },
+                    onShowReferences = { field.isPicking = true },
+                    onScan = null,
+                    onDone = { focusManager.clearFocus() },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
+                )
+            }
             // An evaluation that takes a while shows its progress, as on iOS.
             AnimatedVisibility(state.isEvaluating, modifier = Modifier.align(Alignment.TopCenter)) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -223,6 +245,15 @@ fun SheetScreen(
         }
     }
 
+    if (field.isPicking) {
+        SymbolPicker(
+            onPick = { kind, value ->
+                field.insert(kind, value)?.let(viewModel::updateEditedLine)
+                field.isPicking = false
+            },
+            onDismiss = { field.isPicking = false },
+        )
+    }
     if (isRenaming) {
         RenameSheetDialog(
             currentTitle = state.title,

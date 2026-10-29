@@ -9,7 +9,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +31,7 @@ import com.atom.eval.sheets.CalculationScreen
 private enum class EvalTab { Calculation, References }
 
 /** The two tabs of the app, as on iOS: a bottom bar on phones, a rail on larger screens. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EvalApp() {
     val store = LocalContext.current.sheetStore
@@ -32,8 +39,17 @@ fun EvalApp() {
     var tab by rememberSaveable { mutableStateOf(EvalTab.Calculation) }
     // Each tab keeps its scroll positions and open panes while the other one shows.
     val tabStates = rememberSaveableStateHolder()
+    val defaultType = NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo())
+    // The bottom bar gives its room to the keyboard while a line is typed; a rail stays.
+    val isBottomBar = defaultType == NavigationSuiteType.NavigationBar ||
+        defaultType == NavigationSuiteType.ShortNavigationBarCompact ||
+        defaultType == NavigationSuiteType.ShortNavigationBarMedium
+    val navigationType = if (WindowInsets.isImeVisible && isBottomBar) {
+        NavigationSuiteType.None
+    } else defaultType
 
     NavigationSuiteScaffold(
+        navigationSuiteType = navigationType,
         navigationItems = {
             NavigationSuiteItem(
                 selected = tab == EvalTab.Calculation,

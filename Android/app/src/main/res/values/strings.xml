@@ -103,4 +103,24 @@
     <string name="si_units">Unités SI</string>
     <string name="edit">Modifier</string>
     <string name="line_actions">Actions de la ligne</string>
+
+    <!-- Keyboard bar -->
+    <string name="scan_formula">Scanner une formule</string>
+    <string name="insert">Insérer</string>
+    <string name="key_plus">Plus</string>
+    <string name="key_minus">Moins</string>
+    <string name="key_times">Multiplier</string>
+    <string name="key_parentheses">Parenthèses</string>
+    <string name="insert_fraction">Fraction</string>
+    <string name="insert_power">Puissance</string>
+    <string name="insert_root">Racine</string>
+    <string name="insert_equal">Égal =</string>
+    <string name="insert_divide">Diviser ÷</string>
+    <string name="insert_exponent">Exposant ^</string>
+    <string name="insert_squared">Au carré ²</string>
+    <string name="insert_cubed">Au cube ³</string>
+    <string name="insert_inverse">Inverse ⁻¹</string>
+    <string name="insert_degrees">Degrés (deg)</string>
+    <string name="sheet_variables">Variables de la feuille</string>
+    <string name="constants_and_units">Constantes et unités…</string>
 </resources>

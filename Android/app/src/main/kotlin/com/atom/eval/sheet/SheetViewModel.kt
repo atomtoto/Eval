@@ -30,6 +30,8 @@ data class SheetUiState(
     val sheetIssue: String? = null,
     val constants: List<ConstantItem> = emptyList(),
     val symbolUnits: List<UnitItem> = emptyList(),
+    /** The names declared in the sheet, for « Insérer ». */
+    val declaredNames: List<String> = emptyList(),
     /** Shown once an evaluation takes longer than [SheetEditor.progressDelayMillis]. */
     val isEvaluating: Boolean = false,
     /** A line to scroll to; each request has its own id. */
@@ -137,6 +139,7 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
                 sheetIssue = editor.sheetIssue,
                 constants = editor.recognizedConstants(),
                 symbolUnits = editor.symbolUnits(),
+                declaredNames = editor.declaredNames,
                 revealRequestId = reveal?.id,
                 revealLineId = reveal?.lineId,
             )

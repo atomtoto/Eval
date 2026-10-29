@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -87,6 +88,7 @@ fun SheetLineRow(
     isReordering: Boolean,
     isFirst: Boolean,
     isLast: Boolean,
+    field: EditedField,
     modifier: Modifier = Modifier,
 ) {
     var menu by remember { mutableStateOf<LineMenu?>(null) }
@@ -94,7 +96,7 @@ fun SheetLineRow(
 
     Box(modifier) {
         if (line.isEditing) {
-            EditedLine(line, viewModel)
+            EditedLine(line, viewModel, field)
         } else {
             ListItem(
                 headlineContent = { LineText(line) },
@@ -157,21 +159,27 @@ private fun trailingComment(source: String): String? =
 
 /** The text field of the edited line: Return validates it and starts a new line below. */
 @Composable
-private fun EditedLine(line: LineState, viewModel: SheetViewModel) {
-    var field by remember(line.id) { mutableStateOf(TextFieldValue(line.source, TextRange(line.source.length))) }
+private fun EditedLine(line: LineState, viewModel: SheetViewModel, field: EditedField) {
+    val value = remember(line.id) { mutableStateOf(TextFieldValue(line.source, TextRange(line.source.length))) }
     val focusRequester = remember { FocusRequester() }
     var hadFocus by remember { mutableStateOf(false) }
 
-    fun change(value: TextFieldValue) {
-        field = value
-        if (value.text != line.source) viewModel.updateEditedLine(value.text)
+    fun change(newValue: TextFieldValue) {
+        value.value = newValue
+        if (newValue.text != line.source) viewModel.updateEditedLine(newValue.text)
     }
 
-    LaunchedEffect(line.id) { focusRequester.requestFocus() }
+    // The keyboard bar inserts into this field.
+    DisposableEffect(value) {
+        field.state = value
+        onDispose { if (field.state === value) field.state = null }
+    }
+    // Focused when it appears, and again when the picker of the keyboard bar closes.
+    LaunchedEffect(line.id, field.isPicking) { if (!field.isPicking) focusRequester.requestFocus() }
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         OutlinedTextField(
-            value = field,
+            value = value.value,
             onValueChange = ::change,
             singleLine = true,
             placeholder = { Text(stringResource(R.string.new_line)) },
@@ -182,15 +190,16 @@ private fun EditedLine(line: LineState, viewModel: SheetViewModel) {
             ),
             keyboardActions = KeyboardActions(onNext = {
                 // Splits the line at the cursor, like Return on iOS.
-                val cursor = field.selection.end
-                change(TextFieldValue(field.text.substring(0, cursor) + "\n" + field.text.substring(cursor)))
+                val current = value.value
+                val cursor = current.selection.end
+                change(TextFieldValue(current.text.substring(0, cursor) + "\n" + current.text.substring(cursor)))
             }),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
                 .onFocusChanged {
                     if (it.isFocused) hadFocus = true
-                    else if (hadFocus) viewModel.endEditing(line.id)
+                    else if (hadFocus && !field.isPicking) viewModel.endEditing(line.id)
                 },
         )
         if (line.editingNotes.isNotEmpty()) Notes(line.editingNotes, Modifier.padding(top = 4.dp))
