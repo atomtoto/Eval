@@ -56,7 +56,10 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.atom.eval.R
+import com.atom.eval.settings.SettingsDialog
 import com.atom.eval.ui.EmptyState
 import com.atom.eval.ui.NoSearchResults
 import com.atom.eval.ui.SearchField
@@ -109,6 +112,11 @@ fun SheetListPane(
                             contentDescription = stringResource(R.string.new_from_example),
                         )
                     }
+                    var showsSettings by rememberSaveable { mutableStateOf(false) }
+                    IconButton(onClick = { showsSettings = true }) {
+                        Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
+                    }
+                    if (showsSettings) SettingsDialog { showsSettings = false }
                 },
             )
         },

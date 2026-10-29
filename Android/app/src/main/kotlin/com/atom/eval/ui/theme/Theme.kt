@@ -1,11 +1,13 @@
 package com.atom.eval.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.atom.eval.data.Accent
 
 // The accent leads; the other roles are warm tones that keep it the only strong color.
 // In light mode the page is the warm cream of the iOS sheets (surface and background),
@@ -78,8 +80,48 @@ private val DarkColors = darkColorScheme(
     surfaceContainerHighest = DarkContainerHighest,
 )
 
-/** Eval's Material theme: the orange accent, light or dark like the system, default typography. */
+/** Eval's Material theme: the accent of « Réglages », light or dark like the system, default typography. */
 @Composable
-fun EvalTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (darkTheme) DarkColors else LightColors, content = content)
+fun EvalTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    accent: Accent = Accent.Orange,
+    warmBackground: Boolean = true,
+    content: @Composable () -> Unit,
+) {
+    var colors = if (darkTheme) DarkColors else if (warmBackground) LightColors else NeutralLightColors
+    if (accent == Accent.Blue) colors = if (darkTheme) colors.withBlueDark() else colors.withBlueLight()
+    MaterialTheme(colorScheme = colors, content = content)
 }
+
+/** Without the warm background, the light pages are neutral, as iOS without « Fond chaud ». */
+private val NeutralLightColors = LightColors.copy(
+    background = Color(0xFFF7F7F7),
+    onBackground = Color(0xFF1B1B1B),
+    surface = Color(0xFFF7F7F7),
+    onSurface = Color(0xFF1B1B1B),
+    onSurfaceVariant = Color(0xFF474747),
+    surfaceBright = Color.White,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF1F1F1),
+    surfaceContainer = Color(0xFFECECEC),
+    surfaceContainerHigh = Color(0xFFE6E6E6),
+    surfaceContainerHighest = Color(0xFFE0E0E0),
+)
+
+private fun ColorScheme.withBlueLight() = copy(
+    primary = Color(0xFF0B57D0),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFD3E3FD),
+    onPrimaryContainer = Color(0xFF041E49),
+    inversePrimary = Color(0xFFA8C7FA),
+    surfaceTint = Color(0xFF0B57D0),
+)
+
+private fun ColorScheme.withBlueDark() = copy(
+    primary = Color(0xFFA8C7FA),
+    onPrimary = Color(0xFF062E6F),
+    primaryContainer = Color(0xFF0842A0),
+    onPrimaryContainer = Color(0xFFD3E3FD),
+    inversePrimary = Color(0xFF0B57D0),
+    surfaceTint = Color(0xFFA8C7FA),
+)

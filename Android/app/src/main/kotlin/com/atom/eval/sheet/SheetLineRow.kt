@@ -89,6 +89,7 @@ fun SheetLineRow(
     isFirst: Boolean,
     isLast: Boolean,
     field: EditedField,
+    showsLineNumber: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var menu by remember { mutableStateOf<LineMenu?>(null) }
@@ -101,6 +102,9 @@ fun SheetLineRow(
             ListItem(
                 headlineContent = { LineText(line) },
                 supportingContent = line.notes.takeIf { it.isNotEmpty() }?.let { notes -> { Notes(notes) } },
+                leadingContent = if (showsLineNumber) {
+                    { LineNumber(line.index + 1) }
+                } else null,
                 trailingContent = if (isReordering) {
                     { ReorderButtons(isFirst, isLast) { viewModel.moveLine(line.id, it) } }
                 } else null,
@@ -151,6 +155,17 @@ private fun LineText(line: LineState, valueInteraction: ValueInteraction? = null
             }
         }
     }
+}
+
+/** The number of a line, at the left of the sheet when « Numéros de ligne » is on. */
+@Composable
+private fun LineNumber(number: Int) {
+    Text(
+        number.toString(),
+        style = MaterialTheme.typography.labelMedium,
+        fontFamily = FontFamily.Monospace,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** The `# …` or `// …` note that ends a formula line. */

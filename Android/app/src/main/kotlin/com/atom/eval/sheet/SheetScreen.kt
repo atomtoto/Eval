@@ -62,6 +62,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atom.eval.R
 import com.atom.eval.sheets.RenameSheetDialog
+import com.atom.eval.appSettings
+import com.atom.eval.settings.SettingsDialog
 import com.atom.eval.sheetStore
 import com.atom.eval.ui.BackButton
 import com.atom.eval.ui.shareText
@@ -92,6 +94,12 @@ fun SheetScreen(
     var isReordering by rememberSaveable { mutableStateOf(false) }
     var isRenaming by rememberSaveable { mutableStateOf(false) }
     var confirmsClear by rememberSaveable { mutableStateOf(false) }
+    var showsSettings by rememberSaveable { mutableStateOf(false) }
+    val settings = context.appSettings
+    val showsLineNumbers by settings.lineNumbers.collectAsStateWithLifecycle()
+    val significantDigits by settings.significantDigits.collectAsStateWithLifecycle()
+    // Results are written again with the number of digits chosen in « Réglages ».
+    LaunchedEffect(significantDigits) { viewModel.refresh() }
     val subject = stringResource(R.string.sheet_subject)
     // The issue of the whole sheet, when there is one, comes before the lines.
     val firstLineItem = if (state.sheetIssue != null) 1 else 0
@@ -136,6 +144,7 @@ fun SheetScreen(
                             onShare = { results -> context.shareText(viewModel.sharedText(results), state.title, subject) },
                             onReorder = { isReordering = true },
                             onClear = { confirmsClear = true },
+                            onSettings = { showsSettings = true },
                         )
                     }
                 },
@@ -186,6 +195,7 @@ fun SheetScreen(
                             isFirst = index == 0,
                             isLast = index == state.lines.lastIndex,
                             field = field,
+                            showsLineNumber = showsLineNumbers,
                         )
                     }
                 }
@@ -254,6 +264,7 @@ fun SheetScreen(
             onDismiss = { field.isPicking = false },
         )
     }
+    if (showsSettings) SettingsDialog { showsSettings = false }
     if (isRenaming) {
         RenameSheetDialog(
             currentTitle = state.title,
@@ -297,6 +308,7 @@ private fun SheetMenu(
     onShare: (includingResults: Boolean) -> Unit,
     onReorder: () -> Unit,
     onClear: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     var isExpanded by rememberSaveable { mutableStateOf(false) }
     Box {
@@ -315,6 +327,8 @@ private fun SheetMenu(
             HorizontalDivider()
             Item(R.string.reorder, onReorder)
             Item(R.string.clear_sheet, onClear)
+            HorizontalDivider()
+            Item(R.string.settings, onSettings)
         }
     }
 }

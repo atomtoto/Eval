@@ -93,6 +93,12 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
 
     fun lineMenu(lineId: String): LineMenu? = editor?.lineMenu(lineId)
 
+    /** Reads the sheet again, after a setting that changes how results are written. */
+    fun refresh() {
+        publish()
+        store.changed()
+    }
+
     // Sheet actions
 
     fun undo() = edit { undo() }

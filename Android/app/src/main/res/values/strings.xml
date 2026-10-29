@@ -123,4 +123,21 @@
     <string name="insert_degrees">Degrés (deg)</string>
     <string name="sheet_variables">Variables de la feuille</string>
     <string name="constants_and_units">Constantes et unités…</string>
+
+    <!-- Settings -->
+    <string name="settings">Réglages</string>
+    <string name="close">Fermer</string>
+    <string name="formula_input">Saisie des formules</string>
+    <string name="input_text">Dans la ligne (texte)</string>
+    <string name="input_math">Écriture mathématique</string>
+    <string name="formula_input_footer">Touchez une ligne pour la modifier là où elle se trouve. Dans la ligne (texte), la formule s’écrit comme E = m * c^2 et s’affiche en notation mathématique dès que vous la quittez. En écriture mathématique, elle se modifie telle qu’elle s’affiche : / crée une fraction, ^ un exposant, et toucher la formule place le curseur.</string>
+    <string name="significant_digits">Chiffres significatifs</string>
+    <string name="significant_digits_footer">Nombre de chiffres significatifs des résultats affichés. Les calculs gardent toujours toute leur précision.</string>
+    <string name="line_numbers">Numéros de ligne</string>
+    <string name="line_numbers_footer">Affiche le numéro de chaque ligne à gauche de la feuille.</string>
+    <string name="accent_color">Couleur d’accent</string>
+    <string name="accent_orange">Orange industriel</string>
+    <string name="accent_blue">Bleu</string>
+    <string name="warm_background">Fond chaud</string>
+    <string name="warm_background_footer">En mode clair, les feuilles prennent un fond crème chaud. Le mode sombre ne change pas.</string>
 </resources>

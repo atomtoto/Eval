@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.atom.eval.ui.theme.EvalTheme
 
 class MainActivity : ComponentActivity() {
@@ -11,7 +13,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
-            EvalTheme {
+            val accent by appSettings.accent.collectAsStateWithLifecycle()
+            val warmBackground by appSettings.warmBackground.collectAsStateWithLifecycle()
+            EvalTheme(accent = accent, warmBackground = warmBackground) {
                 EvalApp()
             }
         }
