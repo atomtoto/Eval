@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.DropdownMenu
@@ -94,6 +95,7 @@ fun SheetLineRow(
     field: EditedField,
     showsLineNumber: Boolean,
     inputMode: FormulaInputMode,
+    onPlot: (PlotRequest) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var menu by remember { mutableStateOf<LineMenu?>(null) }
@@ -138,7 +140,7 @@ fun SheetLineRow(
                     },
             )
         }
-        menu?.let { LineMenuDropdown(it, viewModel) { menu = null } }
+        menu?.let { LineMenuDropdown(it, viewModel, onPlot) { menu = null } }
     }
 }
 
@@ -283,13 +285,22 @@ private fun ReorderButtons(isFirst: Boolean, isLast: Boolean, onMove: (Int) -> U
 
 /** The menu of a line (iOS LineActions), and its « Afficher en » list of units. */
 @Composable
-private fun LineMenuDropdown(menu: LineMenu, viewModel: SheetViewModel, onDismiss: () -> Unit) {
+private fun LineMenuDropdown(menu: LineMenu, viewModel: SheetViewModel, onPlot: (PlotRequest) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val copy = rememberCopyAction()
     var showsUnits by remember { mutableStateOf(false) }
+    var showsPlotVariables by remember { mutableStateOf(false) }
 
     DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
-        if (showsUnits) {
+        if (showsPlotVariables) {
+            // « Tracer en fonction de »: the ruler variables the result depends on.
+            for (variable in menu.plotVariables) {
+                DropdownMenuItem(
+                    text = { Text(variable.name) },
+                    onClick = { onDismiss(); onPlot(PlotRequest(menu.lineId, variableLineId = variable.lineId)) },
+                )
+            }
+        } else if (showsUnits) {
             // « Unités SI » first, then the units of the same dimension; the current one is checked.
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.si_units)) },
@@ -304,9 +315,13 @@ private fun LineMenuDropdown(menu: LineMenu, viewModel: SheetViewModel, onDismis
                 )
             }
         } else {
-            LineActions(menu, viewModel, onDismiss, onShowUnits = { showsUnits = true }, copy = copy) {
-                context.shareText(it)
-            }
+            LineActions(
+                menu, viewModel, onDismiss,
+                onShowUnits = { showsUnits = true },
+                onShowPlotVariables = { showsPlotVariables = true },
+                onPlot = onPlot,
+                copy = copy,
+            ) { context.shareText(it) }
         }
     }
 }
@@ -317,6 +332,8 @@ private fun LineActions(
     viewModel: SheetViewModel,
     onDismiss: () -> Unit,
     onShowUnits: () -> Unit,
+    onShowPlotVariables: () -> Unit,
+    onPlot: (PlotRequest) -> Unit,
     copy: (String) -> Unit,
     share: (String) -> Unit,
 ) {
@@ -350,6 +367,19 @@ private fun LineActions(
             trailingIcon = { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null) },
             onClick = onShowUnits,
         )
+    }
+    if (menu.plotVariables.isNotEmpty()) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.plot_against)) },
+            leadingIcon = { Icon(Icons.Outlined.ShowChart, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            trailingIcon = { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null) },
+            onClick = onShowPlotVariables,
+        )
+    }
+    menu.plotFreeVariable?.let { name ->
+        Item(stringResource(R.string.plot_against_name, name), Icons.Outlined.ShowChart) {
+            onPlot(PlotRequest(menu.lineId, freeVariable = name))
+        }
     }
     // A note has no copy or unit items to separate from the editing ones.
     if (!menu.isComment) HorizontalDivider()

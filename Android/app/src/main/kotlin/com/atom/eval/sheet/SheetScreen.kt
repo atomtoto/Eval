@@ -96,6 +96,7 @@ fun SheetScreen(
     var isRenaming by rememberSaveable { mutableStateOf(false) }
     var confirmsClear by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
+    var plot by remember { mutableStateOf<PlotRequest?>(null) }
     val settings = context.appSettings
     val showsLineNumbers by settings.lineNumbers.collectAsStateWithLifecycle()
     val inputMode by settings.inputMode.collectAsStateWithLifecycle()
@@ -199,6 +200,7 @@ fun SheetScreen(
                             field = field,
                             showsLineNumber = showsLineNumbers,
                             inputMode = inputMode,
+                            onPlot = { plot = it },
                         )
                     }
                 }
@@ -274,6 +276,7 @@ fun SheetScreen(
         )
     }
     if (showsSettings) SettingsDialog { showsSettings = false }
+    plot?.let { PlotDialog(it, viewModel) { plot = null } }
     state.ruler?.let { ruler -> RulerSheet(ruler, viewModel, onDismiss = viewModel::hideRuler) }
     // The line of an open ruler stays in view above it.
     LaunchedEffect(state.ruler?.lineId) {

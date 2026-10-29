@@ -160,4 +160,12 @@
     <string name="plot_maximum">Maximum</string>
     <string name="ruler_settings_invalid">Le maximum doit dépasser le minimum, et le pas être positif.</string>
     <string name="ruler_restore">Rétablir le réglage automatique</string>
+
+    <!-- Plots -->
+    <string name="plot_against">Tracer en fonction de</string>
+    <string name="plot_against_name">Tracer en fonction de %1$s</string>
+    <string name="plot_title">%1$s en fonction de %2$s</string>
+    <string name="plot_draw">Tracer</string>
+    <string name="plot_computing">Calcul du tracé…</string>
+    <string name="plot_touch_hint">Touchez le graphique pour lire une valeur.</string>
 </resources>

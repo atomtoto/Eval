@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.atom.eval.R
 import com.atom.eval.ui.SearchField
-import eval.bridge.FormulaKeys
+import eval.bridge.FormulaInserter
 import eval.bridge.ReferenceCatalog
 
 /**
@@ -61,7 +61,7 @@ class EditedField {
     fun insert(kind: String, value: String = ""): String? {
         val state = state ?: return null
         val current = state.value
-        val edit = FormulaKeys.insert(kind, value, current.text, current.selection.min, current.selection.max)
+        val edit = FormulaInserter.insert(kind, value, current.text, current.selection.min, current.selection.max) ?: return null
         state.value = TextFieldValue(edit.text, TextRange(edit.caret))
         return edit.text
     }

@@ -369,20 +369,6 @@ import Testing
     }
 }
 
-@Suite struct FormulaKeysTests {
-    @Test func operatorsGetSpacesAndFractionsWrapTheSelection() {
-        let times = FormulaKeys.insert(kind: "operator", value: "*", into: "m", selectionStart: 1, selectionEnd: 1)
-        #expect(times.text == "m * ")
-        #expect(times.caret == 4)
-        let fraction = FormulaKeys.insert(kind: "fraction", value: "", into: "a + b", selectionStart: 0, selectionEnd: 5)
-        #expect(fraction.text == "(a + b)/()")
-        #expect(fraction.caret == 9)
-        // Offsets count UTF-16 units: « v² » is two of them.
-        let square = FormulaKeys.insert(kind: "operator", value: "+", into: "v²", selectionStart: 2, selectionEnd: 2)
-        #expect(square.text == "v² + ")
-    }
-}
-
 @Suite struct MathLineEditorTests {
     @Test func typingASlashMakesAFractionAndTheCursorGoesDown() {
         let editor = MathLineEditor(source: "")

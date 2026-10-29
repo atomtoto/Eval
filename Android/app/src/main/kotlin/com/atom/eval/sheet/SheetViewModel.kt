@@ -6,6 +6,7 @@ import com.atom.eval.data.SheetStore
 import eval.bridge.ConstantItem
 import eval.bridge.LineMenu
 import eval.bridge.LineState
+import eval.bridge.PlotInput
 import eval.bridge.RulerRange
 import eval.bridge.RulerState
 import eval.bridge.SheetEditor
@@ -124,6 +125,13 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
     }
 
     fun suggestedRulerSettings(lineId: String): RulerRange? = editor?.suggestedRulerSettings(lineId)
+
+    /** What the plot of a line needs; the interval only counts for a name the sheet does not declare. */
+    fun plotInput(request: PlotRequest, lower: Double, upper: Double): PlotInput? {
+        val editor = editor ?: return null
+        request.variableLineId?.let { return editor.plotInput(request.resultLineId, it) }
+        return request.freeVariable?.let { editor.freeVariablePlotInput(request.resultLineId, it, lower, upper) }
+    }
 
     /** What TalkBack announces after a step of the ruler, once the results are in. */
     fun takeAnnouncement(): String? = editor?.takeAnnouncement()
