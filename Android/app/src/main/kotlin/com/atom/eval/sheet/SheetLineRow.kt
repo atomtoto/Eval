@@ -54,18 +54,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.atom.eval.R
+import com.atom.eval.math.FormulaLine
+import com.atom.eval.math.Math
+import com.atom.eval.math.ValueInteraction
+import com.atom.eval.math.formulaAccessoryStyle
 import com.atom.eval.ui.rememberCopyAction
 import com.atom.eval.ui.shareText
 import eval.bridge.LineMenu
@@ -107,7 +110,8 @@ fun SheetLineRow(
                         onLongClick = { menu = viewModel.lineMenu(line.id) },
                         onClick = { viewModel.beginEditing(line.id) },
                     )
-                    .semantics(mergeDescendants = true) {
+                    // The formula is read as a whole, not symbol by symbol.
+                    .clearAndSetSemantics {
                         contentDescription = line.accessibilityLabel
                         line.accessibilityValue?.let { stateDescription = it }
                     },
@@ -119,26 +123,37 @@ fun SheetLineRow(
 
 /** The formula, a heading or a note, with the value on the same line when it is shown. */
 @Composable
-private fun LineText(line: LineState) {
+private fun LineText(line: LineState, valueInteraction: ValueInteraction? = null) {
     val colors = MaterialTheme.colorScheme
     when {
         line.isHeading -> Text(line.noteText.orEmpty(), style = MaterialTheme.typography.titleMedium)
         line.isComment -> Text(line.noteText.orEmpty(), color = colors.onSurfaceVariant)
-        else -> Text(
-            buildAnnotatedString {
-                append(line.source.trim())
-                line.valueLabel?.let { label ->
-                    append(" ")
-                    // A value computed for an earlier text stays grayed until the next one.
-                    withStyle(SpanStyle(color = if (line.isStale) colors.onSurfaceVariant else colors.primary)) {
-                        append(label)
+        else -> {
+            val math = remember(line.source) { Math.of(line.source) }
+            // A value computed for an earlier text stays grayed until the next one.
+            val valueColor = if (line.isStale) colors.onSurfaceVariant else colors.primary
+            val accessory: (@Composable () -> Unit)? = line.valueLabel?.let { label ->
+                { Text(label, style = formulaAccessoryStyle(), color = valueColor) }
+            }
+            Column {
+                if (math != null) {
+                    FormulaLine(math, valueInteraction = valueInteraction, accessory = accessory)
+                    trailingComment(line.source)?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     }
+                } else {
+                    // Without notation (a formula being written), the text itself, as on iOS.
+                    Text(line.source.trim(), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyLarge)
+                    accessory?.invoke()
                 }
-            },
-            style = MaterialTheme.typography.bodyLarge,
-        )
+            }
+        }
     }
 }
+
+/** The `# …` or `// …` note that ends a formula line. */
+private fun trailingComment(source: String): String? =
+    listOf(source.indexOf('#'), source.indexOf("//")).filter { it >= 0 }.minOrNull()?.let { source.substring(it) }
 
 /** The text field of the edited line: Return validates it and starts a new line below. */
 @Composable

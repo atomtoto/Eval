@@ -356,3 +356,15 @@ import Testing
         #expect(SheetEditor.samplePlot(empty).failure == "noRange")
     }
 }
+
+@Suite struct MathNodeTests {
+    @Test func kineticEnergyIsARowWithAPowerAndAValue() throws {
+        let node = try #require(MathNode.formula("E = 0,5 * m * v²"))
+        #expect(node.kind == "row")
+        #expect(node.children.contains { $0.kind == "atom" && $0.text == " = " })
+        func kinds(_ node: MathNode) -> [String] { [node.kind] + node.children.flatMap(kinds) }
+        #expect(kinds(node).contains("power"))
+        #expect(MathNode.formula("m = 80 kg").map(kinds)?.contains("value") == true)
+        #expect(MathNode.formula("# Note") == nil)
+    }
+}
