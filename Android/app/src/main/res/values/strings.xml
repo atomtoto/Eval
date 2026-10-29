@@ -145,4 +145,19 @@
     <string name="insert_times">Multiplier ×</string>
     <string name="key_left">Gauche</string>
     <string name="key_right">Droite</string>
+
+    <!-- Ruler -->
+    <string name="show_ruler">Afficher la réglette</string>
+    <string name="ruler_settings">Réglages de la réglette</string>
+    <string name="ruler_step">Chaque cran modifie la valeur de %1$s.</string>
+    <string name="ruler_step_automatic">Chaque cran modifie la valeur de %1$s. Pas automatique.</string>
+    <string name="ruler_increase">Augmenter</string>
+    <string name="ruler_decrease">Diminuer</string>
+    <string name="ruler_automatic_step">Pas automatique</string>
+    <string name="ruler_manual_step">Pas</string>
+    <string name="plot_interval">Intervalle du graphique</string>
+    <string name="plot_minimum">Minimum</string>
+    <string name="plot_maximum">Maximum</string>
+    <string name="ruler_settings_invalid">Le maximum doit dépasser le minimum, et le pas être positif.</string>
+    <string name="ruler_restore">Rétablir le réglage automatique</string>
 </resources>

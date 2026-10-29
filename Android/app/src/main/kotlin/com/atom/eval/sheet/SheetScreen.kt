@@ -274,6 +274,13 @@ fun SheetScreen(
         )
     }
     if (showsSettings) SettingsDialog { showsSettings = false }
+    state.ruler?.let { ruler -> RulerSheet(ruler, viewModel, onDismiss = viewModel::hideRuler) }
+    // The line of an open ruler stays in view above it.
+    LaunchedEffect(state.ruler?.lineId) {
+        val lineId = state.ruler?.lineId ?: return@LaunchedEffect
+        val index = state.lines.indexOfFirst { it.id == lineId }
+        if (index >= 0) listState.animateScrollToItem(firstLineItem + index)
+    }
     if (isRenaming) {
         RenameSheetDialog(
             currentTitle = state.title,

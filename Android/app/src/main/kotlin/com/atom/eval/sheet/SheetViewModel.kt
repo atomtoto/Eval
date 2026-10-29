@@ -6,6 +6,8 @@ import com.atom.eval.data.SheetStore
 import eval.bridge.ConstantItem
 import eval.bridge.LineMenu
 import eval.bridge.LineState
+import eval.bridge.RulerRange
+import eval.bridge.RulerState
 import eval.bridge.SheetEditor
 import eval.bridge.UnitItem
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +36,8 @@ data class SheetUiState(
     val declaredNames: List<String> = emptyList(),
     /** Shown once an evaluation takes longer than [SheetEditor.progressDelayMillis]. */
     val isEvaluating: Boolean = false,
+    /** The ruler open under the sheet, if any. */
+    val ruler: RulerState? = null,
     /** A line to scroll to; each request has its own id. */
     val revealRequestId: String? = null,
     val revealLineId: String? = null,
@@ -99,6 +103,31 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
         store.changed()
     }
 
+    // Rulers
+
+    fun showRuler(lineId: String) = edit { showRuler(lineId) }
+
+    fun hideRuler() = edit { hideRuler() }
+
+    fun beginRulerGesture(lineId: String) = editor?.beginRulerGesture(lineId)
+
+    fun endRulerGesture() = edit { endRulerGesture() }
+
+    fun adjustVariable(lineId: String, value: Double) = edit { adjustVariable(lineId, value, false) }
+
+    fun stepVariable(lineId: String, steps: Int) = edit { stepVariable(lineId, steps) }
+
+    fun setRulerSettings(lineId: String, lower: Double, upper: Double, step: Double, automatic: Boolean): Boolean {
+        val saved = editor?.setRulerSettings(lineId, lower, upper, step, automatic) == true
+        if (saved) refresh()
+        return saved
+    }
+
+    fun suggestedRulerSettings(lineId: String): RulerRange? = editor?.suggestedRulerSettings(lineId)
+
+    /** What TalkBack announces after a step of the ruler, once the results are in. */
+    fun takeAnnouncement(): String? = editor?.takeAnnouncement()
+
     // Sheet actions
 
     fun undo() = edit { undo() }
@@ -146,6 +175,7 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
                 constants = editor.recognizedConstants(),
                 symbolUnits = editor.symbolUnits(),
                 declaredNames = editor.declaredNames,
+                ruler = editor.activeRulerLineId?.let(editor::ruler),
                 revealRequestId = reveal?.id,
                 revealLineId = reveal?.lineId,
             )

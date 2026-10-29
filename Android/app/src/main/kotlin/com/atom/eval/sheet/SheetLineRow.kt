@@ -56,7 +56,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextRange
@@ -96,13 +98,21 @@ fun SheetLineRow(
 ) {
     var menu by remember { mutableStateOf<LineMenu?>(null) }
     val actionsLabel = stringResource(R.string.line_actions)
+    val showRulerLabel = stringResource(R.string.show_ruler)
 
     Box(modifier) {
         if (line.isEditing) {
             if (inputMode == FormulaInputMode.Math) MathEditedLine(line, viewModel, field) else EditedLine(line, viewModel, field)
         } else {
             ListItem(
-                headlineContent = { LineText(line) },
+                headlineContent = {
+                    // The value of a declared number opens its ruler on a long press.
+                    LineText(line, if (line.isAdjustable && !isReordering) ValueInteraction(
+                        isSelected = line.isRulerOpen,
+                        onTap = { viewModel.beginEditing(line.id) },
+                        onLongPress = { viewModel.showRuler(line.id) },
+                    ) else null)
+                },
                 supportingContent = line.notes.takeIf { it.isNotEmpty() }?.let { notes -> { LineNotes(notes) } },
                 leadingContent = if (showsLineNumber) {
                     { LineNumber(line.index + 1) }
@@ -122,6 +132,9 @@ fun SheetLineRow(
                     .clearAndSetSemantics {
                         contentDescription = line.accessibilityLabel
                         line.accessibilityValue?.let { stateDescription = it }
+                        if (line.isAdjustable) {
+                            customActions = listOf(CustomAccessibilityAction(showRulerLabel) { viewModel.showRuler(line.id); true })
+                        }
                     },
             )
         }
