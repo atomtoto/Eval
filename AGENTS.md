@@ -142,3 +142,13 @@ For this project, follow this hierarchy by default: **native SwiftUI → native 
 - `Android/EvalBridge` is a Skip Fuse package that compiles `EvalCore` natively for Android and bridges it to Kotlin. Keep Skip out of the root `Package.swift`, so that Xcode never resolves it.
 - `EvalCore` must keep building for Android (guard Apple-only modules with `#if canImport(...)`). It assumes a 64-bit `Int`, so the app ships arm64-v8a and x86_64 only.
 - Build with `./gradlew :app:assembleDebug` in `Android/`. Run the engine tests on a running emulator with `skip android test --package-path .` at the root.
+
+# Simulators and emulators
+
+Several agents may work on this Mac at the same time. Share the iOS simulators and Android emulators carefully:
+
+- Before using one, check what is already running (`xcrun simctl list devices booted`, `adb devices`). Treat any simulator or emulator you did not boot yourself in this session as in use by another agent: do not install on it, launch on it, drive it, reset it or shut it down.
+- If yours is taken, boot another device (a different model or OS version) only when the Mac can afford it: at most 2 iOS simulators and 1 Android emulator running at once, and none while the Mac is already under heavy load (check `uptime` or `top`).
+- Otherwise, wait until a device is free instead of booting more. Don't run heavy builds in parallel with another agent's builds either.
+- Prefer headless checks (unit tests, `simctl` screenshots) to a visible device when they are enough.
+- When you are done, shut down the simulators and emulators you booted, and only those.
