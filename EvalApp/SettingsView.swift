@@ -277,6 +277,7 @@ struct SettingsView: View {
                                     .accessibilityHidden(true)
                             }
                             .tag(choice)
+                            .appIconRowLeadingInset()
                         }
                     }
                     .pickerStyle(.inline)
@@ -301,6 +302,20 @@ struct SettingsView: View {
                         .tint(.primary)
                 }
             }
+        }
+    }
+}
+
+private extension View {
+    /// From iOS 26, the grouped lists have 26 pt round corners; the app icon rows take that
+    /// radius as their total leading padding, so the icons sit clear of the rounded corners.
+    /// Before iOS 26 the corners are 10 pt, and the default row padding already clears them.
+    @ViewBuilder
+    func appIconRowLeadingInset() -> some View {
+        if #available(iOS 26, *) {
+            listRowInsets(.leading, 26)
+        } else {
+            self
         }
     }
 }
