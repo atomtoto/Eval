@@ -7,39 +7,42 @@
   },
   "groups" : [
     {
+      "blur-material" : 0.1,
       "layers" : [
         {
-
           "glass" : true,
           "image-name" : "Point.svg",
           "name" : "Point"
         }
       ],
+      "opacity" : 0.92,
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : false,
+        "strength" : 0.5
+      },
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
       },
       "translucency" : {
         "enabled" : true,
-        "value" : 0.4
+        "value" : 0.15
       }
     },
     {
       "layers" : [
         {
-
           "glass" : false,
           "image-name" : "Guide.svg",
           "name" : "Guide"
         },
         {
-
           "glass" : false,
           "image-name" : "Curve.svg",
           "name" : "Curve"
         },
         {
-
           "glass" : false,
           "image-name" : "Ruler.svg",
           "name" : "Ruler"

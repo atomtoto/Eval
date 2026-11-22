@@ -1,4 +1,7 @@
 {
+  "features" : [
+    "refractivity"
+  ],
   "fill" : {
     "linear-gradient" : [
       "extended-srgb:1.00000,0.46000,0.05000,1.00000",
@@ -7,14 +10,22 @@
   },
   "groups" : [
     {
+      "blur-material" : 0.01,
       "layers" : [
         {
-          "fill-specializations" : [ { "value" : { "solid" : "extended-srgb:1.00000,1.00000,1.00000,0.18000" } } ],
+          "fill" : {
+            "solid" : "extended-srgb:1.00000,1.00000,1.00000,0.18000"
+          },
           "glass" : true,
           "image-name" : "Lens.svg",
           "name" : "Lens"
         }
       ],
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : true,
+        "strength" : 0.1341796875
+      },
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
@@ -27,25 +38,21 @@
     {
       "layers" : [
         {
-
           "glass" : false,
           "image-name" : "Dot.svg",
           "name" : "Dot"
         },
         {
-
           "glass" : false,
           "image-name" : "Guide.svg",
           "name" : "Guide"
         },
         {
-
           "glass" : false,
           "image-name" : "Curve.svg",
           "name" : "Curve"
         },
         {
-
           "glass" : false,
           "image-name" : "Ruler.svg",
           "name" : "Ruler"
