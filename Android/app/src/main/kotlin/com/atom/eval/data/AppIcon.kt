@@ -38,21 +38,21 @@ object AppIcon {
     /** Gives the app the icon of the chosen style in the accent color, unless it already has it. */
     fun apply(context: Context, choice: AppIconChoice, accent: Accent) {
         val packageManager = context.packageManager
+        // The components are named after the namespace (com.atom.eval), not the applicationId
+        // (com.atom.Eval): a relative name in a ComponentName would resolve to the latter.
+        fun component(className: String) = ComponentName(context, "com.atom.eval.$className")
         val target = alias(choice, accent)
-        for (alias in aliases) {
-            packageManager.setComponentEnabledSetting(
-                ComponentName(context, alias),
-                if (alias == target) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP,
-            )
+        fun setEnabled(className: String, enabled: Boolean) {
+            val name = component(className)
+            val state = if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            // Touch the state only when it changes, so launch never fails on it.
+            if (packageManager.getComponentEnabledSetting(name) != state) {
+                packageManager.setComponentEnabledSetting(name, state, PackageManager.DONT_KILL_APP)
+            }
         }
+        for (alias in aliases) setEnabled(alias.removePrefix("."), alias == target)
         // The primary activity holds the launcher icon when no alias is chosen.
-        packageManager.setComponentEnabledSetting(
-            ComponentName(context, com.atom.eval.MainActivity::class.java.name),
-            if (target == null) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP,
-        )
+        setEnabled("MainActivity", target == null)
     }
 }
