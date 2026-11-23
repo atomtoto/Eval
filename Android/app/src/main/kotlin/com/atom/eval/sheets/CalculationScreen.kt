@@ -16,6 +16,7 @@ import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation.NavigableListDetailPaneScaffold
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atom.eval.R
 import com.atom.eval.sheet.SheetScreen
+import com.atom.eval.sheetStore
 import com.atom.eval.ui.EmptyState
 import com.atom.eval.ui.paneScaffoldDirective
 import com.atom.eval.ui.shareText
@@ -53,7 +55,15 @@ fun CalculationScreen(viewModel: SheetListViewModel = viewModel(factory = SheetL
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val accessibility = LocalAccessibilityManager.current
-    var selectedId by rememberSaveable { mutableStateOf(viewModel.mostRecentSheetId) }
+    val store = context.sheetStore
+    // The sheet the app last showed, restored at launch as iOS @SceneStorage does.
+    var selectedId by rememberSaveable {
+        mutableStateOf(store.lastOpenedSheetId?.takeIf { viewModel.contains(it) } ?: viewModel.mostRecentSheetId)
+    }
+    // « Ajouter à la feuille » in Références opens its sheet here (after `open` below).
+    val openRequest by store.openSheetRequest.collectAsStateWithLifecycle()
+    // The shown sheet is remembered for the next launch.
+    LaunchedEffect(selectedId) { selectedId?.let { store.lastOpenedSheetId = it } }
     var showsExamples by rememberSaveable { mutableStateOf(false) }
     var renamingId by rememberSaveable { mutableStateOf<String?>(null) }
     val navigator = rememberListDetailPaneScaffoldNavigator(
@@ -72,6 +82,12 @@ fun CalculationScreen(viewModel: SheetListViewModel = viewModel(factory = SheetL
         if (navigator.currentDestination?.pane != ListDetailPaneScaffoldRole.Detail) {
             scope.launch { navigator.navigateTo(ListDetailPaneScaffoldRole.Detail) }
         }
+    }
+
+    // « Ajouter à la feuille » in Références opens its sheet here.
+    LaunchedEffect(openRequest) {
+        val id = openRequest ?: return@LaunchedEffect
+        if (viewModel.contains(id)) open(id)
     }
 
     // Deletes at once and offers Annuler for a few seconds, as on iOS, instead of asking first.

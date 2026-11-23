@@ -73,6 +73,12 @@
     <string name="constant_source_link">Source : %1$s</string>
 
     <!-- Sheet -->
+    <string name="edit_as_text">Modifier en texte…</string>
+    <string name="text_editor_title">Modifier en texte</string>
+    <string name="text_editor_field">Feuille de formules</string>
+    <string name="text_editor_footer">Une ligne par formule ou variable. Terminez une ligne par = pour afficher sa valeur. Les unités suivent les valeurs, séparées par un espace.</string>
+    <string name="add_to_sheet">Ajouter à la feuille</string>
+    <string name="added_to_sheet">Ajouté à la feuille, ligne %1$d : %2$s</string>
     <string name="undo">Annuler</string>
     <string name="redo">Rétablir</string>
     <string name="undo_action">Annuler %1$s</string>
@@ -127,6 +133,10 @@
     <!-- Settings -->
     <string name="settings">Réglages</string>
     <string name="close">Fermer</string>
+    <string name="app_icon">Icône de l’app</string>
+    <string name="icon_lens">Lentille</string>
+    <string name="icon_point">Point</string>
+    <string name="icon_footer">L’icône de l’app suit la couleur d’accent.</string>
     <string name="formula_input">Saisie des formules</string>
     <string name="input_text">Dans la ligne (texte)</string>
     <string name="input_math">Écriture mathématique</string>

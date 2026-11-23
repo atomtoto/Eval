@@ -321,6 +321,12 @@ public final class SheetEditor {
         session.endRulerGesture()
     }
 
+    /// Ends a ruler gesture and announces the recalculated results, as on iOS.
+    public func endRulerGestureAnnouncing() {
+        session.announceNextResults()
+        session.endRulerGesture()
+    }
+
     /// Sets the number of a ruler line; the results follow without the typing
     /// delay. Outside a gesture it is its own undo step. With `announcesResults`,
     /// `takeAnnouncement()` returns the new results once they are applied.
@@ -491,6 +497,12 @@ public final class SheetEditor {
     /// or `stepVariable`, once the results are applied; nil afterwards.
     public func takeAnnouncement() -> String? {
         session.takeAnnouncement()
+    }
+
+    /// Announces the results of the next evaluation, as the end of a ruler gesture
+    /// does on iOS, where the final value is sent with `announcesResults: true`.
+    public func announceNextResults() {
+        session.announceNextResults()
     }
 
     // MARK: Sharing

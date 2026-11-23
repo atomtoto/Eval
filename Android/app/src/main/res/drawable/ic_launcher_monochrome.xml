@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The monochrome launcher icon for Android 13+ theming: the curve, ruler and lens in white. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M22.6,84.6 V74.4 M29.1,84.6 V74.4 M35.6,84.6 V74.4 M42.1,84.6 V74.4 M48.6,84.6 V74.4 M54,84.6 V69.4 M60.5,84.6 V74.4 M67,84.6 V74.4 M73.5,84.6 V74.4 M80,84.6 V74.4 M85.4,84.6 V74.4"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M27.2,62.6 Q60.2,62.6 84.7,24.7"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path android:pathData="M54,47.4 a8.8,8.8 0 1,0 0.1,0 Z" android:fillColor="#FFFFFF" />
+</vector>

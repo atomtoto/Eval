@@ -11,15 +11,18 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -38,7 +41,7 @@ import com.atom.eval.ui.BackButton
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConstantDetailPane(constant: ConstantDetailState, onClose: (() -> Unit)?) {
+fun ConstantDetailPane(constant: ConstantDetailState, onClose: (() -> Unit)?, onAddToSheet: () -> Unit) {
     val context = LocalContext.current
     Scaffold(
         topBar = {
@@ -54,6 +57,17 @@ fun ConstantDetailPane(constant: ConstantDetailState, onClose: (() -> Unit)?) {
                 .verticalScroll(rememberScrollState())
                 .padding(padding),
         ) {
+            // « Ajouter à la feuille », as in the iOS detail of a constant.
+            ListItem(
+                headlineContent = {
+                    Text(stringResource(R.string.add_to_sheet), color = MaterialTheme.colorScheme.primary)
+                },
+                leadingContent = {
+                    Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable(onClick = onAddToSheet),
+            )
             Text(
                 constant.detail,
                 style = MaterialTheme.typography.bodyLarge,

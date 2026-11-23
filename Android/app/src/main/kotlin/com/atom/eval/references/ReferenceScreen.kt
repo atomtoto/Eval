@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -50,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -64,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atom.eval.R
+import com.atom.eval.sheetStore
 import com.atom.eval.ui.EmptyState
 import com.atom.eval.ui.NoSearchResults
 import com.atom.eval.ui.SearchField
@@ -81,6 +84,9 @@ import kotlinx.coroutines.launch
 fun ReferenceScreen(viewModel: ReferenceViewModel = viewModel()) {
     val list by viewModel.list.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    // « Ajouter à la feuille » appends the constant or unit to the current sheet, as on iOS.
+    val store = LocalContext.current.sheetStore
+    val onAddToSheet: (String, String) -> Unit = { symbol, name -> store.addReferenceToSheet(symbol, name) }
     val navigator = rememberListDetailPaneScaffoldNavigator<String>(
         scaffoldDirective = paneScaffoldDirective(maxPanes = if (viewModel.kind == ReferenceKind.Units) 1 else 2),
     )
@@ -107,6 +113,7 @@ fun ReferenceScreen(viewModel: ReferenceViewModel = viewModel()) {
                     list = list,
                     selectedId = selectedId.takeIf { detailIsShown },
                     onOpen = { id -> scope.launch { navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, id) } },
+                    onAddToSheet = onAddToSheet,
                 )
             }
         },
@@ -119,6 +126,7 @@ fun ReferenceScreen(viewModel: ReferenceViewModel = viewModel()) {
                         onClose = if (listIsShown) null else {
                             { scope.launch { navigator.navigateBack() } }
                         },
+                        onAddToSheet = { onAddToSheet(constant.id, constant.name) },
                     )
                 } else {
                     EmptyState(
@@ -139,6 +147,7 @@ private fun ReferenceListPane(
     list: ReferenceListState,
     selectedId: String?,
     onOpen: (String) -> Unit,
+    onAddToSheet: (String, String) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -172,8 +181,8 @@ private fun ReferenceListPane(
             val copy = rememberCopyAction()
             LazyColumn(Modifier.fillMaxSize()) {
                 when (list.kind) {
-                    ReferenceKind.Constants -> constants(list, selectedId, onOpen, copy)
-                    ReferenceKind.Units -> units(list.units, copy)
+                    ReferenceKind.Constants -> constants(list, selectedId, onOpen, copy, onAddToSheet)
+                    ReferenceKind.Units -> units(list.units, copy, onAddToSheet)
                 }
             }
         }
@@ -251,11 +260,13 @@ private fun LazyListScope.constants(
     selectedId: String?,
     onOpen: (String) -> Unit,
     copy: (String) -> Unit,
+    onAddToSheet: (String, String) -> Unit,
 ) {
     for (section in list.sections) {
         stickyHeader(key = "section-${section.categoryId}") { SectionHeader(section.title) }
         items(section.constants, key = { "constant-${it.id}" }) { constant ->
-            ConstantRow(constant, isSelected = constant.id == selectedId, onOpen = onOpen, copy = copy)
+            ConstantRow(constant, isSelected = constant.id == selectedId, onOpen = onOpen, copy = copy,
+                        onAddToSheet = { onAddToSheet(constant.id, constant.name) })
         }
     }
     item(key = "footer") {
@@ -267,9 +278,9 @@ private fun LazyListScope.constants(
     }
 }
 
-private fun LazyListScope.units(units: List<UnitRowState>, copy: (String) -> Unit) {
+private fun LazyListScope.units(units: List<UnitRowState>, copy: (String) -> Unit, onAddToSheet: (String, String) -> Unit) {
     stickyHeader(key = "units") { SectionHeader(stringResource(R.string.recognized_units)) }
-    items(units, key = { "unit-${it.symbol}" }) { unit -> UnitRow(unit, copy) }
+    items(units, key = { "unit-${it.symbol}" }) { unit -> UnitRow(unit, copy, onAddToSheet = { onAddToSheet(unit.symbol, unit.name) }) }
     item(key = "footer") {
         Footer(
             stringResource(R.string.units_footer_spacing),
@@ -303,10 +314,17 @@ private fun Footer(vararg paragraphs: String) {
 }
 
 @Composable
-private fun ConstantRow(constant: ConstantRowState, isSelected: Boolean, onOpen: (String) -> Unit, copy: (String) -> Unit) {
+private fun ConstantRow(
+    constant: ConstantRowState,
+    isSelected: Boolean,
+    onOpen: (String) -> Unit,
+    copy: (String) -> Unit,
+    onAddToSheet: () -> Unit,
+) {
     var showsMenu by remember { mutableStateOf(false) }
     val copyValue = stringResource(R.string.copy_value)
     val copyIdentifier = stringResource(R.string.copy_identifier)
+    val addToSheet = stringResource(R.string.add_to_sheet)
     Box {
         ListItem(
             headlineContent = { Text(constant.name) },
@@ -325,12 +343,19 @@ private fun ConstantRow(constant: ConstantRowState, isSelected: Boolean, onOpen:
                 .combinedClickable(onLongClick = { showsMenu = true }, onClick = { onOpen(constant.id) })
                 .semantics {
                     customActions = listOf(
+                        CustomAccessibilityAction(addToSheet) { onAddToSheet(); true },
                         CustomAccessibilityAction(copyValue) { copy(constant.valueText); true },
                         CustomAccessibilityAction(copyIdentifier) { copy(constant.id); true },
                     )
                 },
         )
         DropdownMenu(expanded = showsMenu, onDismissRequest = { showsMenu = false }) {
+            DropdownMenuItem(
+                text = { Text(addToSheet) },
+                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                onClick = { showsMenu = false; onAddToSheet() },
+            )
+            HorizontalDivider()
             DropdownMenuItem(
                 text = { Text(copyValue) },
                 leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
@@ -345,11 +370,12 @@ private fun ConstantRow(constant: ConstantRowState, isSelected: Boolean, onOpen:
     }
 }
 
-/** A unit has nothing more to show: a touch offers to copy its symbol. */
+/** A unit has nothing more to show: a touch offers to add it to the sheet or copy its symbol. */
 @Composable
-private fun UnitRow(unit: UnitRowState, copy: (String) -> Unit) {
+private fun UnitRow(unit: UnitRowState, copy: (String) -> Unit, onAddToSheet: () -> Unit) {
     var showsMenu by remember { mutableStateOf(false) }
     val copySymbol = stringResource(R.string.copy_symbol)
+    val addToSheet = stringResource(R.string.add_to_sheet)
     Box {
         ListItem(
             headlineContent = { Text(unit.name) },
@@ -370,6 +396,12 @@ private fun UnitRow(unit: UnitRowState, copy: (String) -> Unit) {
             ),
         )
         DropdownMenu(expanded = showsMenu, onDismissRequest = { showsMenu = false }) {
+            DropdownMenuItem(
+                text = { Text(addToSheet) },
+                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                onClick = { showsMenu = false; onAddToSheet() },
+            )
+            HorizontalDivider()
             DropdownMenuItem(
                 text = { Text(copySymbol) },
                 leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },

@@ -3,6 +3,7 @@ package com.atom.eval.sheet
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -55,12 +57,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atom.eval.R
+import com.atom.eval.sheets.ExampleCategoryState
+import com.atom.eval.sheets.ExamplePickerSheet
+import com.atom.eval.sheets.ExampleState
 import com.atom.eval.sheets.RenameSheetDialog
 import com.atom.eval.appSettings
 import com.atom.eval.data.FormulaInputMode
@@ -70,6 +76,7 @@ import com.atom.eval.scanner.FormulaScanner
 import com.atom.eval.sheetStore
 import com.atom.eval.ui.BackButton
 import com.atom.eval.ui.shareText
+import eval.bridge.SheetLibrary
 
 /**
  * One sheet, in the detail pane of the Calcul tab (iOS NotebookView): its lines with
@@ -99,6 +106,8 @@ fun SheetScreen(
     var confirmsClear by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
     var showsHelp by rememberSaveable { mutableStateOf(false) }
+    var showsTextEditor by rememberSaveable { mutableStateOf(false) }
+    var showsExamples by rememberSaveable { mutableStateOf(false) }
     var plot by remember { mutableStateOf<PlotRequest?>(null) }
     // The scanner, and the line below which its lines go (the end of the sheet for null).
     var scansAfter by remember { mutableStateOf<String?>(null) }
@@ -112,6 +121,11 @@ fun SheetScreen(
     val subject = stringResource(R.string.sheet_subject)
     // The issue of the whole sheet, when there is one, comes before the lines.
     val firstLineItem = if (state.sheetIssue != null) 1 else 0
+    // As on iOS, the « Nouvelle ligne » row stands in for a blank last line being edited,
+    // whose field shows the same placeholder in the same place.
+    val lastLine = state.lines.lastOrNull()
+    val showsNewLineRow = !isReordering &&
+        !(lastLine != null && lastLine.isEditing && lastLine.source.isBlank())
 
     // Leaving the sheet validates the line being edited, as on iOS.
     DisposableEffect(viewModel) { onDispose { state.editingLineId?.let(viewModel::endEditing) } }
@@ -148,11 +162,19 @@ fun SheetScreen(
                     } else {
                         UndoButtons(state, viewModel)
                         SheetMenu(
+                            canUndo = state.canUndo,
+                            canRedo = state.canRedo,
+                            undoName = state.undoActionName,
+                            redoName = state.redoActionName,
+                            onUndo = viewModel::undo,
+                            onRedo = viewModel::redo,
                             onRename = { isRenaming = true },
                             onDuplicate = { viewModel.duplicateSheet()?.let(onOpenSheet) },
                             onShare = { results -> context.shareText(viewModel.sharedText(results), state.title, subject) },
                             onReorder = { isReordering = true },
                             onClear = { confirmsClear = true },
+                            onEditAsText = { showsTextEditor = true },
+                            onExamples = { showsExamples = true },
                             onSettings = { showsSettings = true },
                             onScan = {
                                 scansAfter = null
@@ -167,8 +189,30 @@ fun SheetScreen(
         floatingActionButton = {
             // While a line is edited, Return adds the next one.
             if (state.editingLineId == null && !isReordering) {
-                FloatingActionButton(onClick = viewModel::newLine) {
-                    Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.add_line))
+                // A tap adds a line; a long press offers the scanner, as the + of iOS does.
+                var showsAddMenu by rememberSaveable { mutableStateOf(false) }
+                Box {
+                    FloatingActionButton(
+                        onClick = viewModel::newLine,
+                        modifier = Modifier.combinedClickable(
+                            onClick = viewModel::newLine,
+                            onLongClickLabel = stringResource(R.string.scan_formula),
+                            onLongClick = { showsAddMenu = true },
+                        ),
+                    ) {
+                        Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.add_line))
+                    }
+                    DropdownMenu(expanded = showsAddMenu, onDismissRequest = { showsAddMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.scan_formula)) },
+                            leadingIcon = { Icon(Icons.Outlined.DocumentScanner, contentDescription = null) },
+                            onClick = {
+                                showsAddMenu = false
+                                scansAfter = null
+                                isScanning = true
+                            },
+                        )
+                    }
                 }
             }
         },
@@ -215,7 +259,7 @@ fun SheetScreen(
                         )
                     }
                 }
-                if (!isReordering) {
+                if (showsNewLineRow) {
                     item(key = "new-line") {
                         ListItem(
                             headlineContent = { Text(stringResource(R.string.new_line), color = MaterialTheme.colorScheme.primary) },
@@ -291,6 +335,33 @@ fun SheetScreen(
     }
     if (showsSettings) SettingsDialog { showsSettings = false }
     if (showsHelp) HelpDialog { showsHelp = false }
+    if (showsTextEditor) {
+        TextSheetEditorDialog(
+            source = viewModel.source,
+            declaredNames = state.declaredNames,
+            onApply = { text -> viewModel.editAsText(text); showsTextEditor = false },
+            onDismiss = { showsTextEditor = false },
+        )
+    }
+    if (showsExamples) {
+        // As in the list's button, an example opens in a new sheet.
+        val categories = remember { exampleCategories() }
+        ExamplePickerSheet(
+            categories = categories,
+            onChoose = { exampleId ->
+                showsExamples = false
+                viewModel.createSheetFromExample(exampleId)?.let(onOpenSheet)
+            },
+            onDismiss = { showsExamples = false },
+        )
+    }
+    // A ruler adjustment asks TalkBack to read the recalculated results.
+    val view = LocalView.current
+    LaunchedEffect(state.announcement) {
+        val announcement = state.announcement ?: return@LaunchedEffect
+        view.announceForAccessibility(announcement.second)
+        viewModel.clearAnnouncement()
+    }
     plot?.let { PlotDialog(it, viewModel) { plot = null } }
     if (isScanning) {
         FormulaScanner(
@@ -344,14 +415,22 @@ private fun UndoButtons(state: SheetUiState, viewModel: SheetViewModel) {
     }
 }
 
-/** « Actions de la feuille ». */
+/** « Actions de la feuille », as the iOS menu of NotebookView. */
 @Composable
 private fun SheetMenu(
+    canUndo: Boolean,
+    canRedo: Boolean,
+    undoName: String?,
+    redoName: String?,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
     onRename: () -> Unit,
     onDuplicate: () -> Unit,
     onShare: (includingResults: Boolean) -> Unit,
     onReorder: () -> Unit,
     onClear: () -> Unit,
+    onEditAsText: () -> Unit,
+    onExamples: () -> Unit,
     onSettings: () -> Unit,
     onScan: () -> Unit,
     onHelp: () -> Unit,
@@ -363,23 +442,39 @@ private fun SheetMenu(
         }
         DropdownMenu(expanded = isExpanded, onDismissRequest = { isExpanded = false }) {
             @Composable
-            fun Item(text: Int, action: () -> Unit) =
-                DropdownMenuItem(text = { Text(stringResource(text)) }, onClick = { isExpanded = false; action() })
+            fun Item(text: Int, arg: String? = null, enabled: Boolean = true, action: () -> Unit) =
+                DropdownMenuItem(
+                    text = { Text(if (arg != null) stringResource(text, arg) else stringResource(text)) },
+                    enabled = enabled,
+                    onClick = { isExpanded = false; action() },
+                )
 
-            Item(R.string.scan_formula, onScan)
-            Item(R.string.rename, onRename)
-            Item(R.string.duplicate, onDuplicate)
+            // Annuler and Rétablir, named after the step they undo or redo.
+            Item(if (undoName != null) R.string.undo_action else R.string.undo, arg = undoName, enabled = canUndo) { onUndo() }
+            Item(if (redoName != null) R.string.redo_action else R.string.redo, arg = redoName, enabled = canRedo) { onRedo() }
+            HorizontalDivider()
+            Item(R.string.scan_formula) { onScan() }
+            Item(R.string.edit_as_text) { onEditAsText() }
+            Item(R.string.new_from_example) { onExamples() }
+            Item(R.string.rename) { onRename() }
+            Item(R.string.duplicate) { onDuplicate() }
             Item(R.string.share_sheet) { onShare(true) }
             Item(R.string.share_without_results) { onShare(false) }
             HorizontalDivider()
-            Item(R.string.reorder, onReorder)
-            Item(R.string.clear_sheet, onClear)
+            Item(R.string.reorder) { onReorder() }
+            Item(R.string.clear_sheet) { onClear() }
             HorizontalDivider()
-            Item(R.string.settings, onSettings)
-            Item(R.string.help, onHelp)
+            Item(R.string.settings) { onSettings() }
+            Item(R.string.help) { onHelp() }
         }
     }
 }
+
+/** The example sheets of « Nouvelle à partir d’un exemple », by domain. */
+private fun exampleCategories(): List<ExampleCategoryState> =
+    SheetLibrary.exampleCategories().map { category ->
+        ExampleCategoryState(category.id, category.title, category.examples.map { ExampleState(it.id, it.title, it.summary) })
+    }
 
 /** A line that a swipe towards the start deletes, as on iOS. */
 @OptIn(ExperimentalMaterial3Api::class)

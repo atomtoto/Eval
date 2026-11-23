@@ -42,6 +42,8 @@ data class SheetUiState(
     /** A line to scroll to; each request has its own id. */
     val revealRequestId: String? = null,
     val revealLineId: String? = null,
+    /** A result announcement for TalkBack, read once after a ruler adjustment; each has its own id. */
+    val announcement: Pair<Long, String>? = null,
 )
 
 /**
@@ -55,6 +57,7 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
     private val _state = MutableStateFlow(SheetUiState())
     private var evaluation: Job? = null
     private var isEvaluating = false
+    private var announcementCount = 0L
 
     val state: StateFlow<SheetUiState> = _state.asStateFlow()
 
@@ -118,7 +121,8 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
 
     fun beginRulerGesture(lineId: String) = editor?.beginRulerGesture(lineId)
 
-    fun endRulerGesture() = edit { endRulerGesture() }
+    /** Ends a drag of the ruler; its recalculated results are announced to TalkBack. */
+    fun endRulerGesture() = edit { endRulerGestureAnnouncing() }
 
     fun adjustVariable(lineId: String, value: Double) = edit { adjustVariable(lineId, value, false) }
 
@@ -139,8 +143,20 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
         return request.freeVariable?.let { editor.freeVariablePlotInput(request.resultLineId, it, lower, upper) }
     }
 
-    /** What TalkBack announces after a step of the ruler, once the results are in. */
+    /** What TalkBack announces after an adjustment of the ruler, once the results are in. */
     fun takeAnnouncement(): String? = editor?.takeAnnouncement()
+
+    /** Called by the screen once it has announced [SheetUiState.announcement]. */
+    fun clearAnnouncement() {
+        _state.update { it.copy(announcement = null) }
+    }
+
+    /** « Modifier en texte »: applies the whole sheet as one undo step. */
+    fun editAsText(source: String) = edit { editAsText(source) }
+
+    /** A new sheet from an example of the « Nouvelle à partir d’un exemple » menu. */
+    fun createSheetFromExample(id: String): String? =
+        store.requireLibrary().createSheetFromExample(id).also { store.changed() }
 
     // Sheet actions
 
@@ -153,6 +169,9 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
     fun clear() = edit { clear() }
 
     fun sharedText(includingResults: Boolean): String = editor?.sharedText(includingResults).orEmpty()
+
+    /** The whole sheet as text, for « Modifier en texte ». */
+    val source: String get() = editor?.source.orEmpty()
 
     /** A copy of the sheet, listed first; returns its id. */
     fun duplicateSheet(): String? = store.requireLibrary().duplicateSheet(sheetId).also { store.changed() }
@@ -226,6 +245,11 @@ class SheetViewModel(private val store: SheetStore, val sheetId: String) : ViewM
                     publish()
                     // The list shows the sheet's first result.
                     store.changed()
+                    // A ruler adjustment asks TalkBack to read the new results.
+                    editor.takeAnnouncement()?.let { text ->
+                        announcementCount += 1
+                        _state.update { it.copy(announcement = announcementCount to text) }
+                    }
                 }
             }
         }

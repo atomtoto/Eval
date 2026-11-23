@@ -1,5 +1,6 @@
 package com.atom.eval.settings
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,8 +27,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -37,6 +40,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.atom.eval.R
 import com.atom.eval.appSettings
 import com.atom.eval.data.Accent
+import com.atom.eval.data.AppIcon
+import com.atom.eval.data.AppIconChoice
 import com.atom.eval.data.AppSettings
 import com.atom.eval.data.FormulaInputMode
 import kotlin.math.roundToInt
@@ -51,6 +56,7 @@ fun SettingsDialog(onDismiss: () -> Unit) {
     val lineNumbers by settings.lineNumbers.collectAsStateWithLifecycle()
     val accent by settings.accent.collectAsStateWithLifecycle()
     val warmBackground by settings.warmBackground.collectAsStateWithLifecycle()
+    val iconChoice by settings.iconChoice.collectAsStateWithLifecycle()
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
@@ -98,9 +104,47 @@ fun SettingsDialog(onDismiss: () -> Unit) {
 
                 item { Toggle(R.string.warm_background, warmBackground, settings::setWarmBackground) }
                 item { Footer(R.string.warm_background_footer) }
+
+                // The launcher icon follows the accent, as on iOS.
+                item { Header(R.string.app_icon) }
+                item {
+                    IconChoice(
+                        text = R.string.icon_lens,
+                        selected = iconChoice == AppIconChoice.Lens,
+                        preview = AppIcon.preview(AppIconChoice.Lens, accent),
+                        onSelect = { settings.setIconChoice(AppIconChoice.Lens) },
+                    )
+                }
+                item {
+                    IconChoice(
+                        text = R.string.icon_point,
+                        selected = iconChoice == AppIconChoice.Point,
+                        preview = AppIcon.preview(AppIconChoice.Point, accent),
+                        onSelect = { settings.setIconChoice(AppIconChoice.Point) },
+                    )
+                }
+                item { Footer(R.string.icon_footer) }
             }
         }
     }
+}
+
+/** A « Icône de l’app » choice, with the launcher icon it gives the app as its preview. */
+@Composable
+private fun IconChoice(text: Int, selected: Boolean, preview: Int, onSelect: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(stringResource(text)) },
+        leadingContent = { RadioButton(selected = selected, onClick = null) },
+        trailingContent = {
+            Image(
+                painter = painterResource(preview),
+                contentDescription = null,
+                modifier = Modifier.size(36.dp).clip(CircleShape),
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.selectable(selected = selected, onClick = onSelect, role = Role.RadioButton),
+    )
 }
 
 @Composable

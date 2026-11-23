@@ -17,7 +17,8 @@ enum class Accent(val key: String) { Orange("orange"), Blue("blue") }
  * The number of significant digits goes to the engine, which formats the results.
  */
 class AppSettings(context: Context) {
-    private val preferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val preferences = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     private val _inputMode = MutableStateFlow(
         FormulaInputMode.entries.firstOrNull { it.key == preferences.getString(INPUT_MODE, null) } ?: FormulaInputMode.Text
@@ -28,15 +29,21 @@ class AppSettings(context: Context) {
     private val _lineNumbers = MutableStateFlow(preferences.getBoolean(LINE_NUMBERS, false))
     private val _accent = MutableStateFlow(Accent.entries.firstOrNull { it.key == preferences.getString(ACCENT, null) } ?: Accent.Orange)
     private val _warmBackground = MutableStateFlow(preferences.getBoolean(WARM_BACKGROUND, true))
+    private val _iconChoice = MutableStateFlow(
+        AppIconChoice.entries.firstOrNull { it.key == preferences.getString(AppIcon.STORAGE_KEY, null) } ?: AppIconChoice.Lens
+    )
 
     val inputMode: StateFlow<FormulaInputMode> = _inputMode.asStateFlow()
     val significantDigits: StateFlow<Int> = _significantDigits.asStateFlow()
     val lineNumbers: StateFlow<Boolean> = _lineNumbers.asStateFlow()
     val accent: StateFlow<Accent> = _accent.asStateFlow()
     val warmBackground: StateFlow<Boolean> = _warmBackground.asStateFlow()
+    val iconChoice: StateFlow<AppIconChoice> = _iconChoice.asStateFlow()
 
     init {
         eval.bridge.EvalSettings.significantDigits = _significantDigits.value
+        // The launcher icon follows the stored style and accent, as on iOS.
+        AppIcon.apply(appContext, _iconChoice.value, _accent.value)
     }
 
     fun setInputMode(mode: FormulaInputMode) {
@@ -59,6 +66,14 @@ class AppSettings(context: Context) {
     fun setAccent(accent: Accent) {
         _accent.value = accent
         preferences.edit { putString(ACCENT, accent.key) }
+        // The icon follows the accent color.
+        AppIcon.apply(appContext, _iconChoice.value, accent)
+    }
+
+    fun setIconChoice(choice: AppIconChoice) {
+        _iconChoice.value = choice
+        preferences.edit { putString(AppIcon.STORAGE_KEY, choice.key) }
+        AppIcon.apply(appContext, choice, _accent.value)
     }
 
     fun setWarmBackground(warm: Boolean) {

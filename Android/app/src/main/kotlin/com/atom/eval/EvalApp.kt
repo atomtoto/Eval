@@ -17,16 +17,19 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.atom.eval.references.ReferenceScreen
 import com.atom.eval.sheets.CalculationScreen
+import kotlinx.coroutines.delay
 
 private enum class EvalTab { Calculation, References }
 
@@ -36,7 +39,21 @@ private enum class EvalTab { Calculation, References }
 fun EvalApp() {
     val store = LocalContext.current.sheetStore
     val storageProblem by store.storageProblem.collectAsStateWithLifecycle()
+    val insertion by store.referenceInsertion.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(EvalTab.Calculation) }
+    // « Ajouter à la feuille » in Références shows the Calcul tab and reads the addition aloud.
+    val view = LocalView.current
+    val context = LocalContext.current
+    LaunchedEffect(insertion) {
+        val added = insertion ?: return@LaunchedEffect
+        tab = EvalTab.Calculation
+        if (added.lineNumber > 0) {
+            // A moment, so TalkBack is done with the Références tab.
+            delay(600)
+            view.announceForAccessibility(context.getString(R.string.added_to_sheet, added.lineNumber, added.name))
+        }
+        store.consumeReferenceInsertion()
+    }
     // Each tab keeps its scroll positions and open panes while the other one shows.
     val tabStates = rememberSaveableStateHolder()
     val defaultType = NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo())

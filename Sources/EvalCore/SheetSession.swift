@@ -685,6 +685,12 @@ public final class SheetSession {
         return pendingAnnouncement
     }
 
+    /// Announces the next current evaluation, for a ruler gesture whose last value
+    /// was already sent without one (iOS sends the final value with `announcesResults`).
+    public func announceNextResults() {
+        announcesNextEvaluation = true
+    }
+
     private func isCurrent(_ request: EvaluationRequest) -> Bool {
         request.source == text && request.lineIDs == refreshedLineIDs
     }
