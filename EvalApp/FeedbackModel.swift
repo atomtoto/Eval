@@ -3,7 +3,7 @@ import Observation
 
 /// Mettez ces valeurs quand le formulaire Formspree et l’adresse de contact sont disponibles.
 enum FeedbackConfiguration {
-    static let formspreeEndpoint: URL? = URL(string: "https://formspree.io/f/xljbegvp")
+    static let formspreeEndpoint: URL? = URL(string: "https://formspree.io/f/mrpqrgag")
     static let supportEmail: String? = "atom.dejonghe@ecomail.fr"
 }
 
