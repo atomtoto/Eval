@@ -290,6 +290,18 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(!UIApplication.shared.supportsAlternateIcons)
+
+                Section {
+                    NavigationLink {
+                        FeedbackView()
+                    } label: {
+                        Label("Envoyer un commentaire", systemImage: "text.bubble")
+                    }
+                } header: {
+                    Text("Commentaires")
+                } footer: {
+                    Text("Un bug, une idée, un mot gentil — depuis le formulaire, une issue GitHub ou un e-mail.")
+                }
             }
             .warmPage()
             .onChange(of: accent) { updateIcon() }

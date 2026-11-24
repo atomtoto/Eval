@@ -991,6 +991,69 @@
     },
     "π" : {
 
+    },
+    "Commentaires" : {
+
+    },
+    "Envoyer un commentaire" : {
+
+    },
+    "Un bug, une idée, un mot gentil — depuis le formulaire, une issue GitHub ou un e-mail." : {
+
+    },
+    "Votre commentaire" : {
+
+    },
+    "Message du commentaire" : {
+
+    },
+    "Adresse e-mail (facultative)" : {
+
+    },
+    "Votre message et votre adresse e-mail facultative sont envoyés à Formspree. Indiquez une adresse e-mail si vous souhaitez recevoir une réponse." : {
+
+    },
+    "Envoi…" : {
+
+    },
+    "Envoyer" : {
+
+    },
+    "L’envoi de commentaires n’est pas encore configuré." : {
+
+    },
+    "Votre commentaire a bien été accepté. Merci !" : {
+
+    },
+    "Le commentaire n’a pas pu être envoyé. Veuillez réessayer." : {
+
+    },
+    "Ouvrir une issue GitHub" : {
+
+    },
+    "Le lien GitHub n’a pas pu être préparé pour ce message." : {
+
+    },
+    "Envoyer un e-mail" : {
+
+    },
+    "L’adresse e-mail de contact n’est pas encore configurée." : {
+
+    },
+    "Le lien e-mail n’a pas pu être préparé pour ce message." : {
+
+    },
+    "Autres moyens d’envoyer un commentaire" : {
+
+    },
+    "Vous pouvez aussi ouvrir une issue dans le dépôt GitHub public de l’app." : {
+
+    },
+    "Impossible d’ouvrir le lien" : {
+
+    },
+    "Vérifiez qu’une app peut ouvrir ce lien, puis réessayez." : {
+
     }
   },
   "version" : "1.0"
