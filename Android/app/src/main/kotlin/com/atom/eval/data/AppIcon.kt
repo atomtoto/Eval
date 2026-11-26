@@ -26,13 +26,17 @@ object AppIcon {
         else -> null
     }
 
-    /** The launcher resource that previews a style in an accent, for « Réglages ». */
+    /**
+     * The drawable that previews a style in an accent, for « Réglages ».
+     * Must be a plain vector: painterResource() cannot load the adaptive-icon
+     * mipmap XMLs used for the real launcher icons.
+     */
     fun preview(choice: AppIconChoice, accent: Accent): Int = when (choice to accent) {
-        AppIconChoice.Lens to Accent.Orange -> com.atom.eval.R.mipmap.ic_launcher
-        AppIconChoice.Point to Accent.Orange -> com.atom.eval.R.mipmap.ic_launcher_point
-        AppIconChoice.Lens to Accent.Blue -> com.atom.eval.R.mipmap.ic_launcher_blue
-        AppIconChoice.Point to Accent.Blue -> com.atom.eval.R.mipmap.ic_launcher_point_blue
-        else -> com.atom.eval.R.mipmap.ic_launcher
+        AppIconChoice.Lens to Accent.Orange -> com.atom.eval.R.drawable.ic_preview_lens_orange
+        AppIconChoice.Point to Accent.Orange -> com.atom.eval.R.drawable.ic_preview_point_orange
+        AppIconChoice.Lens to Accent.Blue -> com.atom.eval.R.drawable.ic_preview_lens_blue
+        AppIconChoice.Point to Accent.Blue -> com.atom.eval.R.drawable.ic_preview_point_blue
+        else -> com.atom.eval.R.drawable.ic_preview_lens_orange
     }
 
     /** Gives the app the icon of the chosen style in the accent color, unless it already has it. */

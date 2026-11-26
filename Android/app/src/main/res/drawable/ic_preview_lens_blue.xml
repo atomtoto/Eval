@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lens style, blue accent -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="0" android:startY="0"
+                    android:endX="108" android:endY="108"
+                    android:startColor="#FF3394FF"
+                    android:endColor="#FF0066EB" />
+            </aapt:attr>
+        </path>
+    <!-- Foreground scaled to the 72dp safe zone, as the launcher shows it. -->
+    <group android:scaleX="0.66667" android:scaleY="0.66667" android:pivotX="54" android:pivotY="54">
+        <path
+                android:pathData="M22.6,84.6 V74.4 M29.1,84.6 V74.4 M35.6,84.6 V74.4 M42.1,84.6 V74.4 M48.6,84.6 V74.4 M54,84.6 V69.4 M60.5,84.6 V74.4 M67,84.6 V74.4 M73.5,84.6 V74.4 M80,84.6 V74.4 M85.4,84.6 V74.4"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="2.2"
+                android:strokeLineCap="round"
+                android:strokeAlpha="0.5" />
+        <path
+                android:pathData="M27.2,62.6 Q60.2,62.6 84.7,24.7"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="4.2"
+                android:strokeLineCap="round"
+                android:fillColor="#00000000" />
+        <path android:pathData="M54,47.4 a8.8,8.8 0 1,0 0.1,0 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.18" />
+        <path android:pathData="M54,52.8 a3.4,3.4 0 1,0 0.1,0 Z" android:fillColor="#FF8C2400" />
+    </group>
+</vector>
