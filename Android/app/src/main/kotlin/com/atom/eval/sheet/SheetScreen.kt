@@ -17,13 +17,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Redo
-import androidx.compose.material.icons.automirrored.outlined.Undo
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DocumentScanner
-import androidx.compose.material.icons.outlined.MoreVert
+import com.atom.eval.ui.icons.MaterialSymbols as Icons
+import com.atom.eval.ui.icons.MaterialSymbols.AutoMirrored.Outlined.Redo
+import com.atom.eval.ui.icons.MaterialSymbols.AutoMirrored.Outlined.Undo
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.Add
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.Delete
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.DocumentScanner
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem

@@ -1,7 +1,7 @@
 package com.atom.eval.sheets
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Description
+import com.atom.eval.ui.icons.MaterialSymbols as Icons
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.Description
 import androidx.compose.material3.Button
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState

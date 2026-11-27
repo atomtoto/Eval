@@ -1,9 +1,9 @@
 package com.atom.eval
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.filled.Functions
+import com.atom.eval.ui.icons.MaterialSymbols as Icons
+import com.atom.eval.ui.icons.MaterialSymbols.AutoMirrored.Filled.MenuBook
+import com.atom.eval.ui.icons.MaterialSymbols.AutoMirrored.Outlined.MenuBook
+import com.atom.eval.ui.icons.MaterialSymbols.Filled.Functions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text

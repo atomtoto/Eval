@@ -13,14 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.DriveFileRenameOutline
-import androidx.compose.material.icons.outlined.FileCopy
-import androidx.compose.material.icons.outlined.Share
+import com.atom.eval.ui.icons.MaterialSymbols as Icons
+import com.atom.eval.ui.icons.MaterialSymbols.AutoMirrored.Outlined.LibraryBooks
+import com.atom.eval.ui.icons.MaterialSymbols.Filled.Add
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.Delete
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.Description
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.DriveFileRenameOutline
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.FileCopy
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -56,9 +56,9 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.outlined.Settings
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.Settings
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import com.atom.eval.ui.icons.MaterialSymbols.AutoMirrored.Outlined.HelpOutline
 import com.atom.eval.R
 import com.atom.eval.help.HelpDialog
 import com.atom.eval.settings.SettingsDialog

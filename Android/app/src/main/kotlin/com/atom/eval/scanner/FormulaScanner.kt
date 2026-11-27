@@ -37,12 +37,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CameraAlt
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.FlashlightOff
-import androidx.compose.material.icons.outlined.FlashlightOn
-import androidx.compose.material.icons.outlined.PhotoLibrary
+import com.atom.eval.ui.icons.MaterialSymbols as Icons
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.CameraAlt
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.Close
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.FlashlightOff
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.FlashlightOn
+import com.atom.eval.ui.icons.MaterialSymbols.Outlined.PhotoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
