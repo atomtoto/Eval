@@ -1,6 +1,8 @@
 package com.atom.eval.ui.icons
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
@@ -20,7 +22,7 @@ object MaterialSymbols {
             viewportWidth = 960f,
             viewportHeight = 960f,
             autoMirror = autoMirror,
-        ).addPath(addPathNodes(pathData), pathFillType = PathFillType.NonZero).build()
+        ).addPath(addPathNodes(pathData), pathFillType = PathFillType.NonZero, fill = SolidColor(Color.Black)).build()
 
     object Filled {
         val Add: ImageVector = symbol("M440,520L240,520Q223,520 211.5,508.5Q200,497 200,480Q200,463 211.5,451.5Q223,440 240,440L440,440L440,240Q440,223 451.5,211.5Q463,200 480,200Q497,200 508.5,211.5Q520,223 520,240L520,440L720,440Q737,440 748.5,451.5Q760,463 760,480Q760,497 748.5,508.5Q737,520 720,520L520,520L520,720Q520,737 508.5,748.5Q497,760 480,760Q463,760 451.5,748.5Q440,737 440,720L440,520Z")  // add
